@@ -5,3 +5,37 @@ Packaging it as I have was mostly used for the experience of learning how to use
 One major coding challenge for me has been to design the program to work solely in memory, instead of temporary files. I used that shortcoming as rationale to leave my steam cipher in the program (to encrypt the temp files), so I would also have an excuse for describing and specifying it. Ultimately, aside from the learning opportunity that provided, a long-term goal may be to remove the stream cipher from the program and have it operate solely in memory, and with only provenly strong encryption algorithms.
 
 However, since the program uses cascaded encryption (cascaded stream ciphers) to further encrypt my stream cipher using OpenSSL's crypto libraries, the program is in a mature enough point of development that it is fully functioning and secure enough for actual use. It seemed like a reasonable starting point to let other eyes see it.
+
+#DEPENDENCIES
+
+OpenSSL developement files
+xclip (optional, for clipboard functions)
+
+#INSTALL
+
+This archive is an automake package with full documentation, example files and a cipher checking script.
+
+To install, run these commands from the current working directory:
+
+$ ./configure
+
+$ make
+
+$ make install
+
+#COMPILATION
+
+If you don't want to install the automake package contents, and want to compile the binary alone, just link with lcrypto
+
+gcc passmanager.c -o passmanager -lcrypto
+
+#DOCUMENTATION
+
+Full and thorugh documentation is given via manual file in man/passmanager.1 or by running 'man passmanger' after installation.
+
+#SCRIPTS AND EXAMPLES
+
+A cript to check that all OpenSSL ciphers functino correctly is available at /usr/local/bin/ciphercheck.sh after installation.
+
+An example password database, encrypted with the password 'password' is available at /usr/local/share/doc/passmanager/examplepasswords1.dat.
+
