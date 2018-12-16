@@ -6,12 +6,12 @@ One major coding challenge for me has been to design the program to work solely 
 
 However, since the program uses cascaded encryption (cascaded stream ciphers) to further encrypt my stream cipher using OpenSSL's crypto libraries, the program is in a mature enough point of development that it is fully functioning and secure enough for actual use. It seemed like a reasonable starting point to let other eyes see it.
 
-#DEPENDENCIES
+# DEPENDENCIES
 
 OpenSSL developement files
 xclip (optional, for clipboard functions)
 
-#INSTALL
+# INSTALL
 
 This archive is an automake package with full documentation, example files and a cipher checking script.
 
@@ -23,17 +23,17 @@ $ make
 
 $ make install
 
-#COMPILATION
+# COMPILATION
 
 If you don't want to install the automake package contents, and want to compile the binary alone, just link with lcrypto
 
 gcc passmanager.c -o passmanager -lcrypto
 
-#DOCUMENTATION
+# DOCUMENTATION
 
 Full and thorugh documentation is given via manual file in man/passmanager.1 or by running 'man passmanger' after installation.
 
-#SCRIPTS AND EXAMPLES
+# SCRIPTS AND EXAMPLES
 
 A cript to check that all OpenSSL ciphers functino correctly is available at /usr/local/bin/ciphercheck.sh after installation.
 
