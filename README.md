@@ -9,6 +9,7 @@ However, since the program uses cascaded encryption (cascaded stream ciphers) to
 # DEPENDENCIES
 
 OpenSSL developement files
+
 xclip (optional, for clipboard functions)
 
 # INSTALL
