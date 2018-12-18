@@ -1,0 +1,703 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<HTML><HEAD><TITLE>Man page of PASSMANAGER</TITLE>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+</HEAD><BODY>
+<H1>PASSMANAGER</H1>
+Section: User Commands (1)<BR>Updated: November 2018<BR><A HREF="#index">Index</A>
+<A HREF="/cgi-bin/man/man2html">Return to Main Contents</A><HR>
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>NAME</H2>
+
+passmanager - manual page for passmanager 1.22.2
+<A NAME="lbAC">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<P>
+
+passmanager [<B>-a</B> <I>entry name</I> | <B>-r</B> <I>entry name</I> | <B>-d</B> <I>entry name</I> | <B>-u</B> <I>entry name</I> [-n <I>new name</I> ] | <B>-U</B> ] [-p <I>new entry password</I>] [-l <I>random password length</I>] [-x <I>database password</I>] [-c <I>cipher</I>] [-H <I>digest</I>] [ <B>-P</B> ] <B>-f</B> <I>database file</I> [ <B>-C</B> ] [ <B>-s</B> <I>secondss</I> ]
+<P>
+<P>
+
+<A NAME="lbAD">&nbsp;</A>
+<H2>OPTIONS SUMMARY</H2>
+
+<P>
+
+Options may have different implications depending on operating mode
+<P>
+
+<B>-r</B> <I>entry name</I>&nbsp;- Lookup <I>entry name</I> in <B>Read</B> mode ('allpasses' will print all passes)
+<P>
+
+<B>-a</B> <I>entry name</I>&nbsp;- Add <I>entry name</I> in <B>Add</B> mode
+<P>
+
+<B>-d</B> <I>entry name</I>&nbsp;- Delete <I>entry name</I> in <B>Delete</B> mode
+<P>
+
+<B>-u</B> <I>entry name</I>&nbsp;- Update <I>entry name</I> in <B>Update entry</B> mode
+<P>
+
+<B>-n</B> <I>new name</I>&nbsp;- entry name up to 512 characters (can contain white space or special characters)
+<P>
+
+<B>-U - Update database</B> mode
+<P>
+
+<B>-p</B> <I>new entry password</I> - entry password up to 512 characters (don't call to be prompted instead) ('gen' will generate a random password, 'genalpha' will generate a random password with no symbols)
+<P>
+
+<B>-l</B> <I>random password length</I> - makes 'gen' or 'genalpha' generate a password <I>random password length</I> digits long (defaults to 16 without this option)
+<P>
+
+<B>-x</B> <I>database password</I> - To supply database password as command-line argument (not reccomended)
+<P>
+
+<B>-c</B> <I>cipher</I> - Specify 'list' for a list of methods available to OpenSSL. Default: AES-256-CTR.
+<P>
+
+<B>-H</B> <I>digest</I> - Specify 'list' for a list of methods available to OpenSSL. Default: SHA512.
+<P>
+
+<B>-P</B> - In <I>Update entry</I> or <I>Update database</I>  mode (<B>-u</B> and <B>-U</B> respectively) this option enables updating the <I>entry password</I> or <I>database password</I> via prompt instead of as command line argument
+<P>
+
+<B>-f</B> - <I>database file</I> ( must be specified )
+<P>
+
+<B>-C</B> - end <I>entry password</I> directly to clipboard. Clipboard is cleared 30 seconds afterward. (needs xclip)
+<P>
+
+<B>-s</B> <I>seconds</I> - clear clipboard <I>seconds</I> after instead of default 30
+<P>
+
+<B>-h</B> - Quick usage help
+<P>
+
+<P>
+<A NAME="lbAE">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+<P>
+passmanager  is an ultra simple, but very secure password management program written in C and making use of OpenSSL's Libcrypto API libraries.  The
+passwords can be written, read, updated or deleted from an encrypted database file.  
+<P>
+<P>
+New passwords can be randomly generated when creating or updating account credentials. Passwords  can  be  matched by entry name, and printed/updated/deleted in bulk or individually. All password entries in the database can be updated at once with ease. If the user updated/deleted a password they didn't intend to, the program lists which entries were matched and edited, and provides an automatically produced backup file to restore from. The database password and encryption method can be changed at any time.
+<P>
+<P>
+The program pays special attention to minimize the amount user passwords are displayed on screen or stored in memory, and allows them to be sent directly to the clipboard (via xclip). Allowing the passwords to be sent directly to the clipboard means adding, updating or retrieving a password can be done without it ever being visible on the screen. Even if a user must display an entry's password to verify it, only that pass can be printed, in order to prevent the entire database being displayed on screen.  Authenticated encryption protects the database against both data corruption and tampering.
+<P>
+<P>
+Account credentials are stored with cascading encryption. First the YAXA stream cipher is used, and then the YAXA data is further encrypted using OpenSSL's EVP routines. Using OpenSSL's EVP functions also enables the use of any encryption and digest algorithm supported by  the EVP interface.  For example, encryption can be done with blowfish, and the KDF can use the whirlpool digest algorithm.  The default algorithm to use is 256-bit AES in CTR mode.
+<P>
+<P>
+User input is stored in 512 byte buffers padded by cryptographically strong pseudorandom data: One for an entry's name, and the other for that entry's password.
+This allows very large passwords, as well as long and flexible entry names, which can be comprised of service names and account names, and are best
+delimited  with a colon. The program will print out each buffer delimited as a colon as well, in a list of &quot;entry name : entry pass&quot; format.  The
+format of &quot;entry name&quot; is up to the user.
+<P>
+For example, here the user manually delimits the service and the account name
+<P>
+<DL COMPACT><DT><DD>
+service : account : password
+<br>
+foobar : foo : passfoo
+<br>
+gmail : <A HREF="mailto:account@gmail.com">account@gmail.com</A> : (*&amp;*UJD83dh
+<P>
+</DL>
+
+<P>
+
+But any of these are also possible
+<P>
+<DL COMPACT><DT><DD>
+just a user account : password
+<br>
+foo - bar : foobar : foobar
+<br>
+555 867 5309 : (*&amp;*UJD83dh
+<P>
+</DL>
+
+<P>
+
+With this format and the modes provided, the user can easily and securely manage the contents of the database.
+<P>
+<A NAME="lbAF">&nbsp;</A>
+<H2>MODES</H2>
+
+<P>
+
+<A NAME="lbAG">&nbsp;</A>
+<H3><B>Add mode</B></H3>
+
+<P>
+
+In <B>Add</B> mode the password database is initialized with the first entry, or a new entry is added to an existing password database. The user may specify a cipher and/or digest to use upon initialization of the database.
+<P>
+
+When adding a new entry, its password can be sent directly to clipboard.  This is especially useful for generating new passwords, where 'gen' can be given as the <I>entry password</I> argument and the new randomly generated password will be sent to the clipboard.
+<P>
+
+Applicable options
+<DL COMPACT><DT><DD>
+<B>-p</B> <I>new entry password</I> - 'gen' will generate a random password, 'genalpha' will generate a random password with no symbols
+<DL COMPACT>
+<DT>
+<B>-l</B> <I>random password length</I> - makes 'gen' or 'genalpha' generate a password <I>random password length</I> digits long (defaults to 16 without this option)
+<DT>
+<B>-x</B> <I>database password</I>
+<DT>
+<B>-c</B> <I>cipher</I> - Initializes a password database with cipher <I>cipher</I>
+<DT>
+<B>-H</B> <I>digest</I> - Initializes a password database with digest <I>digest</I>.
+<DT>
+<B>-C</B> send <I>new entry password</I> to clipboard (useful if randomly generated)
+<DT>
+<B>-s</B> <I>seconds</I> - clear clipboard <I>seconds</I> after instead of default 30
+</DL>
+</DL>
+
+<P>
+
+<A NAME="lbAH">&nbsp;</A>
+<H3><B>Read mode</B></H3>
+
+<P>
+
+<DD>In <B>Read</B> mode the password database is searched for an entry with the name <I>entry name</I> for partial or full matches so that <I>entry name</I> of 'app' will find entry names 'apple' and 'appliances'. 
+<P>
+
+Entries can be specifically matched such as &quot;gmail : account1&quot; and &quot;gmail : account2&quot;, or both with 'gmail'.
+<P>
+
+Searching for a specific entry pass can be useful to send the password directly to the clipboard using xclip.
+<P>
+
+To display the entire password database, enter 'allpasses' for the <I>entry name</I> argument.
+<P>
+
+Applicable options
+<DL COMPACT><DT><DD>
+<B>-x</B> <I>database password</I>
+<DL COMPACT>
+<DT>
+<B>-C</B> send <I>entry name</I> password directly to clipboard (useful to avoid displaying passwords on screen)
+<DT>
+<B>-s</B> <I>seconds</I> - clear clipboard <I>seconds</I> after instead of default 30
+</DL>
+</DL>
+
+<P>
+
+<A NAME="lbAI">&nbsp;</A>
+<H3><B>Delete mode</B></H3>
+
+<P>
+
+<DD>In <B>Delete</B> mode one or more password entries can be deleted. <I>entry name</I> can be partially or fully matched as in <B>Read</B> mode.
+<P>
+
+Applicable options
+<DL COMPACT><DT><DD>
+<B>-x</B> <I>database password</I>
+</DL>
+
+<P>
+
+<A NAME="lbAJ">&nbsp;</A>
+<H3><B>Update entry mode</B></H3>
+
+<P>
+
+In <B>Update entry</B> mode one or multiple entries are updated.  As in <B>Read</B> and <B>Add</B> modes, the <I>entry name</I> will be fully or partially matched.
+<P>
+
+Both the entry name and password can be updated. The new entry name can be supplied via command line only, but the new password can be received via prompt or as a command line argument ( not recommended ).
+<P>
+
+As in <B>Add</B> mode, entering 'gen' for the <I>entry password</I> argument will generate a random password.  This is especially useful for updating old passwords.
+<P>
+Single new passwords can be sent directly to the clipboard with xclip as well.
+<P>
+All entries can be updated at once with new randomly generated passwords, if <I>entry name</I> is equal to 'allpasses'
+<P>
+
+Applicable options
+<DL COMPACT><DT><DD>
+<B>-P</B>
+updates <I>entry name</I> and <I>entry password</I>, getting <I>new entry password</I> via user input instead of command line (<B>-p</B>)
+<DL COMPACT>
+<DT>
+<B>-p</B> <I>new entry password</I> - update <I>entry name</I> password to <I>new entry password</I>
+<DT>
+<B>-l</B> <I>random password length</I> - makes 'gen' or 'genalpha' generate a password <I>random password length</I> digits long (defaults to 16 without this option)
+<DT>
+<B>-n</B> <I>new name</I> - update <I>entry name</I>  to <I>new name</I>. Without this its assumed you're only changing the password of <I>entry name</I>.
+<DT>
+<B>-x</B> <I>database password</I>
+<DT>
+<B>-C</B> send <I>new entry password</I> directly to clipboard after updating <I>entry name</I>
+<DT>
+<B>-s</B> <I>seconds</I> - clear clipboard <I>seconds</I> after instead of default 30
+</DL>
+</DL>
+
+<P>
+
+<A NAME="lbAK">&nbsp;</A>
+<H3><B>Update database mode</B></H3>
+
+<P>
+
+<DD>In <B>Update databse</B> mode the password and the underlying OpenSSL encryption of the database can be updated.
+<P>
+
+If option <B>-c</B> or <B>-H</B> given to update the encryption or digest algorithm ( respectively ) then <B>-P</B> is needed to change the database password as well.
+<P>
+
+If only option <B>-U</B> is present, then only the password id updated.
+<P>
+
+The new password can only be received via prompt, and cannot be given on the command line. However the current <I>database password</I> can still be received with the <B>-x</B> option.
+<P>
+
+Applicable options
+<DL COMPACT><DT><DD>
+<B>-P</B>
+updates database password. Read via prompt. Cannot be supplied via commandline.
+<DL COMPACT>
+<DT>
+<B>-x</B> <I>database password</I> (the current database password to decrypt/with)
+<DT>
+<B>-c</B> <I>cipher</I> - Update to <I>cipher</I>
+<DT>
+<B>-H</B> <I>digest</I> - Update to <I>digest</I>
+</DL>
+</DL>
+
+<P>
+
+<P>
+<A NAME="lbAL">&nbsp;</A>
+<H2>SECURITY</H2>
+
+<P>
+<A NAME="lbAM">&nbsp;</A>
+<H3>Input Padding</H3>
+
+<DD>Input buffers will accept any amount of whitespace or special characters up to 512 characters in length.  The buffers are padded with pseudo-random data from a Cryptographically Strong Pseudo Random Number Generator (CSPRNG). This was done with more consideration than simply providing ample memory for user input.
+<P>
+The extra space being padded with pseudo-random data also helps suppress natural-language frequencies, making frequency analysis of the plain-text less useful. This is because the padding always makes plaintext unique and pseudorandom despite any identical and/or predictable user input.  This also has the effect of lengthening the keystream generated, but without increasing determinism into it with more identical and/or predictable plain-text.
+<P>
+A different cipher-text will be generated for every password database file, even if it's encrypted with the same password, user input, and even the same salt. This is because plain-text will never be the same even with identical user input, due to the pseudo-random buffer padding.  Of course this only applies to the initialization of the database file; subsequent updates of the same file could have repeatable plain-text, so the use of salts and nonces is still necessary.
+<P>
+<A NAME="lbAN">&nbsp;</A>
+<H3>Cascaded Encryption Security</H3>
+
+<P>
+In the classic Alice and Bob model, if Bob does not trust Alice's cipher, he can encrypt his message with his cipher, and then encrypt that cipher-text into a second cipher-text with Alice's cipher.  Alice can then decrypt it using her cipher, and then decrypt the second cipher-text using Bob's cipher.  In this way Bob does not have to trust Alice's cipher, and Alice is unaffected by vulnerabilities in Bob's cipher, and vise versa.  This is most widely known as cascaded encryption.
+<P>
+In this program's model use, that means that if a vulnerability were found with OpenSSL's routines, (the second cipher used) the original plain-text would then only be as vulnerable as the YAXA cipher-text.  Likewise, if some vulnerability was found in YAXA (the first cipher used), the original plain-text would only be as vulnerable as whatever algorithm was used by OpenSSL.  The default implementation being AES, that means if YAXA was vulnerable, the plain-text would still only ever be as vulnerable as AES makes it.
+<P>
+The intent of the cascaded encryption with the YAXA cipher is, of course, added security. The actual outcome is either increased security through obscurity, increased security through enhanced cryptographic strength, or no improved security over a single algorithm. According to Bruce Schneier in &quot;Applied Cryptography&quot;, as long as the first and second algorithm are both stream ciphers, then the combination of the two is at least as strong as the strongest algorithm.  Therefore if YAXA adds no significant cryptographic strength, then the combination of the two is still at least as strong as the second cipher used.
+<P>
+One non-inconsequential security benefit as a result of this, is that while cryptography algorithms are heavily peer reviewed and cryptanalyzed, the myriad of implementations are not as uniformly scrutinized, and implementations are updated more often than algorithms; so while AES may be tried and true, an individual implementation of it may not be.  Even if a cryptographic algorithm is known to be secure, cascaded encryption can protect against both current and unforeseen implementation/algorithm vulnerabilities through redundancy.
+<P>
+The primary purpose of the cascaded encryption in this program, however, is mainly to make the attack on temporary files used for processing less practical than other side-channel attacks. Since the cryptographic strength of YAXA cannot be verified, it cannot be said for sure that it actually adds any cryptographic strength to the encryption over a single algorithm, or just obscures the sensitive plain-text before sending to disk. 
+<P>
+<A NAME="lbAO">&nbsp;</A>
+<H3>Enveloped Encryption Concept</H3>
+
+<P>
+This program conceptualizes the cryptographic concept of cascading and authenticated encryption as a figurative analogy involving envelopes.  The original plain-text message (the non-encrypted password database) is ran through HMAC-SHA512 to create a Message Authentication Code before being encrypted with the enveloped (first) algorithm, the YAXA stream cipher. The YAXA cipher-text message and the MAC are then placed together inside of an &quot;envelope&quot;.  Therefore, the program uses two primary functions, <I>openEnvelope()</I> and <I>sealEnvelope()</I> which contain the enveloping (second) algorithm's routines to &quot;seal&quot; the YAXA cipher-text message and MAC into an &quot;envelope&quot;, or &quot;open&quot; an envelope containing them.
+<P>
+<I>sealEnvelope()</I> is used to encrypt the YAXA ciphertext with the enveloping (second) algorithm after a database is created or modified.  The plain-text (user input and the padded buffers ) is ran through HMAC-SHA512 before encryption to create the MAC, then the MAC is concatenated to the YAXA ciphertext before being passed to <I>sealEnvelope()</I> and encrypted with the enveloping (second) algorithm to form the final password database.  The encrypted password database file can be considered the &quot;envelope&quot; we're opening and sealing. <I>openEnvelope()</I> decrypts the cipher-text data created by OpenSSL (the second, or &quot;enveloping&quot; cipher), checks this with HMAC against the MAC, and if it matches, passes the YAXA data to the rest of the program functions for decryption and processing.
+<P>
+<A NAME="lbAP">&nbsp;</A>
+<H3>Encryption and Authentication Composition</H3>
+
+<P>
+When using authentication codes, there are three distinct configurations in which one can encrypt and authenticate.  There is Authenticate-and-Encrypt, Authenticate-then-Encrypt, and Encrypt-then-Authenticate.  Must of the consensus on the subject would suggest that Encrypt-then-Authenticate is the most secure method due to theoretical and practical exploitation of the other two methods.
+<P>
+However, with this implementation of temporary files, the Encrypt-then-Authenticate approach did not prove to protect against simulated chosen-ciphertext attacks.  When spoofed ciphertext was inserted into the temporary files to simulate an attack, the Encrypt-then-Authenticate composition still allowed erroneous ciphertext bits to be inserted and decrypted.  As a more catastrophic result, the changes to the ciphertext were in some cases used to modify the YAXA data, and the resulting password database was corrupted.
+<P>
+Using the Authenticate-and-Encrypt form of composition, spoofing of the ciphertext in the temporary files was detected by the MAC upon decryption of the YAXA data, and then no further processing took place.  Therefore the temporary files can be injected with any spoofed data while open, but these changes will not be allowed to corrupt the password database unless the MAC was accurately spoofed, but measures to prevent that are described in the <B>Temporary Files vs Memory Buffers</B> section below.
+<P>
+The primary flaw of the Authenticate-and-Encrypt format is that the MAC is written to the end of the file unencrypted, potentiating a leak of information about the plain-text if the one-way hash function leaks information.  However, this program uses a secure HMAC function provided by OpenSSL.  As well, there is the obvious fact that the YAXA data and MAC will then be encrypted with AES.
+<P>
+<A NAME="lbAQ">&nbsp;</A>
+<H3>Temporary Files vs Memory Buffers</H3>
+
+<P>
+The program uses temporary files to store and process data, rather than operate solely in memory. YAXA prevents that data from being sent to disk in plain-text. Data remanence issues of using temporary files to store the data for processing are obvious, and steps to wipe the disk of sensitive data are taken.  The program cleans up these files, as well as buffers that were storing sensitive information, upon closing or receiving SIGINT or some other error. The temporary files are also protected by the authenticated encryption described above.
+<P>
+The temporary files are also given a random name that is of a random length, and with read/write permissions only for the file owner.  Despite this, it is still possible to intercept data from the temporary files if an attacker can elevate their privileges somehow.  Along with YAXA protecting plain-text from being visible in these circumstances, the authenticated encryption helps protect against active man-in-the-middle attacks attempting to spoof cipher-text data on its way from disk to memory. The attacker must be able to predict which random filename contains which data in order to spoof cipher-text or the checksum (since any change in the ciphertext must be reflected in the MAC). Overall this would make a chosen-ciphertext attack against the temporary files much more difficult.
+<P>
+The author contends that storing information to temporary files on disk is likely no more insecure than storing sensitive information in program memory, and steps are also taken to sanitize sensitive information from memory as soon as possible. Despite that, if an attacker were able to obtain root access or otherwise elevate their privileges to be able to read/write to the temporary files, then at that point it is likely they would also be able to simply access the sensitive plain-text data from the program memory as it ran.
+<P>
+Writing the program to function solely in memory would not necessarily make the program more secure, especially not in respect to any circumstance that would make storing the information to temporary files vulnerable (i.e. an attacker has root access to the machine as the program runs). At best it would only make the information harder to access without a filesystem abstraction; an attacker could write a shell script to intercept data from temp files, but would need to write something more sophisticated to access the memory buffers. Although when you take into account the data sent to disk will be encrypted, the opposite might be true. That might motivate an attacker to want to target program memory versus these temporary files. Both conditions are only possible in the case of a compromised system providing escalated permissions. In addition to all of this, because of caching, memory virtualization and swapping, it is not guaranteed that storing information in memory buffers would spare it from the same data remanence issues facing file storage.
+<P>
+If the system cannot protect the files based on system permissions, it's unlikely it can protect memory based on system permissions either. In either scenario, an unauthorized attacker having elevated privileges to the system implies a host of other potential attack vectors outside the scope of this program; an attacker could just as well grab it from your clipboard, the browser window you past it into, etc.  With all that in mind, while operating solely in memory  may seem much more secure superficially, the vulnerability of leaving the data in temporary files is only relevant in a situation where storage in memory is mutually vulnerable.
+<P>
+Just as accessing the data through the abstraction of a filesystem is easier, so is writing a program to handle it with file I/O.  Attempts were made to make the processing secluded to memory buffers, but as the program was originally written to function with file I/O, it made the redesign difficulties not worth the practical advantage.  Instead, cascaded and authenticated encryption was used as a stop-gap measure until the program could be written to run solely in memory.  However, the author now questions the merit of operating exclusively in memory, especially when the overall program's security is more robust as a byproduct.
+<P>
+<A NAME="lbAR">&nbsp;</A>
+<H2>YAXA</H2>
+
+<P>
+<A NAME="lbAS">&nbsp;</A>
+<H3>Simple XOR</H3>
+
+<P>
+Simple XOR is a loosely-defined method that's highlighted in a lot of C tutorial code (as well as in Bruce Schneier's &quot;Applied Cryptography&quot; where I've borrowed the moniker from) as a way to demonstrate bit-wise operation, and is similar to the Vernam cipher, but is mockably insecure in actual implementations of snake-oil or home-brewed cryptography.  As Schneier puts it, &quot;Simple XOR might keep your kid sister from reading your files, but it won't slow down a cryptanalyst for more than a few minutes.&quot;
+<P>
+
+<A NAME="lbAT">&nbsp;</A>
+<H3>Simple XOR Algorithm</H3>
+
+
+<DL COMPACT><DT><DD>
+C₁ = E(P₁ ⊕ K₁)
+<br>
+C₂ = E(P₂ ⊕ K₂)
+<br>
+C₃ = E(P₃ ⊕ K₃)
+<br>
+C₄ = E(P₄ ⊕ K₁)
+</DL>
+
+<P>
+<P>
+
+The major downfall of that is simply that with a key <B>(K₁-₃)</B> that is shorter than the plain-text message <B>(P₁-₄)</B> that is to be encrypted, the key <B>(K₁-₃)</B> will repeat itself every so often over the length of the plain-text message <B>(P₁-₄)</B> as shown above. This can be described as 'periodic', and when the length of a repeating key ( aka running key) is known, attack through frequency analysis becomes trivial. (Schneier shows how to model this attack in &quot;Applied Cryptography&quot;).
+<P>
+Conversely, when a XOR algorithm is applied with a key length that is equal to the length of the plain-text and truly random (aka a ‘one time pad’), it is said to have &quot;perfect secrecy&quot; (Shannon).  The caveat there, is that true randomness is unobtainable if generated digitally.  Still, you can get very good pseudorandomness, and if the key is non-periodic (the same length as the plain-text it's encrypting ) then it will form a pseudo-random key stream that appears to be a one-time-pad.
+<P>
+The important part of a one-time-pad beyond randomness is that it can only be used one time.  If the same pad is used to encrypt two or more messages, then the cipher-texts of those messages can be applied against each other using the same XOR operation, and computed to reveal differences between the two plain-texts that can be used to break the key. Such an attack is known as a 'many-time-pad attack'.
+<P>
+However, cryptographers learned to use another number that would determine the one-time-pad differently each time, even if the same plain-text and key were encrypted.  The key to this number was that it could only be used one time, so it is referred to as a &quot;nonce&quot;.  As long as a nonce is never reused, the one-time-pad stays a <B>one</B>-time-pad and not a <B>many</B>-time-pad.
+<P>
+<A NAME="lbAU">&nbsp;</A>
+<H3>YAXA Stream Cipher</H3>
+
+YAXA (Yet Another XOR Algorithm) is so named because it is intended to form only the most rudimentary security over the &quot;Simple XOR&quot; approach, without any intent to be &quot;unbreakable&quot; or stronger than any other established algorithm.  The entire goal is to form the simplest encryption, but with the strongest security at that limited complexity level.  It is not intended to keep information secret for long periods of time, but rather to protect plain-text data written to temporary files.
+<P>
+YAXA relies on PBKDF2 to derive a very long key based on a supplied password, and to do this using a Cryptographically Strong Pseudo Random Number Generator (CSPRNG), both of which are provided by OpenSSL.  As long as the key is non-periodic, then this cipher approaches the &quot;perfect secrecy&quot; of a one-time-pad as the key derived approaches perfect randomness.  Therefore the cryptographic strength of this cipher is partially determined by the soundness of PBKDF2's Key Derivation Function, and partially by the soundness of its own keystream generation.  Beyond that, it uses <B>Initialization Vectors</B> that cause the keystreams to be different every time, avoiding the many-time-pad problem.
+<P>
+
+<A NAME="lbAV">&nbsp;</A>
+<H3>YAXA Algorithm</H3>
+
+<P>
+
+<DL COMPACT><DT><DD>
+C₁ = E(P₁ ⊕ N₁ ⊕ KS₁ = f(K₁ ⊕ KC₁ = g(KC₁ + 1)))
+<br>
+C₁₀₂₄ = E(P₁₀₂₄ ⊕ N₀ ⊕ KS₁₀₂₄ = f(K₁₀₂₄ ⊕ KC₁₀₂₄ = g(KC₁₀₂₄ + 1)))
+<br>
+C₁₀₂₅ = E(P₁₀₂₅ ⊕ N₁ ⊕ KS₁₀₂₅ = f(K₁ ⊕ KC₁₀₂₅ = g(KC₁₀₂₅ + 1)))
+</DL>
+
+<P>
+
+The YAXA key derivation function ( not diagrammed here) uses a 128-bit <B>Initialization Vector</B> <B>(nonce)</B> from a 64-byte salt used for OpenSSL, and uses PBKDF2 to generate a pseudo-random 8192 bit (or 1024 byte) key array <B>(K₁-₁₀₂₄)</B>.  The iteration amount of PBKDF2 is based upon the length of the user supplied password of which the key <B>(K)</B> is being derived, multiplied by a factor of 1000 (as recommended in RFC 2898), and added with a byte of the 128-bit salt,  so the iteration amount of PBKDF is <B>password-length *  1000 + nonce-byte</B>.  The SHA512 hashing algorithm is then used to generate 16 different arrays of 64 CSPRNG bytes, concatenated into a buffer to form the 1024-byte key array. The salt is then used with PBKDF2 to create <B>N</B> which is a 512-bit (64-byte) nonce XOR'd between the message byte and keystream byte. Note that <B>N</B> and <B>K</B> have an upper bound of 64 ( <B>Nₙ</B> will be N++ % 64) and 1024 respectively, but <B>KS</B> will be generated to be as long as the message text.
+<P>
+The counter variable <B>(KC)</B> is initialized to 1 and used in a keycounter generator <B>(g)</B>, where it is merely incremented sequentially.  The decryption routine is the inverse of the encryption function <B>(E)</B>.  The use of the <B>IV</B>, counter variable <B>(KC)</B>, counter function <B>(g)</B> and key stream generator <B>(f)</B> forms a very rudimentary <B>counter-based stream cipher</B> (Aumasson).
+<P>
+As the encryption function<B>(E)</B> is incrementally applied to each byte in the message text <B>(P₁-₁₀₂₅)</B>, the key counter variable <B>(KC)</B> is updated in such fashion that it will not impart repeating patterns from the keystream <B>(KS₁-₁₀₂₅)</B> into the ciphertext <B>(C₁-₁₀₂₅)</B> like a running-key would, as happens when key byte<B>(K₁₀₂₄)</B> becomes key byte <B>(K₁)</B> again when the key array <B>(K₁-₁₀₂₄)</B> bounds are reached; the 512-bit nonce similarly repeats after reaching its 64-byte bounds.
+<P>
+Finally, the keystream <B>(KS₁-₁₀₂₅)</B> creates a non-periodic key to span the message length <B>(P₁-₁₀₂₅)</B> which creates the 'one-time-pad'.  The program updates the salts used for IV/nonce generation upon every database update to avoid nonce reuse.
+<P>
+<A NAME="lbAW">&nbsp;</A>
+<H3>Security of YAXA</H3>
+
+<P>
+YAXA is almost certainly vulnerable to some form of cryptanalysis with the simple relations in the YAXA keystream generator<B>(g)</B> and function<B>(f)</B> (only a ximple XOR of <B>KC</B> against <B>K</B>, and <B>KC</B> merely being incremented ). If the author's limited cryptanalytic knowledge can spot this potential vulnerability, a skilled cryptanalysis would likely find an exploitable vulnerability. Beyond that, though standardized KDFs and CSPRNGs were used in hopes of avoiding determinism and bias, the author can't offer statistical analysis to prove that they are in fact random and non-biased.
+<P>
+However that's not to say that such cryptanalysis is inevitable, or even at all likely. An attack based on such cryptanalysis would be the least practical attack vector against this implementation. The exposure of YAXA data to be cryptanalyzed could only come about through two conditions which imply a host of other conditions which make other easier attack vectors much more likely to succeed. 
+<P>
+If the YAXA data is somehow directly accessed through the temporary files on a running system, then this implies a man-in-the-middle style of attack.  In this instance, the channel of communication would essentially be from disk-to-memory and vise versa.  Any circumstance where an attacker would have the necessary access and escalated privileges to intercept YAXA data from the tempfiles or memory buffers, would necessarily imply the same level of access to the secrets that YAXA was meant to protect in the first place.  This would make cryptanalysis pointless, versus just intercepting the secrets through other parts of the system.  Information possibly leaked to disk from swap implies the same condition.
+<P>
+Conversely, if thoroughly-wiped YAXA data was somehow recovered from the disk through some kind of forensic methodology, then the attacker would likely have possessed resources and/or authority (lawful or otherwise) that would make trying to recover a database of user passwords pointless in the first place. The only type of agencies which possess the capability to forensically recover securely-erased data, would surely have the facility to get a court order if they were law enforcement, or kidnap and beat it out of you without fear of reprisal they were criminal.  That is, if they didn't already steal the secrets the passwords were meant to protect when they gained physical access to the storage media the residual data was recovered from in the first place.
+<P>
+Bottom line, if an attacker had the resources and/or access required to get access to the YAXA data at all (breaking the enveloping encryption, forensic recovery, or man-in-the-middle type attacks), then they can find easier ways than cryptanalysis of YAXA to reveal the secrets (or gain access to whatever secrets those passwords are meant to protect). For those reasons, the author contends that while there is likely evidence to be found that this cipher is not cryptographically strong, it is still secure enough for this implementation.
+<P>
+<A NAME="lbAX">&nbsp;</A>
+<H2>OPENSSL</H2>
+
+<P>
+<A NAME="lbAY">&nbsp;</A>
+<H3>OFB and CTR</H3>
+
+<P>
+<B>Whichever algorithm is used with OpenSSL, it should be used in OFB or CTR mode.</B>  
+<P>
+The reason being is that these modes effectively turn block ciphers into stream ciphers, and the reason we would want that in this context is because using two stream ciphers in cascading encryption makes the resulting encryption at least as hard to break as the strongest algorithm.  Otherwise, if a mode like CBC is used, certain chosen plain-text attacks may be feasible to conduct against the 2nd algorithm in the cascade.  One such attack is known as a meet-in-the-middle attack, but as long as the cascaded algorithms are both stream ciphers, this attack is not feasible (Schneier).
+<P>
+One caveat to using these modes is that the OpenSSL routines don't check for decryption error with them, and so entering an incorrect password will not prompt the user with a &quot;Wrong key&quot; message like other modes would.  Instead, OpenSSL will decrypt the ciphertext with the incorrect key, and then the MAC will fail because the resulting YAXA cipher-text will not match what was generated by HMAC.
+<P>
+<A NAME="lbAZ">&nbsp;</A>
+<H3>OpenSSL Ciphers</H3>
+
+<P>
+The encryption algorithm used by OpenSSL can be chosen between the ciphers provided by the high-level functions in the <I><A HREF="/cgi-bin/man/man2html?3+evp">evp</A>(3)</I> library. By default the program uses 256-bit AES in CTR mode, using the <I><A HREF="/cgi-bin/man/man2html?3+EVP_BytesToKey">EVP_BytesToKey</A>(3)</I> function to derive the key (see <I><A HREF="/cgi-bin/man/man2html?3+EVP_BytesToKey">EVP_BytesToKey</A>(3)</I> for details), and the SHA512 digest algorithm therein. 
+<P>
+The EVP library provides access to many different blocking modes as well as different cipher algorithms. The choice of which of these respective algorithms to use was made available simply because it was possible to with ease.  For this program's use, AES-256 in CTR mode with SHA512 digests is the strongest configuration available using NIST standards.  Otherwise, blowfish (in OFB) and whirlpool may be an alternative open-source configuration; the rationale to use these could be that both algorithms are slow, so it would make bruteforcing against them slower, or not trusting national encryption standards, etc.  Whatever your rationale for preferring one algorithm over the other, the program will allow it.
+<P>
+There are also some exotic digest options such as &quot;RSA encrypted SHA512&quot; which might provide extra security over SHA512 alone.  However, OpenSSL's documentation is not clear on what this entails or how it should be implemented, so it is probably safer to use the more vanilla offerings.
+<P>
+There are a number of cipher options listed that do not work, for reasons that were not analyzed. Priority wasn't given to making these options function.
+<P>
+<DL COMPACT><DT><DD>
+aes-128-ccm
+<br>
+aes-128-gcm
+<br>
+aes-192-ccm
+<br>
+aes-192-gcm
+<br>
+aes-256-ccm
+<br>
+aes-256-gcm
+<P>
+des-ede3-cfb1
+<P>
+id-aes128-wrap
+<br>
+id-aes192-wrap
+<br>
+id-aes256-wrap
+</DL>
+
+<P>
+<A NAME="lbBA">&nbsp;</A>
+<H3>Key Derivation</H3>
+
+<P>
+The key derivation is done by <I><A HREF="/cgi-bin/man/man2html?3+EVP_BytesToKey">EVP_BytesToKey</A>(3)</I> which is described in detail in <I><A HREF="/cgi-bin/man/man2html?3+EVP_BytesToKey">EVP_BytesToKey</A>(3)</I> and in brief in <I><A HREF="/cgi-bin/man/man2html?3+evp">evp</A>(3)</I>:
+<P>
+<DL COMPACT><DT><DD>
+The EVP_BytesToKey function provides some limited support for password based encryption. Careful selection of the parameters will provide a PKCS#5 PBKDF1 compatible implementation. However, new applications should not typically use this (preferring, for example, PBKDF2 from PCKS#5).
+</DL>
+
+<P>
+However since the default configuration uses SHA512 instead of MD5, and the digest can be user specified, this means it does not necessarily meet the PBKDF1 standards.  The decision not to use PBKDF2 was made because the EVP library KDF automatically generates appropriate keyring material for the specified ciphers.  Some use IVs and some don't, and some require different key lengths.  The <I><A HREF="/cgi-bin/man/man2html?3+EVP_BytesToKey">EVP_BytesToKey</A>(3)</I> function handles all that automatically.  Meanwhile it could be argued that SHA512 is much more impervious to collisions than MD5 so there's no reason to believe this implementation is less secure than PBKDF1 due to the use of a stronger digest algorithm.
+<P>
+<A NAME="lbBB">&nbsp;</A>
+<H3>CSPRNG</H3>
+
+<P>
+The EVP library also provides access to OpenSSL's CSPRNG as described in <I><A HREF="/cgi-bin/man/man2html?3+RAND">RAND</A>(3)</I>.  The <I><A HREF="/cgi-bin/man/man2html?3+RAND_bytes">RAND_bytes</A>(3)</I> function is what fills the buffers with pseudorandomness, generates random passwords, and generates the salt which generates YAXA's nonce as well.
+<P>
+<A NAME="lbBC">&nbsp;</A>
+<H2>EXAMPLES</H2>
+
+<P>
+Initialize a new password database and save it to the file passwords.  Also randomly generate a password of 32 characters for the new entry, and send that new password to the clipboard.
+<P>
+<DL COMPACT><DT><DD>
+passmanager -a &quot;gmail : <A HREF="mailto:myemail@gmail.com">myemail@gmail.com</A>&quot; -p gen -l 32 -f ./passwords -C
+</DL>
+
+<P>
+Change the encryption and/or digest used for the password database
+<P>
+<DL COMPACT><DT><DD>
+passmanager -U -c blowfish -H whirlpool -f ./passwords
+</DL>
+
+<P>
+Print a list of available ciphers
+<P>
+<DL COMPACT><DT><DD>
+passmanager -c list
+</DL>
+
+<P>
+Print a list of available digests
+<P>
+<DL COMPACT><DT><DD>
+passmanager -H list
+</DL>
+
+<P>
+Can also change password for the database (Will be prompted for input)
+<P>
+<DL COMPACT><DT><DD>
+passmanager -U -f ./passwords
+</DL>
+
+<P>
+Or you could do both in one command
+<P>
+<DL COMPACT><DT><DD>
+passmanager -U -c aes-256-cbc -H sha512 -P -f ./passwords
+</DL>
+
+<P>
+Update the previously added entry name from &quot;gmail : <A HREF="mailto:myemail@gmail.com">myemail@gmail.com</A>&quot; to &quot;gmail : <A HREF="mailto:myemail1@gmail.com">myemail1@gmail.com</A>&quot; (Note how we're partially matching &quot;gmail&quot;, and the need for quotations around the new entry name since it contains whitespace)
+<P>
+<DL COMPACT><DT><DD>
+passmanager -u gmail -n &quot;gmail : <A HREF="mailto:myemail1@gmail.com">myemail1@gmail.com</A>&quot; -f ./passwords
+</DL>
+
+<P>
+Add a second gmail account but with the entry password &quot;password&quot;
+<P>
+<DL COMPACT><DT><DD>
+passmanager -a &quot;gmail : <A HREF="mailto:myemail2@gmail.com">myemail2@gmail.com</A>&quot; -p password -f ./passwords
+</DL>
+
+<P>
+If you are following these examples sequentially, this is how you would print out your password database, and what it would look like on screen.
+<P>
+<DL COMPACT><DT><DD>
+passmanager -r allpasses -f ./passwords
+</DL>
+
+<P>
+<DL COMPACT><DT><DD>
+gmail : <A HREF="mailto:myemail1@gmail.com">myemail1@gmail.com</A> : Us3[Ag1&lt;lRw9%Vj5&gt;La0{Nh4|Kr8$Te7
+<P>
+gmail : <A HREF="mailto:myemail2@gmail.com">myemail2@gmail.com</A> : password
+</DL>
+
+<P>
+<P>
+To update the password for <A HREF="mailto:myemail2@gmail.com">myemail2@gmail.com</A> with a randomly generated 16 character (default) password, and send the newly created password to clipboard
+<P>
+<DL COMPACT><DT><DD>
+passmanager -u &quot;gmail : myemail2&quot; -p gen -f ./passwords -C
+</DL>
+
+<P>
+To update the passsword but prompt the user for password
+<P>
+<DL COMPACT><DT><DD>
+passmanager -u &quot;gmail : myemail2&quot; -P -f ./passwords
+</DL>
+
+<P>
+Read the new password for <A HREF="mailto:myemail2@gmail.com">myemail2@gmail.com</A> and send it directly to the clipboard
+<P>
+<DL COMPACT><DT><DD>
+passmanager -r &quot;gmail : myemail2&quot; -C -f ./passwords
+</DL>
+
+<P>
+Or to just print both gmail passwords on screen ( but no other entry passwords )
+<P>
+<DL COMPACT><DT><DD>
+passmanager -r gmail -f ./passwords
+</DL>
+
+<P>
+To delete both of the gmail accounts. (Note no need for quotation marks since we can partially match both entry names before the whitespace portions)
+<P>
+<DL COMPACT><DT><DD>
+passmanager -d gmail -f ./passwords
+</DL>
+
+<P>
+To print all passwords in database, and supply the database password as a command-line argument (Perhaps to fill in from some other location besides user input)
+<P>
+<DL COMPACT><DT><DD>
+passmanager -r allpasses -f ./passwords -x password
+</DL>
+
+<P>
+To update all passwords in database with a randomly generated passwords
+<P>
+<DL COMPACT><DT><DD>
+passmanager -u allpasses -p gen -f ./passwords
+</DL>
+
+<P>
+<A NAME="lbBD">&nbsp;</A>
+<H2>BUGS</H2>
+
+<P>
+If the iterator used to index yaxaKey array elements is only 1023 then the kystream repeats
+every 64 bytes.  The iterator must be allowed to index yaxaKey[1024]. An extra byte is allocated and derived for
+this purpose (to avoid undefined behavior of addressing yaxaKey[1024] if only allocated to 1024 bytes ) but it
+is still unclear how/why repetition was ever imparted in keystream at all with this algorithm design.
+<P>
+<A NAME="lbBE">&nbsp;</A>
+<H2>REFERENCES</H2>
+
+<P>
+The author consulted several reference sources in order to design and describe the cryptographic function of this program.
+<P>
+<I>&quot;Applied Cryptography,&quot;</I> Bruce Schneier
+<P>
+<I>&quot;Serious Cryptography,&quot;</I> Jean-Philippe Aumasson
+<P>
+<I>&quot;Cryptography Engineering,&quot;</I> Ferguson, Schneier, Kohno
+<P>
+<I>&quot;Cryptography Theory and Practice 4th Ed,&quot;</I> Stinson, Paterson
+<P>
+<I>&quot;Handbook of Applied Cryptography,&quot;</I> Alfred J. Menezes
+<P>
+<A NAME="lbBF">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<A HREF="/cgi-bin/man/man2html?1+openssl">openssl</A>(1), <A HREF="/cgi-bin/man/man2html?1+xclip">xclip</A>(1), <A HREF="/cgi-bin/man/man2html?3+crypto">crypto</A>(3), <A HREF="/cgi-bin/man/man2html?3+evp">evp</A>(3), <A HREF="/cgi-bin/man/man2html?3+EVP_BytesToKey">EVP_BytesToKey</A>(3), <A HREF="/cgi-bin/man/man2html?3+EVP_EncryptInit">EVP_EncryptInit</A>(3), <A HREF="/cgi-bin/man/man2html?3+PKCS5_PBKDF2_HMAC">PKCS5_PBKDF2_HMAC</A>(3), <A HREF="/cgi-bin/man/man2html?3+RAND">RAND</A>(3), <A HREF="/cgi-bin/man/man2html?3+RAND_bytes">RAND_bytes</A>(3)
+<P>
+<P>
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">NAME</A><DD>
+<DT><A HREF="#lbAC">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAD">OPTIONS SUMMARY</A><DD>
+<DT><A HREF="#lbAE">DESCRIPTION</A><DD>
+<DT><A HREF="#lbAF">MODES</A><DD>
+<DL>
+<DT><A HREF="#lbAG"><B>Add mode</B></A><DD>
+<DT><A HREF="#lbAH"><B>Read mode</B></A><DD>
+<DT><A HREF="#lbAI"><B>Delete mode</B></A><DD>
+<DT><A HREF="#lbAJ"><B>Update entry mode</B></A><DD>
+<DT><A HREF="#lbAK"><B>Update database mode</B></A><DD>
+</DL>
+<DT><A HREF="#lbAL">SECURITY</A><DD>
+<DL>
+<DT><A HREF="#lbAM">Input Padding</A><DD>
+<DT><A HREF="#lbAN">Cascaded Encryption Security</A><DD>
+<DT><A HREF="#lbAO">Enveloped Encryption Concept</A><DD>
+<DT><A HREF="#lbAP">Encryption and Authentication Composition</A><DD>
+<DT><A HREF="#lbAQ">Temporary Files vs Memory Buffers</A><DD>
+</DL>
+<DT><A HREF="#lbAR">YAXA</A><DD>
+<DL>
+<DT><A HREF="#lbAS">Simple XOR</A><DD>
+<DT><A HREF="#lbAT">Simple XOR Algorithm</A><DD>
+<DT><A HREF="#lbAU">YAXA Stream Cipher</A><DD>
+<DT><A HREF="#lbAV">YAXA Algorithm</A><DD>
+<DT><A HREF="#lbAW">Security of YAXA</A><DD>
+</DL>
+<DT><A HREF="#lbAX">OPENSSL</A><DD>
+<DL>
+<DT><A HREF="#lbAY">OFB and CTR</A><DD>
+<DT><A HREF="#lbAZ">OpenSSL Ciphers</A><DD>
+<DT><A HREF="#lbBA">Key Derivation</A><DD>
+<DT><A HREF="#lbBB">CSPRNG</A><DD>
+</DL>
+<DT><A HREF="#lbBC">EXAMPLES</A><DD>
+<DT><A HREF="#lbBD">BUGS</A><DD>
+<DT><A HREF="#lbBE">REFERENCES</A><DD>
+<DT><A HREF="#lbBF">SEE ALSO</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 02:13:09 GMT, December 18, 2018
+</BODY>
+</HTML>
