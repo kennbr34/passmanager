@@ -1,6 +1,0 @@
-Cryptanalsysis has revealed several flaws
-
-1. The keystream derived is not sufficiently random. Statistical testing with dieharder shows that it fails most staistical tests.
-2. The keytream becomes periodic after only 3.4 MB of data. However this is equal to more than 3331 password entires.
-3. The cipher uses extremly simple relations and relies on the strength of a one-time-pad for good security.
-4. The keystream is nowhere close to a one-time-pad because the data is not even indistinguishable from pseudo-randomnes even if non-periodic.
