@@ -2,6 +2,25 @@
 2nd digit = crypto change that renders older version's password files incompataible
 3rd digit = functional change which does not render program incompatiable with previous version's password files
 
+2018-12-24
+(+ver 1.24.1)
+	Defined magic numbers
+	Cleaned up comments and arrangement
+	Changed ends of writePass,deletePass,updateEntry,updateEncPass functions to check for erro before running sealEnvelope()
+(+ver 1.24.0)
+	Changed HMAC to use spearate key as YAXA encryption
+	Changed salt sizes from 8 to 16 bytes
+2018-12-20
+(+ver 1.23.2)
+	Changed bulk password update to detect if current pass has any symbols, and to generate a passord with no symbols if not
+(+ver 1.23.1)
+	Changed update entry function to report what entry is updated to what
+(+ver 1.23.0)
+	Changed keyStreamGenByte initialization from 1 to 0
+	Changed yaxaKDF feature to not remove null bytes from yaxaKey
+	Cleaned up yaxaKeyArray from memory at end of execution
+	Changed yaxaKDF to generate last byte of yaxaKey  without PBKDF2
+	Fixed memory leaks associated with last mentioned fix
 2018-12-14
 (+ver 1.22.2)
 	Changed EVP routines to be compatiable to OpenSSL 1.1
