@@ -6,6 +6,7 @@ AC_INIT([passmanager], [1.24.1])
 AC_CONFIG_SRCDIR([src/passmanager.c])
 AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_HEADERS([config.h])
+AM_MAINTAINER_MODE
 
 # Checks for programs.
 AC_PROG_CC
@@ -43,5 +44,3 @@ AC_CHECK_FUNCS([getpass memset])
 AC_CONFIG_FILES([Makefile])
 
 AC_OUTPUT
-
-AM_MAINTAINER_MODE
