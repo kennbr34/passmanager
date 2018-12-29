@@ -43,7 +43,9 @@ gcc passmanager.c -o passmanager -lcrypto
 
 DOCUMENTATION
 
-Full and thorugh documentation is given via manual file in man/passmanager.1 or by running 'man passmanger' after installation.
+Full and thorugh documentation can be found here:
+
+https://kennbr34.github.io/
 
 SCRIPTS AND EXAMPLES
 
