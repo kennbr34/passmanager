@@ -33,7 +33,7 @@ $ ./configure
 
 $ make
 
-# make install
+$ make install
 
 COMPILATION
 
