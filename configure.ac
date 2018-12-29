@@ -43,3 +43,5 @@ AC_CHECK_FUNCS([getpass memset])
 AC_CONFIG_FILES([Makefile])
 
 AC_OUTPUT
+
+AM_MAINTAINER_MODE
