@@ -2,6 +2,9 @@
 2nd digit = crypto change that renders older version's password files incompataible
 3rd digit = functional change which does not render program incompatiable with previous version's password files
 
+2019-1-1
+(+ver 2.0.0)
+	Removed YAXA cipher, and replaced with camellia-256-ofb for 1st algorithm in cascade.
 2018-12-24
 (+ver 1.24.1)
 	Defined magic numbers

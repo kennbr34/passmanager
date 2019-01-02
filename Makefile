@@ -219,12 +219,12 @@ distuninstallcheck_listfiles = find . -type f -print
 am__distuninstallcheck_listfiles = $(distuninstallcheck_listfiles) \
   | sed 's|^\./|$(prefix)/|' | grep -v '$(infodir)/dir$$'
 distcleancheck_listfiles = find . -type f -print
-ACLOCAL = ${SHELL} /home/kenny/passmanager-1.24.1/missing aclocal-1.15
+ACLOCAL = ${SHELL} /home/kenny/passmanager-automake/missing aclocal-1.15
 AMTAR = $${TAR-tar}
 AM_DEFAULT_VERBOSITY = 1
-AUTOCONF = ${SHELL} /home/kenny/passmanager-1.24.1/missing autoconf
-AUTOHEADER = ${SHELL} /home/kenny/passmanager-1.24.1/missing autoheader
-AUTOMAKE = ${SHELL} /home/kenny/passmanager-1.24.1/missing automake-1.15
+AUTOCONF = ${SHELL} /home/kenny/passmanager-automake/missing autoconf
+AUTOHEADER = ${SHELL} /home/kenny/passmanager-automake/missing autoheader
+AUTOMAKE = ${SHELL} /home/kenny/passmanager-automake/missing automake-1.15
 AWK = gawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
@@ -249,25 +249,26 @@ LDFLAGS =
 LIBOBJS = 
 LIBS = -lcrypto -lcrypto 
 LTLIBOBJS = 
-MAKEINFO = ${SHELL} /home/kenny/passmanager-1.24.1/missing makeinfo
+MAINT = #
+MAKEINFO = ${SHELL} /home/kenny/passmanager-automake/missing makeinfo
 MKDIR_P = /bin/mkdir -p
 OBJEXT = o
 PACKAGE = passmanager
 PACKAGE_BUGREPORT = 
 PACKAGE_NAME = passmanager
-PACKAGE_STRING = passmanager 1.24.1
+PACKAGE_STRING = passmanager 2.0.0
 PACKAGE_TARNAME = passmanager
 PACKAGE_URL = 
-PACKAGE_VERSION = 1.24.1
+PACKAGE_VERSION = 2.0.0
 PATH_SEPARATOR = :
 SET_MAKE = 
 SHELL = /bin/bash
 STRIP = 
-VERSION = 1.24.1
-abs_builddir = /home/kenny/passmanager-1.24.1
-abs_srcdir = /home/kenny/passmanager-1.24.1
-abs_top_builddir = /home/kenny/passmanager-1.24.1
-abs_top_srcdir = /home/kenny/passmanager-1.24.1
+VERSION = 2.0.0
+abs_builddir = /home/kenny/passmanager-automake
+abs_srcdir = /home/kenny/passmanager-automake
+abs_top_builddir = /home/kenny/passmanager-automake
+abs_top_srcdir = /home/kenny/passmanager-automake
 ac_ct_CC = gcc
 am__include = include
 am__leading_dot = .
@@ -286,7 +287,7 @@ host_alias =
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = ${SHELL} /home/kenny/passmanager-1.24.1/install-sh
+install_sh = ${SHELL} /home/kenny/passmanager-automake/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localedir = ${datarootdir}/locale
@@ -320,7 +321,7 @@ all: config.h
 .SUFFIXES: .c .o .obj
 am--refresh: Makefile
 	@:
-$(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
+$(srcdir)/Makefile.in: # $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
@@ -346,9 +347,9 @@ Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 $(top_builddir)/config.status: $(top_srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
 	$(SHELL) ./config.status --recheck
 
-$(top_srcdir)/configure:  $(am__configure_deps)
+$(top_srcdir)/configure: # $(am__configure_deps)
 	$(am__cd) $(srcdir) && $(AUTOCONF)
-$(ACLOCAL_M4):  $(am__aclocal_m4_deps)
+$(ACLOCAL_M4): # $(am__aclocal_m4_deps)
 	$(am__cd) $(srcdir) && $(ACLOCAL) $(ACLOCAL_AMFLAGS)
 $(am__aclocal_m4_deps):
 
@@ -359,7 +360,7 @@ config.h: stamp-h1
 stamp-h1: $(srcdir)/config.h.in $(top_builddir)/config.status
 	@rm -f stamp-h1
 	cd $(top_builddir) && $(SHELL) ./config.status config.h
-$(srcdir)/config.h.in:  $(am__configure_deps) 
+$(srcdir)/config.h.in: # $(am__configure_deps) 
 	($(am__cd) $(top_srcdir) && $(AUTOHEADER))
 	rm -f stamp-h1
 	touch $@
