@@ -1,0 +1,9 @@
+MAC nonce along with hmac key for MAC-and-encrypt
+
+Investigate how to stop gcc optimizing away memset
+
+Change '-c' option to take two cipher names delimited with a colon so both algoritms in the cascade can be selected
+
+Investigate getting gcm/ccm modes working
+
+Modify openEnvelope/sealEnvelope to perform HMAC on EVP1 cipher-text in MAC-then-encrypt style.
