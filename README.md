@@ -14,7 +14,8 @@ OpenSSL's libraries instead.
 
 DEPENDENCIES
 
-OpenSSL developement files
+OpenSSL (1.0.1.g or higher) developement files
+
 xclip (optional, for clipboard functions)
 
 INSTALL
