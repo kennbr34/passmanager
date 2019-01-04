@@ -12,13 +12,13 @@ that shortcoming as rationale to leave my steam cipher in the program (to encryp
 for describing and specifying it. Once I was satisfied with that, I removed my custom crypto from the program, and relied on 
 OpenSSL's libraries instead.
 
-DEPENDENCIES
+# DEPENDENCIES
 
 OpenSSL (1.0.1.g or higher) developement files
 
 xclip (optional, for clipboard functions)
 
-INSTALL
+# INSTALL
 
 This archive is an automake package with full documentation, example files and a cipher checking script.
 
@@ -30,25 +30,25 @@ $ make
 
 $ make install
 
-COMPILATION
+# COMPILATION
 
 If you don't want to install the automake package contents, and want to compile the binary alone, just link with lcrypto
 
 gcc passmanager.c -o passmanager -lcrypto
 
-DOCUMENTATION
+# DOCUMENTATION
 
 Full and thorugh documentation can be found here:
 
 https://kennbr34.github.io/
 
-SCRIPTS AND EXAMPLES
+# SCRIPTS AND EXAMPLES
 
 A cript to check that all OpenSSL ciphers functino correctly is available at /usr/local/bin/ciphercheck.sh after installation.
 
 An example password database, encrypted with the password 'password' is available at /usr/local/share/doc/passmanager/examplepasswords1.dat.
 
-TODO
+# TODO
 
 * MAC nonce along with hmac key for MAC-and-encrypt:
 
@@ -75,6 +75,7 @@ A lot of the authentication with HMAC can be done with much more streamlined ope
 
 
 * Modify openEnvelope/sealEnvelope to perform HMAC on EVP1 cipher-text in MAC-then-encrypt style:
+
 A blog post by Matthew Green suggests that best practice for cascaded/combined encryption with authentication is to use
 authentication on both ciphers, and not just one.
 https://blog.cryptographyengineering.com/2012/02/02/multiple-encryption/
