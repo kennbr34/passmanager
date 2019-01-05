@@ -26,6 +26,7 @@
 #include <openssl/objects.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
+#include <openssl/crypto.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -410,7 +411,7 @@ int main(int argc, char* argv[])
             if (strcmp(optarg, "genalpha") == 0)
                 toggle.generateEntryPassAlpha = 1;
             strcpy(entryPass, optarg);
-            memset(optarg, 0, strlen(optarg));
+            OPENSSL_cleanse(optarg, strlen(optarg));
             break;
         case 'x': /*If passing evp1 password from command line*/
             toggle.dbPassArg = 1;
@@ -419,7 +420,7 @@ int main(int argc, char* argv[])
                 printf("Option -x requires an operand\n");
             }
             strcpy(dbPass, optarg);
-            memset(optarg, 0, strlen(optarg));
+            OPENSSL_cleanse(optarg, strlen(optarg));
             break;
         case ':':
             printf("Option -%c requires an operand\n", optopt);
@@ -460,7 +461,7 @@ int main(int argc, char* argv[])
 
     /*Sanitize argv and argc of any sensitive information*/
     for (i = 1; i < argc; i++)
-        memset(argv[i], 0, strlen(argv[i]));
+        OPENSSL_cleanse(argv[i], strlen(argv[i]));
 
     /*Before anything else, back up the password database*/
     if (returnFileSize(dbFileName) != 0 && toggle.Read != 1) {
@@ -471,7 +472,7 @@ int main(int argc, char* argv[])
             printf("Couldn't make a backup file. Be careful...\n");
         } else {
             FILE* copyFile = fopen(dbFileName, "r");
-            char* backUpFileBuffer = malloc(sizeof(char) * returnFileSize(dbFileName));
+            char* backUpFileBuffer = calloc(sizeof(char), returnFileSize(dbFileName));
             returnVal = fread(backUpFileBuffer, sizeof(char), returnFileSize(dbFileName), copyFile);
             if(!returnVal == returnFileSize(dbFileName)/sizeof(unsigned char))
 			{
@@ -1051,10 +1052,10 @@ int printPasses(FILE* dbFile, char* searchString)
     fileSize = ftell(dbFile);
     fseek(dbFile, 0L, SEEK_SET);
 
-    unsigned char* entryBuffer = malloc(sizeof(unsigned char) * BUFFER_SIZES);
-    unsigned char* passBuffer = malloc(sizeof(unsigned char) * BUFFER_SIZES);
-    unsigned char* encryptedBuffer = malloc(sizeof(unsigned char) * fileSize);
-    unsigned char* decryptedBuffer = malloc(sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
+    unsigned char* entryBuffer = calloc(sizeof(unsigned char), BUFFER_SIZES);
+    unsigned char* passBuffer = calloc(sizeof(unsigned char), BUFFER_SIZES);
+    unsigned char* encryptedBuffer = calloc(sizeof(unsigned char), fileSize);
+    unsigned char* decryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
 
     returnVal = fread(encryptedBuffer, sizeof(unsigned char), fileSize, dbFile);
     if(!returnVal == fileSize/sizeof(unsigned char))
@@ -1092,10 +1093,10 @@ int printPasses(FILE* dbFile, char* searchString)
     /*Return error status before proceeding and clean up sensitive data*/
     if (memcmp(fMac, gMac, SHA512_DIGEST_LENGTH) != 0) {
         printMACErrMessage(backupFileName);
-        memset(entryBuffer, 0, sizeof(unsigned char) * BUFFER_SIZES);
-		memset(passBuffer, 0, sizeof(unsigned char) * BUFFER_SIZES);
-		memset(encryptedBuffer, 0, sizeof(unsigned char) * fileSize);
-		memset(decryptedBuffer, 0, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
+        OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * BUFFER_SIZES);
+		OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * BUFFER_SIZES);
+		OPENSSL_cleanse(encryptedBuffer, sizeof(unsigned char) * fileSize);
+		OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
 
 		free(entryBuffer);
 		free(passBuffer);
@@ -1136,10 +1137,10 @@ int printPasses(FILE* dbFile, char* searchString)
     if (entriesMatched == 0 && searchString != NULL)
         printf("Nothing matched \"%s\"\n", searchString);
 
-    memset(entryBuffer, 0, sizeof(unsigned char) * BUFFER_SIZES);
-    memset(passBuffer, 0, sizeof(unsigned char) * BUFFER_SIZES);
-    memset(encryptedBuffer, 0, sizeof(unsigned char) * fileSize);
-    memset(decryptedBuffer, 0, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
+    OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * BUFFER_SIZES);
+    OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * BUFFER_SIZES);
+    OPENSSL_cleanse(encryptedBuffer, sizeof(unsigned char) * fileSize);
+    OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
 
     free(entryBuffer);
     free(passBuffer);
@@ -1165,8 +1166,8 @@ int updateEntry(FILE* dbFile, char* searchString)
 
     FILE* tmpFile;
 
-    unsigned char* entryBuffer = malloc(sizeof(unsigned char) * BUFFER_SIZES);
-    unsigned char* passBuffer = malloc(sizeof(unsigned char) * BUFFER_SIZES);
+    unsigned char* entryBuffer = calloc(sizeof(unsigned char), BUFFER_SIZES);
+    unsigned char* passBuffer = calloc(sizeof(unsigned char), BUFFER_SIZES);
 
     /*Get the filesize*/
     long fileSize;
@@ -1174,8 +1175,8 @@ int updateEntry(FILE* dbFile, char* searchString)
     fileSize = ftell(dbFile);
     fseek(dbFile, 0L, SEEK_SET);
 
-    unsigned char* encryptedBuffer = malloc(sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
-    unsigned char* decryptedBuffer = malloc(sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
+    unsigned char* encryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
+    unsigned char* decryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
 
     returnVal = fread(encryptedBuffer, sizeof(unsigned char), fileSize, dbFile);
     if(!returnVal == fileSize/sizeof(unsigned char))
@@ -1189,7 +1190,7 @@ int updateEntry(FILE* dbFile, char* searchString)
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     EVP_CIPHER_CTX_init(ctx);
 
-    fileBuffer = malloc(sizeof(unsigned char) * fileSize);
+    fileBuffer = calloc(sizeof(unsigned char), fileSize);
 
     EVP_DecryptInit(ctx, evpCipher1, evpKey1, evpIv1);
 		
@@ -1221,11 +1222,11 @@ int updateEntry(FILE* dbFile, char* searchString)
         printMACErrMessage(backupFileName);
         cleanUpFiles();
         
-        memset(entryBuffer, 0, sizeof(unsigned char) * BUFFER_SIZES);
-		memset(passBuffer, 0, sizeof(unsigned char) * BUFFER_SIZES);
-		memset(encryptedBuffer, 0, sizeof(unsigned char) * fileSize);
-		memset(decryptedBuffer, 0, sizeof(unsigned char) * fileSize);
-		memset(fileBuffer,0,sizeof(unsigned char) * fileSize);
+        OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * BUFFER_SIZES);
+		OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * BUFFER_SIZES);
+		OPENSSL_cleanse(encryptedBuffer, sizeof(unsigned char) * fileSize);
+		OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize);
+		OPENSSL_cleanse(fileBuffer,sizeof(unsigned char) * fileSize);
 
 		free(entryBuffer);
 		free(passBuffer);
@@ -1331,9 +1332,9 @@ int updateEntry(FILE* dbFile, char* searchString)
     /*Append this as the "generated" MAC later*/
     HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, fileBuffer, outlen, gMac, gMacLength);
 
-    memset(encryptedBuffer, 0, sizeof(unsigned char) * fileSize);
+    OPENSSL_cleanse(encryptedBuffer, sizeof(unsigned char) * fileSize);
     free(encryptedBuffer);
-    encryptedBuffer = malloc(sizeof(unsigned char) * outlen);
+    encryptedBuffer = calloc(sizeof(unsigned char), outlen);
 
     fileSize = outlen;
 			
@@ -1377,11 +1378,11 @@ int updateEntry(FILE* dbFile, char* searchString)
 			}
     fclose(tmpFile);
 
-    memset(entryBuffer, 0, sizeof(unsigned char) * BUFFER_SIZES);
-    memset(passBuffer, 0, sizeof(unsigned char) * BUFFER_SIZES);
-    memset(encryptedBuffer, 0, sizeof(unsigned char) * fileSize);
-    memset(decryptedBuffer, 0, sizeof(unsigned char) * fileSize);
-    memset(fileBuffer,0,sizeof(unsigned char) * fileSize);
+    OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * BUFFER_SIZES);
+    OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * BUFFER_SIZES);
+    OPENSSL_cleanse(encryptedBuffer, sizeof(unsigned char) * fileSize);
+    OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize);
+    OPENSSL_cleanse(fileBuffer,sizeof(unsigned char) * fileSize);
 
     free(entryBuffer);
     free(passBuffer);
@@ -1408,8 +1409,8 @@ int deletePass(FILE* dbFile, char* searchString)
 
     FILE* tmpFile;
 
-    unsigned char* entryBuffer = malloc(sizeof(unsigned char) * BUFFER_SIZES);
-    unsigned char* passBuffer = malloc(sizeof(unsigned char) * BUFFER_SIZES);
+    unsigned char* entryBuffer = calloc(sizeof(unsigned char), BUFFER_SIZES);
+    unsigned char* passBuffer = calloc(sizeof(unsigned char), BUFFER_SIZES);
 
     /*Get the filesize*/
     long fileSize;
@@ -1417,8 +1418,8 @@ int deletePass(FILE* dbFile, char* searchString)
     fileSize = ftell(dbFile);
     fseek(dbFile, 0L, SEEK_SET);
 
-    unsigned char* encryptedBuffer = malloc(sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
-    unsigned char* decryptedBuffer = malloc(sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
+    unsigned char* encryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
+    unsigned char* decryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
 
     returnVal = fread(encryptedBuffer, sizeof(unsigned char), fileSize, dbFile);
     if(!returnVal == fileSize/sizeof(unsigned char))
@@ -1433,7 +1434,7 @@ int deletePass(FILE* dbFile, char* searchString)
     EVP_CIPHER_CTX_init(ctx);
 
     /*Now make a buffer for the file.  Reallocate later if we find a match to delete*/
-    fileBuffer = malloc((sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH));
+    fileBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
 
     EVP_DecryptInit(ctx, evpCipher1, evpKey1, evpIv1);
 		
@@ -1463,11 +1464,11 @@ int deletePass(FILE* dbFile, char* searchString)
     /*Return error status before proceeding and clean up sensitive data*/
     if (memcmp(fMac, gMac, SHA512_DIGEST_LENGTH) != 0) {
         printMACErrMessage(backupFileName);
-		memset(entryBuffer, 0, sizeof(unsigned char) * BUFFER_SIZES);
-		memset(passBuffer, 0, sizeof(unsigned char) * BUFFER_SIZES);
-		memset(encryptedBuffer, 0, sizeof(unsigned char) * outlen + EVP_MAX_BLOCK_LENGTH);
-		memset(decryptedBuffer, 0, sizeof(unsigned char) * outlen);
-		memset(fileBuffer, 0, sizeof(unsigned char) * fileSize - ((BUFFER_SIZES * 2)));
+		OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * BUFFER_SIZES);
+		OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * BUFFER_SIZES);
+		OPENSSL_cleanse(encryptedBuffer, sizeof(unsigned char) * outlen + EVP_MAX_BLOCK_LENGTH);
+		OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * outlen);
+		OPENSSL_cleanse(fileBuffer, sizeof(unsigned char) * fileSize - ((BUFFER_SIZES * 2)));
 
 		free(entryBuffer);
 		free(passBuffer);
@@ -1495,14 +1496,14 @@ int deletePass(FILE* dbFile, char* searchString)
                 if (entriesMatched < 1) /*If entry was matched we need to shrink the file buffer*/
                 {
 					/*Re-size the buffer to reflect deleted passwords*/
-					fileBufferOld = malloc(sizeof(unsigned char) * outlen - ((BUFFER_SIZES * 2) * entriesMatched));
+					fileBufferOld = calloc(sizeof(unsigned char), outlen - ((BUFFER_SIZES * 2) * entriesMatched));
 					memcpy(fileBufferOld,fileBuffer,sizeof(unsigned char) * outlen - ((BUFFER_SIZES * 2) * entriesMatched));
-					memset(fileBuffer,0,sizeof(unsigned char) * outlen - ((BUFFER_SIZES * 2) * entriesMatched));
+					OPENSSL_cleanse(fileBuffer,sizeof(unsigned char) * outlen - ((BUFFER_SIZES * 2) * entriesMatched));
 					free(fileBuffer);
 					
-					fileBuffer = malloc(sizeof(unsigned char) * outlen - ((BUFFER_SIZES * 2) * entriesMatched));
+					fileBuffer = calloc(sizeof(unsigned char), outlen - ((BUFFER_SIZES * 2) * entriesMatched));
 					memcpy(fileBuffer,fileBufferOld,sizeof(unsigned char) * outlen - ((BUFFER_SIZES * 2) * entriesMatched));
-					memset(fileBufferOld,0,sizeof(unsigned char) * outlen - ((BUFFER_SIZES * 2) * entriesMatched));
+					OPENSSL_cleanse(fileBufferOld,sizeof(unsigned char) * outlen - ((BUFFER_SIZES * 2) * entriesMatched));
 					free(fileBufferOld);
 					
                 }
@@ -1520,9 +1521,9 @@ int deletePass(FILE* dbFile, char* searchString)
         }
     }
 
-    memset(encryptedBuffer, 0, sizeof(unsigned char) * fileSize);
+    OPENSSL_cleanse(encryptedBuffer, sizeof(unsigned char) * fileSize);
     free(encryptedBuffer);
-    encryptedBuffer = malloc(sizeof(unsigned char) * outlen - ((BUFFER_SIZES * 2) * entriesMatched));
+    encryptedBuffer = calloc(sizeof(unsigned char), outlen - ((BUFFER_SIZES * 2) * entriesMatched));
 
     fileSize = outlen;
 			
@@ -1577,11 +1578,11 @@ int deletePass(FILE* dbFile, char* searchString)
     }
     fclose(tmpFile);
 
-    memset(entryBuffer, 0, sizeof(unsigned char) * BUFFER_SIZES);
-    memset(passBuffer, 0, sizeof(unsigned char) * BUFFER_SIZES);
-    memset(encryptedBuffer, 0, sizeof(unsigned char) * outlen - ((BUFFER_SIZES * 2) * entriesMatched));
-    memset(decryptedBuffer, 0, sizeof(unsigned char) * fileSize);
-    memset(fileBuffer, 0, sizeof(unsigned char) * fileSize - ((BUFFER_SIZES * 2) * entriesMatched));
+    OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * BUFFER_SIZES);
+    OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * BUFFER_SIZES);
+    OPENSSL_cleanse(encryptedBuffer, sizeof(unsigned char) * outlen - ((BUFFER_SIZES * 2) * entriesMatched));
+    OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize);
+    OPENSSL_cleanse(fileBuffer, sizeof(unsigned char) * fileSize - ((BUFFER_SIZES * 2) * entriesMatched));
 
     free(entryBuffer);
     free(passBuffer);
@@ -1601,8 +1602,8 @@ int updateEncPass(FILE* dbFile)
 
     FILE* tmpFile;
 
-    unsigned char* entryBuffer = malloc(sizeof(unsigned char) * BUFFER_SIZES);
-    unsigned char* passBuffer = malloc(sizeof(unsigned char) * BUFFER_SIZES);
+    unsigned char* entryBuffer = calloc(sizeof(unsigned char), BUFFER_SIZES);
+    unsigned char* passBuffer = calloc(sizeof(unsigned char), BUFFER_SIZES);
 
     /*Get the filesize*/
     long fileSize;
@@ -1610,8 +1611,8 @@ int updateEncPass(FILE* dbFile)
     fileSize = ftell(dbFile);
     fseek(dbFile, 0L, SEEK_SET);
 
-    unsigned char* decryptedBuffer = malloc(sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
-    unsigned char* encryptedBuffer = malloc(sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
+    unsigned char* decryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
+    unsigned char* encryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
 
     returnVal = fread(encryptedBuffer, sizeof(unsigned char), fileSize, dbFile);
     if(!returnVal == fileSize/sizeof(unsigned char))
@@ -1665,10 +1666,10 @@ int updateEncPass(FILE* dbFile)
     /*Return error status before proceeding and clean up sensitive data*/
     if (memcmp(fMac, gMac, SHA512_DIGEST_LENGTH) != 0) {
         printMACErrMessage(backupFileName);
-        memset(entryBuffer, 0, sizeof(unsigned char) * BUFFER_SIZES);
-		memset(passBuffer, 0, sizeof(unsigned char) * BUFFER_SIZES);
-		memset(decryptedBuffer, 0, sizeof(unsigned char) * fileSize);
-		memset(encryptedBuffer, 0, sizeof(unsigned char) * fileSize);
+        OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * BUFFER_SIZES);
+		OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * BUFFER_SIZES);
+		OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize);
+		OPENSSL_cleanse(encryptedBuffer, sizeof(unsigned char) * fileSize);
 
 		free(entryBuffer);
 		free(passBuffer);
@@ -1729,10 +1730,10 @@ int updateEncPass(FILE* dbFile)
 			}
     fclose(tmpFile);
 
-    memset(entryBuffer, 0, sizeof(unsigned char) * BUFFER_SIZES);
-    memset(passBuffer, 0, sizeof(unsigned char) * BUFFER_SIZES);
-    memset(decryptedBuffer, 0, sizeof(unsigned char) * fileSize);
-    memset(encryptedBuffer, 0, sizeof(unsigned char) * fileSize);
+    OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * BUFFER_SIZES);
+    OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * BUFFER_SIZES);
+    OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize);
+    OPENSSL_cleanse(encryptedBuffer, sizeof(unsigned char) * fileSize);
 
     free(entryBuffer);
     free(passBuffer);
@@ -1763,10 +1764,10 @@ int writePass(FILE* dbFile)
 
 
     /*entryPass and entryName are both copied into infoBuffer, which is then encrypted*/
-    unsigned char* infoBuffer = malloc(sizeof(unsigned char) * BUFFER_SIZES * 2);
-    unsigned char* decryptedBuffer = malloc(sizeof(unsigned char) * fileSize + (BUFFER_SIZES * 2) + EVP_MAX_BLOCK_LENGTH);
-    unsigned char* encryptedBuffer = malloc(sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
-    unsigned char* tmpBuffer = malloc(sizeof(unsigned char) * fileSize + (BUFFER_SIZES * 2));
+    unsigned char* infoBuffer = calloc(sizeof(unsigned char), BUFFER_SIZES * 2);
+    unsigned char* decryptedBuffer = calloc(sizeof(unsigned char), fileSize + (BUFFER_SIZES * 2) + EVP_MAX_BLOCK_LENGTH);
+    unsigned char* encryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
+    unsigned char* tmpBuffer = calloc(sizeof(unsigned char), fileSize + (BUFFER_SIZES * 2));
 
     /*Put the chars, include random whitespace ones, from entryName and entryPass into infoBuffer, again splitting the BUFFER_SIZES * 2 chars between the two*/
     for (i = 0; i < BUFFER_SIZES; i++)
@@ -1812,10 +1813,10 @@ int writePass(FILE* dbFile)
         /*Return error status before proceeding and clean up sensitive data*/
         if (memcmp(fMac, gMac, SHA512_DIGEST_LENGTH) != 0) {
             printMACErrMessage(backupFileName);
-            memset(infoBuffer, 0, sizeof(unsigned char) * BUFFER_SIZES * 2);
-			memset(decryptedBuffer, 0, sizeof(unsigned char) * fileSize + (BUFFER_SIZES * 2) + EVP_MAX_BLOCK_LENGTH);
-			memset(encryptedBuffer, 0, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
-			memset(tmpBuffer,0,sizeof(unsigned char) * fileSize + (BUFFER_SIZES * 2));
+            OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * BUFFER_SIZES * 2);
+			OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + (BUFFER_SIZES * 2) + EVP_MAX_BLOCK_LENGTH);
+			OPENSSL_cleanse(encryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
+			OPENSSL_cleanse(tmpBuffer,sizeof(unsigned char) * fileSize + (BUFFER_SIZES * 2));
 			free(infoBuffer);
 			free(decryptedBuffer);
 			free(encryptedBuffer);
@@ -1866,9 +1867,9 @@ int writePass(FILE* dbFile)
 
 		EVP_EncryptInit_ex(ctx, evpCipher1, NULL, evpKey1, evpIv1);
 
-        memset(encryptedBuffer, 0, sizeof(unsigned char) * fileSize);
+        OPENSSL_cleanse(encryptedBuffer, sizeof(unsigned char) * fileSize);
         free(encryptedBuffer);
-        encryptedBuffer = malloc(sizeof(unsigned char) * outlen + (BUFFER_SIZES * 2) + EVP_MAX_BLOCK_LENGTH);
+        encryptedBuffer = calloc(sizeof(unsigned char), outlen + (BUFFER_SIZES * 2) + EVP_MAX_BLOCK_LENGTH);
         
         for(i=0; i < BUFFER_SIZES * 2; i++)
         {
@@ -1909,9 +1910,9 @@ int writePass(FILE* dbFile)
 			}
     }
 
-    memset(infoBuffer, 0, sizeof(unsigned char) * BUFFER_SIZES * 2);
-    memset(decryptedBuffer, 0, sizeof(unsigned char) * fileSize + (BUFFER_SIZES * 2) + EVP_MAX_BLOCK_LENGTH);
-    memset(tmpBuffer,0,sizeof(unsigned char) * fileSize + (BUFFER_SIZES * 2));
+    OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * BUFFER_SIZES * 2);
+    OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + (BUFFER_SIZES * 2) + EVP_MAX_BLOCK_LENGTH);
+    OPENSSL_cleanse(tmpBuffer,sizeof(unsigned char) * fileSize + (BUFFER_SIZES * 2));
     free(infoBuffer);
     free(decryptedBuffer);
     free(encryptedBuffer);
@@ -2265,6 +2266,13 @@ int sealEnvelope(const char* tmpFileToUse)
 
     /*Close the files*/
     fclose(EVP2DecryptedFile);
+    
+    //Encrypt-then-mac setup
+    
+    //Load dbFile contents into a buffer, minus cryptoHeader
+    //MAC that buffer
+    //append 64-byte mac to end of dbFile
+    
     fclose(dbFile);
     
 
@@ -2398,11 +2406,18 @@ int openEnvelope()
     /*Now close the encrypted envelope and temp file*/
     fclose(EVP2EncryptedFile);
     fclose(EVP1DataFileTmp);
+    
+    //Encrypt-then-mac setup
+    
+    //create a buffer and load EVP2EncryptedFIle, minus cryptoHeader and and MAC
+    //Load MAC from last 64 bytes of file
+    //Compare MAC against the buffer containing EVP2EncryptedFile  Cipher-text
+    //Fail if MAC differs, proceed if not
 
     /*a temp file whose name is pointed to by tmpFile1 now contains Message+MAC data*/
     /*Open the decrypted envelope to strip and authenticate the SHA512 MAC/
 
-			/*Open Message+MAC from the temporary file*/
+	/*Open Message+MAC from the temporary file*/
     EVP2DecryptedFile = fopen(tmpFile1, "rb");
     if (EVP2DecryptedFile == NULL) /*Make sure the file opens*/
     {
@@ -2445,7 +2460,7 @@ int openEnvelope()
     fseek(EVP2DecryptedFile, 0L, SEEK_SET);
 
     /*Allocate a buffer big enough for the EVP2DecryptedFile file minus the 512 bit MAC*/
-    tmpBuffer = malloc(sizeof(unsigned char) * (fileSize - SHA512_DIGEST_LENGTH));
+    tmpBuffer = calloc(sizeof(unsigned char), (fileSize - SHA512_DIGEST_LENGTH));
 
     /*Read the Message data into the temp buffer, then write it out to tmpFile2*/
     returnVal = fread(tmpBuffer, sizeof(unsigned char), fileSize - SHA512_DIGEST_LENGTH, EVP2DecryptedFile);
@@ -2501,76 +2516,76 @@ void cleanUpFiles()
 /*Allocate and randomize with OpenSSL's PRNG*/
 void allocateBuffers()
 {
-    entryPass = malloc(sizeof(char) * BUFFER_SIZES);
+    entryPass = calloc(sizeof(char), BUFFER_SIZES);
     if (!RAND_bytes(entryPass, BUFFER_SIZES))
         printf("Warning: CSPRNG bytes may not be unpredictable\n");
         
-    entryPassStore = malloc(sizeof(char) * BUFFER_SIZES);
+    entryPassStore = calloc(sizeof(char), BUFFER_SIZES);
     if (!RAND_bytes(entryPassStore, BUFFER_SIZES))
         printf("Warning: CSPRNG bytes may not be unpredictable\n");
 
-    entryName = malloc(sizeof(char) * BUFFER_SIZES);
+    entryName = calloc(sizeof(char), BUFFER_SIZES);
     if (!RAND_bytes(entryName, BUFFER_SIZES))
         printf("Warning: CSPRNG bytes may not be unpredictable\n");
 
-    entryNameToSearch = malloc(sizeof(char) * BUFFER_SIZES);
+    entryNameToSearch = calloc(sizeof(char), BUFFER_SIZES);
     if (!RAND_bytes(entryNameToSearch, BUFFER_SIZES))
         printf("Warning: CSPRNG bytes may not be unpredictable\n");
 
-    newEntry = malloc(sizeof(char) * BUFFER_SIZES);
+    newEntry = calloc(sizeof(char), BUFFER_SIZES);
     if (!RAND_bytes(newEntry, BUFFER_SIZES))
         printf("Warning: CSPRNG bytes may not be unpredictable\n");
 
-    newEntryPass = malloc(sizeof(char) * BUFFER_SIZES);
+    newEntryPass = calloc(sizeof(char), BUFFER_SIZES);
     if (!RAND_bytes(newEntryPass, BUFFER_SIZES))
         printf("Warning: CSPRNG bytes may not be unpredictable\n");
         
-    newEntryPassStore = malloc(sizeof(char) * BUFFER_SIZES);
+    newEntryPassStore = calloc(sizeof(char), BUFFER_SIZES);
     if (!RAND_bytes(newEntryPassStore, BUFFER_SIZES))
         printf("Warning: CSPRNG bytes may not be unpredictable\n");
 
-    dbPass = malloc(sizeof(unsigned char) * BUFFER_SIZES * 2);
+    dbPass = calloc(sizeof(unsigned char), BUFFER_SIZES * 2);
     if (!RAND_bytes(dbPass, BUFFER_SIZES * 2))
         printf("Warning: CSPRNG bytes may not be unpredictable\n");
         
-    dbPassStore = malloc(sizeof(unsigned char) * BUFFER_SIZES * 2);
+    dbPassStore = calloc(sizeof(unsigned char), BUFFER_SIZES * 2);
     if (!RAND_bytes(dbPassStore, BUFFER_SIZES * 2))
         printf("Warning: CSPRNG bytes may not be unpredictable\n");
 
-    dbPassOld = malloc(sizeof(unsigned char) * BUFFER_SIZES * 2);
+    dbPassOld = calloc(sizeof(unsigned char), BUFFER_SIZES * 2);
     if (!RAND_bytes(dbPassOld, BUFFER_SIZES * 2))
         printf("Warning: CSPRNG bytes may not be unpredictable\n");
 
-    hmacKey = malloc(sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
+    hmacKey = calloc(sizeof(unsigned char), SHA512_DIGEST_LENGTH);
     if (!RAND_bytes(hmacKey, SHA512_DIGEST_LENGTH))
         printf("Warning: CSPRNG bytes may not be unpredictable\n");
         
-    hmacKeyOld = malloc(sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
+    hmacKeyOld = calloc(sizeof(unsigned char), SHA512_DIGEST_LENGTH);
     if (!RAND_bytes(hmacKeyOld, SHA512_DIGEST_LENGTH))
         printf("Warning: CSPRNG bytes may not be unpredictable\n");
         
-    hmacKeyNew = malloc(sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
+    hmacKeyNew = calloc(sizeof(unsigned char), SHA512_DIGEST_LENGTH);
     if (!RAND_bytes(hmacKeyNew, SHA512_DIGEST_LENGTH))
         printf("Warning: CSPRNG bytes may not be unpredictable\n");
 
-    evp1Salt = malloc(sizeof(unsigned char) * EVP1_SALT_SIZE);
-    evp2Salt = malloc(sizeof(unsigned char) * EVP2_SALT_SIZE);
+    evp1Salt = calloc(sizeof(unsigned char), EVP1_SALT_SIZE);
+    evp2Salt = calloc(sizeof(unsigned char), EVP2_SALT_SIZE);
 }
 
 /*Fill up the buffers we stored the information in with 0's before exiting*/
 void cleanUpBuffers()
 {
-	memset(entryPass,0,sizeof(unsigned char) * BUFFER_SIZES);
-	memset(entryName,0,sizeof(unsigned char) * BUFFER_SIZES);
-	memset(entryNameToSearch,0,sizeof(unsigned char) * BUFFER_SIZES);
-	memset(newEntry,0,sizeof(unsigned char) * BUFFER_SIZES);
-	memset(newEntryPass,0,sizeof(unsigned char) * BUFFER_SIZES);
-	memset(dbPass,0,sizeof(unsigned char) * strlen(dbPass));
-	memset(dbPassOld,0,sizeof(unsigned char) * BUFFER_SIZES * 2);
-	memset(evpKey2,0,sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
-	memset(evpIv2,0,sizeof(unsigned char) * EVP_MAX_IV_LENGTH);
-	memset(fMac,0,sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
-	memset(gMac,0,sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
+	OPENSSL_cleanse(entryPass,sizeof(unsigned char) * BUFFER_SIZES);
+	OPENSSL_cleanse(entryName,sizeof(unsigned char) * BUFFER_SIZES);
+	OPENSSL_cleanse(entryNameToSearch,sizeof(unsigned char) * BUFFER_SIZES);
+	OPENSSL_cleanse(newEntry,sizeof(unsigned char) * BUFFER_SIZES);
+	OPENSSL_cleanse(newEntryPass,sizeof(unsigned char) * BUFFER_SIZES);
+	OPENSSL_cleanse(dbPass,sizeof(unsigned char) * strlen(dbPass));
+	OPENSSL_cleanse(dbPassOld,sizeof(unsigned char) * BUFFER_SIZES * 2);
+	OPENSSL_cleanse(evpKey2,sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
+	OPENSSL_cleanse(evpIv2,sizeof(unsigned char) * EVP_MAX_IV_LENGTH);
+	OPENSSL_cleanse(fMac,sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
+	OPENSSL_cleanse(gMac,sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
   
 }
 
@@ -2613,9 +2628,9 @@ void genPassWord(int stringLength)
 char* genFileName()
 {
     char b; /*Random byte*/
-    char* fileNameBuffer = malloc(sizeof(char) * NAME_MAX);
+    char* fileNameBuffer = calloc(sizeof(char), NAME_MAX);
     /*Allocate fileName buffer to be large enough to accomodate default temporary directory name*/
-    char* fileName = malloc(sizeof(char) * NAME_MAX - strlen(P_tmpdir));
+    char* fileName = calloc(sizeof(char), NAME_MAX - strlen(P_tmpdir));
     int i = 0;
 
     /*Go until i has iterated over the length of the pass requested*/
@@ -2679,7 +2694,7 @@ int sendToClipboard(char* textToSend)
     char xclipCommand[] = "xclip -in";
     char wipeCommand[] = "xclip -in";
     char wipeOutBuffer[strlen(textToSend)];
-    memset(wipeOutBuffer, 0, strlen(textToSend));
+    OPENSSL_cleanse(wipeOutBuffer, strlen(textToSend));
     FILE* xclipFile = popen(xclipCommand, "w");
     FILE* wipeFile = popen(wipeCommand, "w");
     pid_t pid, sid;
@@ -2700,7 +2715,7 @@ int sendToClipboard(char* textToSend)
         perror("xclip");
         return errno;
     }
-    memset(textToSend, 0, strlen(textToSend));
+    OPENSSL_cleanse(textToSend, strlen(textToSend));
 
     printf("\n%i seconds before password is cleared from clipboard\n", xclipClearTime);
 
