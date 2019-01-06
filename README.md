@@ -50,33 +50,12 @@ An example password database, encrypted with the password 'password' is availabl
 
 # TODO
 
-* MAC nonce along with hmac key for MAC-and-encrypt:
-
-Some literature suggests that best practice is to authenticate things like nonces and salts along with the plain-text.
-
-* Stop gcc optimizing away memset:
-
-Sensitive information like plain-text buffers and user-inputted information was thought to be cleared out of memory by memset.
-
-Because gcc will optimize memset lines away, this is not the case, and a new way to sanitize the memory that held this sensitive
-information is needed.
-
-* Change '-c' option to take two cipher names delimited with a colon so both algoritms in the cascade can be selected:
-
-Right now camellia-256-ofb is the default 1st algorithm in the cascade, and only the 2nd algorithm can be selected by the user.
-
-Allowing the cryptoHeader to have two OpenSSL algorithm names delimited by a colon would easily allow both ciphers to be selected
-while still requiring only the option '-c'.  Example, Camellia-256-OFB cascaded into AES-256-CTR would 
-be camellia-256-ofb:digest:aes-256-ctr:digest in the cryptoHeader.
-
 * Get gcm/ccm modes working:
 
 A lot of the authentication with HMAC can be done with much more streamlined operations if OpenSSL's GCM implementation is used.
 
+* Perform authentication on both algorithms in cascade, instead of just the 1st:
 
-* Modify openEnvelope/sealEnvelope to perform HMAC on EVP1 cipher-text in MAC-then-encrypt style:
-
-A blog post by Matthew Green suggests that best practice for cascaded/combined encryption with authentication is to use
-authentication on both ciphers, and not just one.
+A blog post by Matthew Green suggests that using authentication on the 1st algorithm alone makes it possible for the 2nd algorithm's cipher-text to be "beiningly malleable". He suggests that most changes to cipher-text should be detected, but that padding used in modes like CBC could be changed.
 https://blog.cryptographyengineering.com/2012/02/02/multiple-encryption/
 
