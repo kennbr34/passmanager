@@ -600,6 +600,8 @@ int main(int argc, char* argv[])
         /*Note this will be needed before openEnvelope() is called in all modes except Read*/
         /*Do OpenSSL priming operations*/
         if (primeSSL() != 0) {
+			cleanUpBuffers();
+			cleanUpFiles();
             return 1;
         }
 
@@ -741,6 +743,8 @@ int main(int argc, char* argv[])
 
         /*Do OpenSSL priming operations*/
         if (primeSSL()) {
+			cleanUpBuffers();
+			cleanUpFiles();
             return 1;
         }
 
@@ -875,6 +879,8 @@ int main(int argc, char* argv[])
 
         /*Do OpenSSL priming operations*/
         if (primeSSL() != 0) {
+			cleanUpBuffers();
+			cleanUpFiles();
             return 1;
         }
 
@@ -925,7 +931,7 @@ int main(int argc, char* argv[])
 
         if (toggle.dbPassArg != 1) /*If user did not specify to take pass off command line*/
         {
-            getPass("Enter old database password: ", dbPass);
+            getPass("Enter current database password: ", dbPass);
         }
 
         if (openEnvelope(encCipher2, messageDigest2, dbPass) != 0) {
@@ -1033,6 +1039,8 @@ int main(int argc, char* argv[])
         /*Do OpenSSL priming operations*/
         /*This will change to the cipher just specified*/
         if (primeSSL() != 0) {
+			cleanUpBuffers();
+			cleanUpFiles();
             return 1;
         }
 		
@@ -1224,13 +1232,11 @@ int updateEntry(FILE* dbFile, char* searchString)
 		OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * BUFFER_SIZES);
 		OPENSSL_cleanse(encryptedBuffer, sizeof(unsigned char) * fileSize);
 		OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize);
-		OPENSSL_cleanse(fileBuffer,sizeof(unsigned char) * fileSize);
 
 		free(entryBuffer);
 		free(passBuffer);
 		free(encryptedBuffer);
 		free(decryptedBuffer);
-		free(fileBuffer);
         
         cleanUpBuffers();
         return 1;
@@ -1466,13 +1472,11 @@ int deletePass(FILE* dbFile, char* searchString)
 		OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * BUFFER_SIZES);
 		OPENSSL_cleanse(encryptedBuffer, sizeof(unsigned char) * outlen + EVP_MAX_BLOCK_LENGTH);
 		OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * outlen);
-		OPENSSL_cleanse(fileBuffer, sizeof(unsigned char) * fileSize - ((BUFFER_SIZES * 2)));
 
 		free(entryBuffer);
 		free(passBuffer);
 		free(encryptedBuffer);
 		free(decryptedBuffer);
-		free(fileBuffer);
         cleanUpFiles();
         cleanUpBuffers();
         return 1;
@@ -2426,10 +2430,20 @@ int openEnvelope()
     strcpy(encCipher1, token);
 
     token = strtok(NULL, ":");
+    if(token == NULL) {
+		printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
+		cleanUpFiles;
+		exit(1);
+	}
 
     strcpy(messageDigest1, token);
     
     token = strtok(NULL, ":");
+    if(token == NULL) {
+		printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
+		cleanUpFiles;
+		exit(1);
+	}
 
     strcpy(encCipher2, token);
     

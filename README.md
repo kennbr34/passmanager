@@ -5,22 +5,17 @@ Packaging it as I have was mostly used for the experience of learning how to use
 a piece of software throughout development. Mostly the intent in sharing it would be to learn from others about what mistakes I've 
 made and what I could do better.  I have little illusion that there is practical reason for anyone to adopt this password manager
 over much more tried and true options, and I don't ecourage it.  I use it myself simply because its my own creation, and for
-that reason I've endured to make it as securely functioning as I can as if it were to be used/developed by others.
-
-One major coding challenge for me has been to design the program to work solely in memory, instead of temporary files. I used 
-that shortcoming as rationale to leave my steam cipher in the program (to encrypt the temp files), so I would also have an excuse 
-for describing and specifying it. Once I was satisfied with that, I removed my custom crypto from the program, and relied on 
-OpenSSL's libraries instead.
+that reason I've tried to make it as securely functioning and user friendly as I can, as if it were to be used/developed by others.
 
 # DEPENDENCIES
 
-OpenSSL (1.0.1.g or higher) developement files
+OpenSSL development files (1.0.1.g or higher)
 
-xclip (optional, for clipboard functions)
+xclip (optional for clipboard functions)
 
 # INSTALL
 
-This archive is an automake package with full documentation, example files and a cipher checking script.
+This archive is an automake package.
 
 To install, run these commands from the current working directory:
 
@@ -28,7 +23,7 @@ $ ./configure
 
 $ make
 
-$ make install
+## make install
 
 # COMPILATION
 
@@ -36,47 +31,30 @@ If you don't want to install the automake package contents, and want to compile 
 
 gcc passmanager.c -o passmanager -lcrypto
 
+Special Note: I would advice against using optimization, because the functions which are used to clear memory of sensitive data may be optimized out.
+
 # DOCUMENTATION
 
 Full and thorugh documentation can be found here:
 
 https://kennbr34.github.io/
 
+There is also an accompanying manual file at 'man/passmanager.1' or installed to the system after 'make install'
+
 # SCRIPTS AND EXAMPLES
 
-A cript to check that all OpenSSL ciphers functino correctly is available at /usr/local/bin/ciphercheck.sh after installation.
-
-An example password database, encrypted with the password 'password' is available at /usr/local/share/doc/passmanager/examplepasswords1.dat.
+A script to demonstrate and test the progarm is available at 'scripts/demofunctions.sh'. It will create an fake database file, encrypting it with the password 'password' and save it to 'scripts/examplepasswords1.dat'  It can be ran after 'make'
 
 # TODO
-
-* MAC nonce along with hmac key for MAC-and-encrypt:
-
-Some literature suggests that best practice is to authenticate things like nonces and salts along with the plain-text.
-
-* Stop gcc optimizing away memset:
-
-Sensitive information like plain-text buffers and user-inputted information was thought to be cleared out of memory by memset.
-
-Because gcc will optimize memset lines away, this is not the case, and a new way to sanitize the memory that held this sensitive
-information is needed.
-
-* Change '-c' option to take two cipher names delimited with a colon so both algoritms in the cascade can be selected:
-
-Right now camellia-256-ofb is the default 1st algorithm in the cascade, and only the 2nd algorithm can be selected by the user.
-
-Allowing the cryptoHeader to have two OpenSSL algorithm names delimited by a colon would easily allow both ciphers to be selected
-while still requiring only the option '-c'.  Example, Camellia-256-OFB cascaded into AES-256-CTR would 
-be camellia-256-ofb:digest:aes-256-ctr:digest in the cryptoHeader.
 
 * Get gcm/ccm modes working:
 
 A lot of the authentication with HMAC can be done with much more streamlined operations if OpenSSL's GCM implementation is used.
 
+* Perform authentication on both algorithms in cascade, instead of just the 1st:
 
-* Modify openEnvelope/sealEnvelope to perform HMAC on EVP1 cipher-text in MAC-then-encrypt style:
-
-A blog post by Matthew Green suggests that best practice for cascaded/combined encryption with authentication is to use
-authentication on both ciphers, and not just one.
+A blog post by Matthew Green suggests that using authentication on the 1st algorithm alone makes it possible for the 2nd algorithm's cipher-text to be "beiningly malleable". He suggests that most changes to cipher-text should be detected, but that padding used in modes like CBC could be changed.
 https://blog.cryptographyengineering.com/2012/02/02/multiple-encryption/
 
+* Cleanup source
+A lot of artifacts of the original design have carried over, like using fopen and chmod instead of just one open call.  Otherwise, there's probably more comments than need to be there, and they haven't been kept as updated as the surrounding source. I should also find a cleaner way to access buffers and variables from one function's scope to another besides declaring them globablly; for some reason nobody likes reading that.  Honestly, there's probably a lot more "WTFs" per minute than I am aware of.

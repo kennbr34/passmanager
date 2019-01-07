@@ -2,11 +2,13 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([passmanager], [2.0.0])
+AC_INIT([passmanager], [2.1.0])
 AC_CONFIG_SRCDIR([src/passmanager.c])
 AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_HEADERS([config.h])
 AM_MAINTAINER_MODE
+
+: ${CFLAGS=""}
 
 # Checks for programs.
 AC_PROG_CC
