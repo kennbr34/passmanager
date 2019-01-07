@@ -57,4 +57,5 @@ A blog post by Matthew Green suggests that using authentication on the 1st algor
 https://blog.cryptographyengineering.com/2012/02/02/multiple-encryption/
 
 * Cleanup source
+
 A lot of artifacts of the original design have carried over, like using fopen and chmod instead of just one open call.  Otherwise, there's probably more comments than need to be there, and they haven't been kept as updated as the surrounding source. I should also find a cleaner way to access buffers and variables from one function's scope to another besides declaring them globablly; for some reason nobody likes reading that.  Honestly, there's probably a lot more "WTFs" per minute than I am aware of.
