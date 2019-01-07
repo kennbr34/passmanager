@@ -2,12 +2,12 @@ bin_PROGRAMS = passmanager
 
 passmanager_SOURCES = src/passmanager.c
 
-bin_SCRIPTS = scripts/ciphercheck.sh
+bin_SCRIPTS =
 
 man_MANS = man/passmanager.1
 
 docdir = $(datadir)/doc/@PACKAGE@
-doc_DATA = doc/non-working-ciphers doc/working-ciphers
+doc_DATA =
 
 exampledir = $(datarootdir)/doc/@PACKAGE@
-example_DATA = examples/examplepasswords1.dat
+example_DATA =
