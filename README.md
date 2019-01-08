@@ -45,17 +45,8 @@ There is also an accompanying manual file at 'man/passmanager.1' or installed to
 
 A script to demonstrate and test the progarm is available at 'scripts/demofunctions.sh'. It will create an fake database file, encrypting it with the password 'password' and save it to 'scripts/examplepasswords1.dat'  It can be ran after 'make'
 
-# TODO
+# DEVELOPMENT GOALS
 
-* Get gcm/ccm modes working:
+* Create a branch using GCM:
 
-A lot of the authentication with HMAC can be done with much more streamlined operations if OpenSSL's GCM implementation is used.
-
-* Perform authentication on both algorithms in cascade, instead of just the 1st:
-
-A blog post by Matthew Green suggests that using authentication on the 1st algorithm alone makes it possible for the 2nd algorithm's cipher-text to be "beiningly malleable". He suggests that most changes to cipher-text should be detected, but that padding used in modes like CBC could be changed.
-https://blog.cryptographyengineering.com/2012/02/02/multiple-encryption/
-
-* Cleanup source
-
-A lot of artifacts of the original design have carried over, like using fopen and chmod instead of just one open call.  Otherwise, there's probably more comments than need to be there, and they haven't been kept as updated as the surrounding source. I should also find a cleaner way to access buffers and variables from one function's scope to another besides declaring them globablly; for some reason nobody likes reading that.  Honestly, there's probably a lot more "WTFs" per minute than I am aware of.
+A lot of the authentication with HMAC can be done with much more streamlined operations if OpenSSL's GCM implementation is used.  AES-GCM is the fist standardized NIST Authenticated Encryption algorithm and likely to see more development via the OpenSSL team and would greatly simplify the program.
