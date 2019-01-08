@@ -151,11 +151,15 @@ unsigned char* evp1Salt; /*This will store the salt to use for EVP1KDF() key der
 unsigned char gMac[SHA512_DIGEST_LENGTH]; /*MAC generated from plain-text, thus gMac for generatedMac*/
 unsigned char fMac[SHA512_DIGEST_LENGTH]; /*MAC read from file to check against, thus fMac for fileMac*/
 unsigned int* gMacLength; /*HMAC() needs an int pointer to put the length of the mac generated into*/
+unsigned char gMac2[SHA512_DIGEST_LENGTH]; /*MAC generated from plain-text, thus gMac for generatedMac*/
+unsigned char fMac2[SHA512_DIGEST_LENGTH]; /*MAC read from file to check against, thus fMac for fileMac*/
+unsigned int* gMacLength2; /*HMAC() needs an int pointer to put the length of the mac generated into*/
 
 /*Character arrays to hold temp file random names*/
 char* tmpFile1;
 char* tmpFile2;
 char* tmpFile3;
+char* tmpFile4;
 
 /*Backup and database file names*/
 char dbFileName[NAME_MAX]; /*Password file name*/
@@ -199,6 +203,7 @@ int main(int argc, char* argv[])
     tmpFile1 = genFileName();
     tmpFile2 = genFileName();
     tmpFile3 = genFileName();
+    tmpFile4 = genFileName();
 
     /*These file handles refer to temporary and final files in the openEnvelope/sealEnvelope process*/
     FILE *EVP2EncryptedFile, *EVP2DecryptedFile, *EVP1DataFileTmp, *dbFile;
@@ -1609,7 +1614,7 @@ int deletePass(FILE* dbFile, char* searchString)
 
     OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * BUFFER_SIZES);
     OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * BUFFER_SIZES);
-    OPENSSL_cleanse(encryptedBuffer, sizeof(unsigned char) * outlen - ((BUFFER_SIZES * 2) * entriesMatched));
+    //OPENSSL_cleanse(encryptedBuffer, sizeof(unsigned char) * outlen - ((BUFFER_SIZES * 2) * entriesMatched));
     OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize);
     OPENSSL_cleanse(fileBuffer, sizeof(unsigned char) * fileSize - ((BUFFER_SIZES * 2) * entriesMatched));
 
@@ -2225,6 +2230,8 @@ int primeSSL()
 
 int sealEnvelope(const char* tmpFileToUse)
 {
+	unsigned char* tmpBuffer;
+	
     unsigned char cryptoBuffer[BUFFER_SIZES];
     if (!RAND_bytes(cryptoBuffer, BUFFER_SIZES))
         printf("Warning: CSPRNG bytes may not be unpredictable\n");
@@ -2276,7 +2283,7 @@ int sealEnvelope(const char* tmpFileToUse)
     chmod(tmpFileToUse, S_IRUSR | S_IWUSR);
 
     /*This will now be an EVP2EncryptedFile but calling it dbFile to clarify it is the final step*/
-    dbFile = fopen(dbFileName, "wb");
+    dbFile = fopen(dbFileName, "rb+");
     if (dbFile == NULL) /*Make sure the file opens*/
     {
         perror("passmanager");
@@ -2347,14 +2354,26 @@ int sealEnvelope(const char* tmpFileToUse)
     fclose(EVP2DecryptedFile);
     
     //Encrypt-then-mac setup
+
+    //Load dbFile contents into a buffer (including cryptoHeader as associated data)
+    long fileSize = ftell(dbFile);
+    tmpBuffer = calloc(sizeof(unsigned char), fileSize);
+    rewind(dbFile);
+    fread(tmpBuffer,sizeof(unsigned char),fileSize,dbFile);
+
+
+    //HMAC-SHA512 that buffer
+    HMAC(EVP_sha512(), evpKey2, SHA512_DIGEST_LENGTH, tmpBuffer, fileSize, gMac2, gMacLength2);
     
-    //Load dbFile contents into a buffer, minus cryptoHeader
-    //MAC that buffer
-    //append 64-byte mac to end of dbFile
+    
+    //Append SHA512_DIGEST_LENGTH sized MAC to end of dbFile
+    fwrite(gMac2,sizeof(unsigned char),SHA512_DIGEST_LENGTH,dbFile);
+
+     /*Close the files*/
     
     fclose(dbFile);
     
-
+	free(tmpBuffer);
     cleanUpFiles();
 
     return 0;
@@ -2364,12 +2383,12 @@ int openEnvelope()
 {
     unsigned char cryptoHeader[BUFFER_SIZES];
     unsigned char* token;
-    int i;
+    int i, headerOffset;
 
     /*This creates a temporary buffer to store the contents of the password file between read and writes to temporary files*/
     /*Also creates file handles to be used  for envelope and temporary files*/
     unsigned char* tmpBuffer;
-    FILE *EVP2EncryptedFile, *EVP2DecryptedFile, *EVP1DataFileTmp;
+    FILE *EVP2EncryptedFile, *EVP2EncryptedFileTmp, *EVP2DecryptedFile, *EVP1DataFileTmp, *dbFile;
 
     /*Open the OpenSSL encrypted envelope containing Message+MAC data*/
     EVP2EncryptedFile = fopen(dbFileName, "rb");
@@ -2418,6 +2437,8 @@ int openEnvelope()
 			return 1;
 		}
 	}
+	
+	headerOffset = ftell(EVP2EncryptedFile);
 
     /*Use strtok to parse the string delinieated by ':'*/
 
@@ -2507,15 +2528,71 @@ int openEnvelope()
     if (EVP1DataFileTmp == NULL) /*Make sure the file opens*/
     {
         perror("passmanager");
-        printf("Could not open file: %s", tmpFile1);
+        printf("Could not open file tmpFile1 into EVP1DataFileTmp with: %s", tmpFile1);
         return errno;
     }
     chmod(tmpFile1, S_IRUSR | S_IWUSR);
+    
+    //Encrypt-then-mac setup
 
+    //create a buffer and load EVP2EncryptedFIle, including cryptoHeader (as associated data), but minus SHA512_DIGEST_LENGTH sized MAC
+
+
+    long fileSize;
+    fseek(EVP2EncryptedFile, 0L, SEEK_END);
+    fileSize = ftell(EVP2EncryptedFile) - SHA512_DIGEST_LENGTH;
+    rewind(EVP2EncryptedFile);
+    tmpBuffer = calloc(sizeof(unsigned char), fileSize);
+    fread(tmpBuffer,sizeof(unsigned char),fileSize,EVP2EncryptedFile);
+
+    //Load MAC from last SHA512_DIGEST_LENGTH bytes of file
+    fread(fMac2,sizeof(unsigned char),SHA512_DIGEST_LENGTH,EVP2EncryptedFile);
+
+    //Compare MAC against HMAC-SHA512 MAC of buffer containing EVP2EncryptedFile  Cipher-text
+    HMAC(EVP_sha512(), evpKey2, SHA512_DIGEST_LENGTH, tmpBuffer, fileSize, gMac2, gMacLength2);
+
+    //Fail if MAC differs, proceed if not
+    if (memcmp(fMac2, gMac2, SHA512_DIGEST_LENGTH) != 0) {
+        printMACErrMessage(backupFileName);
+        printf("\nMAC failed in openEnvelope\n");
+
+		free(tmpBuffer);
+        cleanUpFiles();
+        cleanUpBuffers();
+        return 1;
+    }
+
+    //Make a temp file containing EVP2EncryptedFile with no MAC
+    EVP2EncryptedFileTmp = fopen(tmpFile4, "wb+");
+    if (EVP2EncryptedFileTmp == NULL) /*Make sure the file opens*/
+    {
+        perror("passmanager");
+        printf("Could not open file tmpFile4 EVP2EncryptedFileTmp with: %s\n", tmpFile4);
+        return errno;
+    }
+    chmod(tmpFile4, S_IRUSR | S_IWUSR);
+
+	fwrite(tmpBuffer,sizeof(unsigned char),fileSize,EVP2EncryptedFileTmp);
+
+	free(tmpBuffer);
+	fclose(EVP2EncryptedFile);
+	fclose(EVP2EncryptedFileTmp);
+	
+	EVP2EncryptedFileTmp = fopen(tmpFile4, "rb");
+    if (EVP2EncryptedFileTmp == NULL) /*Make sure the file opens*/
+    {
+        perror("passmanager");
+        printf("Could not open file tmpFile4 EVP2EncryptedFileTmp with: %s\n", tmpFile4);
+        return errno;
+    }
+    chmod(tmpFile4, S_IRUSR | S_IWUSR);
+    
+    fseek(EVP2EncryptedFileTmp,headerOffset,SEEK_SET);
+	
     /*Decrypted the OpenSSL envelope file into passman.tmp*/
-    if (dbDecrypt(EVP2EncryptedFile, EVP1DataFileTmp) != 0) {
+    if (dbDecrypt(EVP2EncryptedFileTmp, EVP1DataFileTmp) != 0) {
         printf("\nWrong key used.\n");
-        fclose(EVP2EncryptedFile);
+        fclose(EVP2EncryptedFileTmp);
         fclose(EVP1DataFileTmp);
         wipeFile(tmpFile1);
         remove(tmpFile1);
@@ -2523,34 +2600,31 @@ int openEnvelope()
     }
 
     /*Now close the encrypted envelope and temp file*/
-    fclose(EVP2EncryptedFile);
+    fclose(EVP2EncryptedFileTmp);
     fclose(EVP1DataFileTmp);
     
-    //Encrypt-then-mac setup
     
-    //create a buffer and load EVP2EncryptedFIle, minus cryptoHeader and and MAC
-    //Load MAC from last 64 bytes of file
-    //Compare MAC against the buffer containing EVP2EncryptedFile  Cipher-text
-    //Fail if MAC differs, proceed if not
 
     /*a temp file whose name is pointed to by tmpFile1 now contains Message+MAC data*/
-    /*Open the decrypted envelope to strip and authenticate the SHA512 MAC/
-
-	/*Open Message+MAC from the temporary file*/
+    /*Open the decrypted envelope to strip and authenticate the SHA512 MAC*/
     EVP2DecryptedFile = fopen(tmpFile1, "rb");
     if (EVP2DecryptedFile == NULL) /*Make sure the file opens*/
     {
         perror("passmanager");
-        printf("Could not open file: %s", tmpFile1);
+        printf("Could not open tmpFile1 into EVP2DecryptedFile with : %s\n", tmpFile1);
         return errno;
     }
     chmod(tmpFile1, S_IRUSR | S_IWUSR);
 
     /*Open a file to write the Message data into once we've stripped the MAC off*/
+    
+    
+    
     EVP1DataFileTmp = fopen(tmpFile2, "wb");
     if (EVP1DataFileTmp == NULL) /*Make sure the file opens*/
     {
         perror("passmanager");
+        printf("Could not open tmpFile2 into EVP1DataFileTmp with : %s\n", tmpFile2);
         return errno;
     }
     chmod(tmpFile2, S_IRUSR | S_IWUSR);
@@ -2559,7 +2633,7 @@ int openEnvelope()
 
     /*Need to get the size of the file, then fseek to that value minus the length SHA512 hash*/
     //Maybe use returnFileSize instead
-    long fileSize;
+    fileSize;
     fseek(EVP2DecryptedFile, 0L, SEEK_END);
     fileSize = ftell(EVP2DecryptedFile);
     fseek(EVP2DecryptedFile, fileSize - SHA512_DIGEST_LENGTH, SEEK_SET);
