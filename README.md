@@ -1,13 +1,30 @@
-This program has been a project of mine for quite a while.  There's a billion password managers out there, a ton of cipher algorithms,
-but I just wanted to take a crack at writing code for one of my own just for practice.
+This password manager has been my project to learn to code dor years. I tried to make the interface as simple as possible, and focused more on security and simplicity. The end result is a password manager that modifies and displays an encrypted password database as if it were parsing a simple text file, with a couple bells and whistles like a password generator and automated clipboard loading/clearing. 
 
-Packaging it as I have was mostly used for the experience of learning how to use autotools, and to practice thoroughly documenting
-a piece of software throughout development. Mostly the intent in sharing it would be to learn from others about what mistakes I've 
-made and what I could do better.  
+The bulk of the program is under the hood, because ir pays special attention to security. Care is taken to not display more passwords on screen at one time than needed (if not able to to use clipboard) and sensitive information is cleared from memory. Cascaded and authenticated encryption is used through OpenSSL libraries. with rhe default configuration encrypting  first into Camellia-256-OFB, and then encrypting that ciper-text wirh AES-256-CTR.
 
-I have little illusion that there is practical reason for anyone to adopt this password manager
-over much more tried and true options, and I don't ecourage it.  I use it myself simply because its my own creation, and for
-that reason I've tried to make it as securely functioning and user friendly as I can, as if it were to be used/developed by others.
+Thorough documentation on design and use was also added via manual file, in addition to a webpage clone of said manual file. The source itself is thoroughly commented, and autotools was used to handle installation of this documentation, compiling and installing the binary, and providing a demo script showing off the program's use and features.
+
+# PLATFORMS
+
+The program utilizes OpenSSL and POSIX compliant functions, so it should work on most unix-like systems
+
+Confirmed Operational On:
+
+Debian Buster/testing
+
+Ubuntu (16.04 and 18.04)
+
+Antegros 18.12
+
+Manjaro 18.0
+
+Sabayon 18.05
+
+Slackware 14.2
+
+openSUSE Leap 15.0
+
+GhostBSD 18.10
 
 # DEPENDENCIES
 
