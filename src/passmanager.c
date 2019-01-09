@@ -2134,15 +2134,36 @@ void mdLister()
 int primeSSL()
 {
 	char modeTag[3];
-	int stringStart;
+	int stringStart, modeLength;
+	int i;
 	
     /*If the user has specified a cipher to use*/
     if (toggle.encCipher == 1 || encCipher2[0] != 0) {
 		
-		stringStart = strlen(encCipher1) - 3;
-        for(int i=0; i < 3; i++)
-			modeTag[i] = encCipher1[stringStart + i];
-		if(strcasecmp(modeTag,"ofb") == 0 || strcasecmp(modeTag,"cfb") == 0 || strcasecmp(modeTag,"ctr") == 0)
+		/*Find start of mode*/
+		for(i = strlen(encCipher1);i > 0;i--) {
+			if(encCipher1[i] == '-') {
+				stringStart = i;
+				break;
+			}
+		}
+		
+		/*If no hyphen present, append -ctr mode to encCipher to enforce CTR mode by default*/
+		if(i == 0) {
+			printf("Must specify key size in bits and mode like \'%s-bits-mode\'\n", encCipher1);
+			return 1;
+		} else { /*Otherwise copy the mode specified to modeTag*/
+		
+			modeLength = strlen(encCipher1) - stringStart;
+		
+			stringStart++;
+			
+			for(i = 0; i < modeLength; i++)
+				modeTag[i] = encCipher1[stringStart + i];
+		}
+			
+					
+		if(strcasecmp(modeTag,"ofb") == 0 || strcasecmp(modeTag,"cfb") >= 0 || strcasecmp(modeTag,"ctr") == 0)
 		{
 			evpCipher1 = EVP_get_cipherbyname(encCipher1);
 		}
@@ -2152,10 +2173,27 @@ int primeSSL()
 			return 1;
 		}
 			
-		stringStart = strlen(encCipher2) - 3;
-        for(int i=0; i < 3; i++)
+		for(i = strlen(encCipher2);i > 0;i--) {
+			if(encCipher2[i] == '-') {
+				stringStart = i;
+				break;
+			}
+		}
+		
+		if(i == 0) {
+			printf("Must specify key size in bits and mode like \'%s-bits-mode\'\n", encCipher2);
+			return 1;
+		} else {
+			
+		modeLength = strlen(encCipher2) - stringStart;
+		
+		stringStart++;
+			
+		for(i = 0; i < modeLength; i++)
 			modeTag[i] = encCipher2[stringStart + i];
-		if(strcasecmp(modeTag,"ofb") == 0 || strcasecmp(modeTag,"cfb") == 0 || strcasecmp(modeTag,"ctr") == 0)
+		}
+			
+		if(strcasecmp(modeTag,"ofb") == 0 || strcasecmp(modeTag,"cfb") >= 0 || strcasecmp(modeTag,"ctr") == 0)
 		{
 			evpCipher2 = EVP_get_cipherbyname(encCipher2);
 		}
