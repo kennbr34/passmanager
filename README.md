@@ -3,7 +3,9 @@ but I just wanted to take a crack at writing code for one of my own just for pra
 
 Packaging it as I have was mostly used for the experience of learning how to use autotools, and to practice thoroughly documenting
 a piece of software throughout development. Mostly the intent in sharing it would be to learn from others about what mistakes I've 
-made and what I could do better.  I have little illusion that there is practical reason for anyone to adopt this password manager
+made and what I could do better.  
+
+I have little illusion that there is practical reason for anyone to adopt this password manager
 over much more tried and true options, and I don't ecourage it.  I use it myself simply because its my own creation, and for
 that reason I've tried to make it as securely functioning and user friendly as I can, as if it were to be used/developed by others.
 
@@ -31,7 +33,7 @@ If you don't want to install the automake package contents, and want to compile 
 
 gcc passmanager.c -o passmanager -lcrypto
 
-Special Note: I would advice against using optimization, because the functions which are used to clear memory of sensitive data may be optimized out.
+Special Note: I would advise against using optimization, because the functions which are used to clear memory of sensitive data may be optimized out.
 
 # DOCUMENTATION
 
