@@ -2,6 +2,11 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+2019-1-8
+(+ver 2.1.1)
+	Cipher mode parameter checking fixed for Slackware and GhostBSD, and improved to accept CFB1 and CFB8
+	
+	https://github.com/kennbr34/passmanager/pull/10
 2019-1-6
 (+ver 2.1.0)
 	Authentication Composition Changed to Encrypt-then-MAC
@@ -9,12 +14,10 @@
 	Parameter checking forces CFB, OFB or CTR modes
 	memset functions changed to OPENSSL_cleanse to avoid dead-store elimination
 	
-	More info at GitHub
 	https://github.com/kennbr34/passmanager/pull/8
 2019-1-1
 (+ver 2.0.0)
 	Removed YAXA cipher, and replaced with camellia-256-ofb for 1st algorithm in cascade.
 	Added return value checking for fread/fwrite calls
 	
-	More info at GitHub
 	https://github.com/kennbr34/passmanager/pull/2
