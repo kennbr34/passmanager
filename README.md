@@ -17,7 +17,7 @@ Manjaro 18.0\
 Sabayon 18.05\
 Slackware 14.2\
 openSUSE Leap 15.0\
-GhostBSD 18.10\
+GhostBSD 18.10
 
 # DEPENDENCIES
 
