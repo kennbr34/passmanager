@@ -10,14 +10,14 @@ The program utilizes OpenSSL and POSIX compliant functions, so it should work on
 
 Confirmed Operational On:
 
-Debian Buster/testing
-Ubuntu (16.04 and 18.04)
-Antegros 18.12
-Manjaro 18.0
-Sabayon 18.05
-Slackware 14.2
-openSUSE Leap 15.0
-GhostBSD 18.10
+Debian Buster/testing\
+Ubuntu (16.04 and 18.04)\
+Antegros 18.12\
+Manjaro 18.0\
+Sabayon 18.05\
+Slackware 14.2\
+openSUSE Leap 15.0\
+GhostBSD 18.10\
 
 # DEPENDENCIES
 
