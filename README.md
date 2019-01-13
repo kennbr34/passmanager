@@ -31,11 +31,9 @@ This archive is an automake package.
 
 To install, run these commands from the current working directory:
 
-$ ./configure
-
-$ make
-
-\# make install
+$ ./configure\
+$ make\
+\# make install\
 
 # COMPILATION
 
