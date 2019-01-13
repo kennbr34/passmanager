@@ -2,6 +2,11 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+2019-1-11
+(+ver 2.1.2)
+	Updated error handling and memory clearing
+	Updated comments
+	Changed a few variable names to be more appropriate
 2019-1-8
 (+ver 2.1.1)
 	Cipher mode parameter checking fixed for Slackware and GhostBSD, and improved to accept CFB1 and CFB8
