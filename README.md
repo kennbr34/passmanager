@@ -33,7 +33,7 @@ To install, run these commands from the current working directory:
 
 $ ./configure\
 $ make\
-\# make install\
+\# make install
 
 # COMPILATION
 
