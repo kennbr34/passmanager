@@ -139,7 +139,7 @@ configure:3973: $? = 0
 configure:3982: result: yes
 configure:3996: checking for OPENSSL_init_ssl in -lssl
 configure:4021: gcc -o conftest    conftest.c -lssl  -lcrypto -lcap  >&5
-/tmp/cc6WE8el.o: In function `main':
+/tmp/cciUUkKv.o: In function `main':
 conftest.c:(.text+0xa): undefined reference to `OPENSSL_init_ssl'
 collect2: error: ld returned 1 exit status
 configure:4021: $? = 1
