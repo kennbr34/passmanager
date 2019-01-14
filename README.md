@@ -22,7 +22,7 @@ openSUSE Leap 15.0\
 
 OpenSSL development files (1.0.1.g or higher)
 
-libcap development files
+libcap development files (2.24-12 or higher)
 
 xclip (optional for clipboard functions)
 
@@ -40,7 +40,7 @@ $ make\
 
 If you don't want to install the automake package contents, and want to compile the binary alone, just link with lcrypto
 
-gcc passmanager.c -o passmanager -lcrypto
+gcc passmanager.c -o passmanager -lcrypto -lcap
 
 Special Note: I would advise against using optimization, because the functions which are used to clear memory of sensitive data may be optimized out.
 
