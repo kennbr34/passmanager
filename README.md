@@ -6,7 +6,7 @@ Thorough documentation on design and use was also added via manual file, in addi
 
 # PLATFORMS
 
-The program utilizes OpenSSL and POSIX compliant functions, so it should work on most unix-like systems
+The program utilizes OpenSSL and libcap and should work on any Linux.
 
 Confirmed Operational On:
 
@@ -17,11 +17,12 @@ Manjaro 18.0\
 Sabayon 18.05\
 Slackware 14.2\
 openSUSE Leap 15.0\
-GhostBSD 18.10
 
 # DEPENDENCIES
 
 OpenSSL development files (1.0.1.g or higher)
+
+libcap development files
 
 xclip (optional for clipboard functions)
 
