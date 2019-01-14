@@ -18,6 +18,8 @@
   for use in the OpenSSL Toolkit (http://www.openssl.org/)
 */
 
+#define _GNU_SOURCE  // for secure_getenv()
+
 #include "config.h"
 #include <ctype.h>
 #include <errno.h>
@@ -39,7 +41,6 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <sys/capability.h>
-#include <sys/time.h>
 
 
 
@@ -126,6 +127,7 @@ void signalHandler(int signum); /*Signal handler for Ctrl+C*/
 int sendToClipboard(); /*Sends an entry password directly to clipboard*/
 int printSyntax(char* arg); /*Print program usage and help*/
 int printMACErrMessage(char* backupFileName); /*Print MAC error information*/
+int dropRoot(void); /*Drops root priveleges*/
 
 /*OpenSSL variables*/
 
@@ -211,50 +213,36 @@ int main(int argc, char* argv[])
 		printf("No priveleges to lock memory.  You may lose sensitive data to swap! Aborting.\n");
 		exit(1);
 	} else {
-		/*Lock program memory*/	
+		/*Lock program memory*/
+		/*For some reason unless geteuid() and getuid() are called in printf like above the program would segfault*/
+		/*Very hacky solution to print their results to /dev/null*/
+		/*But something peculiar is happening*/
+		FILE *devNull = fopen("/dev/null","rb+");
+		fprintf(devNull,"euid: %i uid: %i\n", geteuid(), getuid());
+		fclose(devNull);
 		
-		//printf("euid: %i uid: %i\n", geteuid(), getuid());
-
-		/*Need structure for libcap functions*/
 		cap_t caps;
 		cap_value_t cap_list[2];
-		cap_value_t clear_list[1];
 		caps = cap_get_proc();
 		if (caps == NULL)
-			perror("caps");
+			/* handle error */;
 		cap_list[0] = CAP_IPC_LOCK;
-		clear_list[0] = CAP_SYS_PTRACE;
-		
-		/*Set CAP_IPC_LOCK so we're not limited to a measely 32K of locked memory*/
-		if (cap_set_flag(caps, CAP_EFFECTIVE,1, cap_list, CAP_SET) == -1)
-			perror("caplist CAP_EFFECTIVE");
-		if (cap_set_flag(caps, CAP_INHERITABLE,1, cap_list, CAP_SET) == -1)
-			perror("caplit CAP INHERITABLE");
-			
-		/*Disable ptrace ability*/
-		if (cap_set_flag(caps, CAP_EFFECTIVE,1, clear_list, CAP_CLEAR) == -1)
-			perror("clearlist CAP_EFFECTIVE");
-		if (cap_set_flag(caps, CAP_INHERITABLE,1, clear_list, CAP_CLEAR) == -1)
-			perror("clearlist CAP INHERITABLE");
+		cap_list[1] = CAP_SETFCAP;
+		if (cap_set_flag(caps, CAP_EFFECTIVE, 2, cap_list, CAP_SET) == -1)
+			/* handle error */;
 		if (cap_set_proc(caps) == -1)
-			perror("cap_set_proc");
+			/* handle error */;
 		if (cap_free(caps) == -1)
-			perror("cap_free");
+			/* handle error */;
 		
-		/*Lock all current and future  memory from being swapped*/
 		if ( mlockall(MCL_CURRENT|MCL_FUTURE) == -1 )
 			perror("mlockall");
-		
-		/*Drop root*/
-		if(geteuid() != 0) {	
-			if(setuid(geteuid()) == -1)
-			perror("setuid");
-		}
+		dropRoot();
 	}
 	
-	///*Instead of launching with root and trying to drop priveleges, we can use file capabilities with getcap and setcap*/
-	//if ( mlockall(MCL_CURRENT|MCL_FUTURE) == -1 )
-			//perror("mlockall");
+	/*Instead of launching with root and trying to drop priveleges, we can use file capabilities with getcap and setcap*/
+	if ( mlockall(MCL_CURRENT|MCL_FUTURE) == -1 )
+			perror("mlockall");
 
     /*These calls will ensure that cleanUpFiles and cleanUpBuffers is ran after return call within main*/
 
@@ -3211,6 +3199,65 @@ char* getPass(const char* prompt, unsigned char* paddedPass)
     return paddedPass;
 }
 
+/*https://stackoverflow.com/questions/3357737/dropping-root-privileges*/
+int dropRoot(void) {  // returns 0 on success and -1 on failure
+    gid_t gid;
+    uid_t uid;
+
+    // no need to "drop" the privileges that you don't have in the first place!
+    if (getuid() != 0) {
+        return 0;
+    }
+
+    // when your program is invoked with sudo, getuid() will return 0 and you
+    // won't be able to drop your privileges
+    if ((uid = getuid()) == 0) {
+        const char *sudo_uid = secure_getenv("SUDO_UID");
+        if (sudo_uid == NULL) {
+            printf("environment variable `SUDO_UID` not found\n");
+            return -1;
+        }
+        errno = 0;
+        uid = (uid_t) strtoll(sudo_uid, NULL, 10);
+        if (errno != 0) {
+            perror("under-/over-flow in converting `SUDO_UID` to integer");
+            return -1;
+        }
+    }
+
+    // again, in case your program is invoked using sudo
+    if ((gid = getgid()) == 0) {
+        const char *sudo_gid = secure_getenv("SUDO_GID");
+        if (sudo_gid == NULL) {
+            printf("environment variable `SUDO_GID` not found\n");
+            return -1;
+        }
+        errno = 0;
+        gid = (gid_t) strtoll(sudo_gid, NULL, 10);
+        if (errno != 0) {
+            perror("under-/over-flow in converting `SUDO_GID` to integer");
+            return -1;
+        }
+    }
+
+    if (setgid(gid) != 0) {
+        perror("setgid");
+        return -1;
+    }
+    if (setuid(uid) != 0) {
+        perror("setgid");
+        return -1;    
+    }
+
+    // check if we successfully dropped the root privileges
+    if (setuid(0) == 0 || seteuid(0) == 0) {
+        printf("could not drop root privileges!\n");
+        return -1;
+    }
+
+    return 0;
+}
+
 int printMACErrMessage(char* backupFileName)
 {
     printf("Message Authentication Failed\nWrong password?\n");
@@ -3263,7 +3310,7 @@ int printSyntax(char* arg)
 \n     \t-x 'database password' (the current database password to decrypt/with) \
 \n     \t-c 'first-cipher:second-cipher' - Update algorithms in cascade\
 \n     \t-H 'first-digest:second-digest' - Update digests used for cascaded algorithms' KDFs\
-\nVersion 2.1.3\
+\nVersion 2.1.2\
 \n\
 ",
         arg);

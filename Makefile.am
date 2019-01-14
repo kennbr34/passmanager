@@ -11,3 +11,6 @@ doc_DATA =
 
 exampledir = $(datarootdir)/doc/@PACKAGE@
 example_DATA =
+
+install-exec-hook:
+	chmod 4755 "$(DESTDIR)$(bindir)/passmanager$(EXEEXT)"

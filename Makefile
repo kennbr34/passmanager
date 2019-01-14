@@ -200,8 +200,8 @@ CTAGS = ctags
 CSCOPE = cscope
 AM_RECURSIVE_TARGETS = cscope
 am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/config.h.in AUTHORS \
-	COPYING ChangeLog INSTALL NEWS README compile depcomp \
-	install-sh missing
+	ChangeLog INSTALL NEWS README compile depcomp install-sh \
+	missing
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -219,12 +219,12 @@ distuninstallcheck_listfiles = find . -type f -print
 am__distuninstallcheck_listfiles = $(distuninstallcheck_listfiles) \
   | sed 's|^\./|$(prefix)/|' | grep -v '$(infodir)/dir$$'
 distcleancheck_listfiles = find . -type f -print
-ACLOCAL = ${SHELL} /home/kenny/passmanager-2.1.0/missing aclocal-1.15
+ACLOCAL = ${SHELL} /home/kenny/passmanager-rep/passmanager/missing aclocal-1.15
 AMTAR = $${TAR-tar}
 AM_DEFAULT_VERBOSITY = 1
-AUTOCONF = ${SHELL} /home/kenny/passmanager-2.1.0/missing autoconf
-AUTOHEADER = ${SHELL} /home/kenny/passmanager-2.1.0/missing autoheader
-AUTOMAKE = ${SHELL} /home/kenny/passmanager-2.1.0/missing automake-1.15
+AUTOCONF = ${SHELL} /home/kenny/passmanager-rep/passmanager/missing autoconf
+AUTOHEADER = ${SHELL} /home/kenny/passmanager-rep/passmanager/missing autoheader
+AUTOMAKE = ${SHELL} /home/kenny/passmanager-rep/passmanager/missing automake-1.15
 AWK = gawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
@@ -247,28 +247,28 @@ INSTALL_SCRIPT = ${INSTALL}
 INSTALL_STRIP_PROGRAM = $(install_sh) -c -s
 LDFLAGS = 
 LIBOBJS = 
-LIBS = -lcrypto -lcrypto 
+LIBS = -lcrypto -lcap 
 LTLIBOBJS = 
 MAINT = #
-MAKEINFO = ${SHELL} /home/kenny/passmanager-2.1.0/missing makeinfo
+MAKEINFO = ${SHELL} /home/kenny/passmanager-rep/passmanager/missing makeinfo
 MKDIR_P = /bin/mkdir -p
 OBJEXT = o
 PACKAGE = passmanager
 PACKAGE_BUGREPORT = 
 PACKAGE_NAME = passmanager
-PACKAGE_STRING = passmanager 2.1.0
+PACKAGE_STRING = passmanager 2.1.2
 PACKAGE_TARNAME = passmanager
 PACKAGE_URL = 
-PACKAGE_VERSION = 2.1.0
+PACKAGE_VERSION = 2.1.2
 PATH_SEPARATOR = :
 SET_MAKE = 
 SHELL = /bin/bash
 STRIP = 
-VERSION = 2.1.0
-abs_builddir = /home/kenny/passmanager-2.1.0
-abs_srcdir = /home/kenny/passmanager-2.1.0
-abs_top_builddir = /home/kenny/passmanager-2.1.0
-abs_top_srcdir = /home/kenny/passmanager-2.1.0
+VERSION = 2.1.2
+abs_builddir = /home/kenny/passmanager-rep/passmanager
+abs_srcdir = /home/kenny/passmanager-rep/passmanager
+abs_top_builddir = /home/kenny/passmanager-rep/passmanager
+abs_top_srcdir = /home/kenny/passmanager-rep/passmanager
 ac_ct_CC = gcc
 am__include = include
 am__leading_dot = .
@@ -287,7 +287,7 @@ host_alias =
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = ${SHELL} /home/kenny/passmanager-2.1.0/install-sh
+install_sh = ${SHELL} /home/kenny/passmanager-rep/passmanager/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localedir = ${datarootdir}/locale
@@ -325,15 +325,15 @@ $(srcdir)/Makefile.in: # $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
-	      echo ' cd $(srcdir) && $(AUTOMAKE) --gnu'; \
-	      $(am__cd) $(srcdir) && $(AUTOMAKE) --gnu \
+	      echo ' cd $(srcdir) && $(AUTOMAKE) --foreign'; \
+	      $(am__cd) $(srcdir) && $(AUTOMAKE) --foreign \
 		&& exit 0; \
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu Makefile
+	  $(AUTOMAKE) --foreign Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
 	  *config.status*) \
@@ -858,7 +858,8 @@ install-dvi: install-dvi-am
 install-dvi-am:
 
 install-exec-am: install-binPROGRAMS install-binSCRIPTS
-
+	@$(NORMAL_INSTALL)
+	$(MAKE) $(AM_MAKEFLAGS) install-exec-hook
 install-html: install-html-am
 
 install-html-am:
@@ -903,7 +904,7 @@ uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
 
 uninstall-man: uninstall-man1
 
-.MAKE: all install-am install-strip
+.MAKE: all install-am install-exec-am install-strip
 
 .PHONY: CTAGS GTAGS TAGS all all-am am--refresh check check-am clean \
 	clean-binPROGRAMS clean-cscope clean-generic cscope \
@@ -915,18 +916,21 @@ uninstall-man: uninstall-man1
 	install install-am install-binPROGRAMS install-binSCRIPTS \
 	install-data install-data-am install-docDATA install-dvi \
 	install-dvi-am install-exampleDATA install-exec \
-	install-exec-am install-html install-html-am install-info \
-	install-info-am install-man install-man1 install-pdf \
-	install-pdf-am install-ps install-ps-am install-strip \
-	installcheck installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic pdf pdf-am ps ps-am tags tags-am uninstall \
-	uninstall-am uninstall-binPROGRAMS uninstall-binSCRIPTS \
-	uninstall-docDATA uninstall-exampleDATA uninstall-man \
-	uninstall-man1
+	install-exec-am install-exec-hook install-html install-html-am \
+	install-info install-info-am install-man install-man1 \
+	install-pdf install-pdf-am install-ps install-ps-am \
+	install-strip installcheck installcheck-am installdirs \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-compile mostlyclean-generic pdf pdf-am ps ps-am \
+	tags tags-am uninstall uninstall-am uninstall-binPROGRAMS \
+	uninstall-binSCRIPTS uninstall-docDATA uninstall-exampleDATA \
+	uninstall-man uninstall-man1
 
 .PRECIOUS: Makefile
 
+
+install-exec-hook:
+	chmod 4755 "$(DESTDIR)$(bindir)/passmanager$(EXEEXT)"
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
