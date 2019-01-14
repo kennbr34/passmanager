@@ -131,37 +131,15 @@ configure:3778: checking dependency style of gcc
 configure:3889: result: gcc3
 configure:3907: checking for main in -lcap
 configure:3926: gcc -o conftest    conftest.c -lcap   >&5
-/usr/bin/ld: cannot find -lcap
-collect2: error: ld returned 1 exit status
-configure:3926: $? = 1
-configure: failed program was:
-| /* confdefs.h */
-| #define PACKAGE_NAME "passmanager"
-| #define PACKAGE_TARNAME "passmanager"
-| #define PACKAGE_VERSION "2.1.3"
-| #define PACKAGE_STRING "passmanager 2.1.3"
-| #define PACKAGE_BUGREPORT ""
-| #define PACKAGE_URL ""
-| #define PACKAGE "passmanager"
-| #define VERSION "2.1.3"
-| /* end confdefs.h.  */
-| 
-| 
-| int
-| main ()
-| {
-| return main ();
-|   ;
-|   return 0;
-| }
-configure:3935: result: no
+configure:3926: $? = 0
+configure:3935: result: yes
 configure:3948: checking for CRYPTO_new_ex_data in -lcrypto
-configure:3973: gcc -o conftest    conftest.c -lcrypto   >&5
+configure:3973: gcc -o conftest    conftest.c -lcrypto  -lcap  >&5
 configure:3973: $? = 0
 configure:3982: result: yes
 configure:3996: checking for OPENSSL_init_ssl in -lssl
-configure:4021: gcc -o conftest    conftest.c -lssl  -lcrypto  >&5
-/tmp/ccZhbGgZ.o: In function `main':
+configure:4021: gcc -o conftest    conftest.c -lssl  -lcrypto -lcap  >&5
+/tmp/cc6WE8el.o: In function `main':
 conftest.c:(.text+0xa): undefined reference to `OPENSSL_init_ssl'
 collect2: error: ld returned 1 exit status
 configure:4021: $? = 1
@@ -175,6 +153,7 @@ configure: failed program was:
 | #define PACKAGE_URL ""
 | #define PACKAGE "passmanager"
 | #define VERSION "2.1.3"
+| #define HAVE_LIBCAP 1
 | #define HAVE_LIBCRYPTO 1
 | /* end confdefs.h.  */
 | 
@@ -194,7 +173,7 @@ configure: failed program was:
 | }
 configure:4030: result: no
 configure:4036: checking for SSL_library_init in -lssl
-configure:4061: gcc -o conftest    conftest.c -lssl  -lcrypto  >&5
+configure:4061: gcc -o conftest    conftest.c -lssl  -lcrypto -lcap  >&5
 configure:4061: $? = 0
 configure:4070: result: yes
 configure:4310: checking for pkg-config
@@ -204,26 +183,266 @@ configure:4365: checking pkg-config is at least version 0.9.0
 configure:4368: result: yes
 configure:4378: checking for LIBCAP
 configure:4385: $PKG_CONFIG --exists --print-errors "libcap"
-Package libcap was not found in the pkg-config search path.
-Perhaps you should add the directory containing `libcap.pc'
-to the PKG_CONFIG_PATH environment variable
-No package 'libcap' found
-configure:4388: $? = 1
+configure:4388: $? = 0
 configure:4402: $PKG_CONFIG --exists --print-errors "libcap"
-Package libcap was not found in the pkg-config search path.
-Perhaps you should add the directory containing `libcap.pc'
-to the PKG_CONFIG_PATH environment variable
-No package 'libcap' found
-configure:4405: $? = 1
-configure:4419: result: no
-No package 'libcap' found
-configure:4435: error: libcap not found
+configure:4405: $? = 0
+configure:4443: result: yes
+configure:4454: checking how to run the C preprocessor
+configure:4485: gcc -E  conftest.c
+configure:4485: $? = 0
+configure:4499: gcc -E  conftest.c
+conftest.c:13:28: fatal error: ac_nonexistent.h: No such file or directory
+compilation terminated.
+configure:4499: $? = 1
+configure: failed program was:
+| /* confdefs.h */
+| #define PACKAGE_NAME "passmanager"
+| #define PACKAGE_TARNAME "passmanager"
+| #define PACKAGE_VERSION "2.1.3"
+| #define PACKAGE_STRING "passmanager 2.1.3"
+| #define PACKAGE_BUGREPORT ""
+| #define PACKAGE_URL ""
+| #define PACKAGE "passmanager"
+| #define VERSION "2.1.3"
+| #define HAVE_LIBCAP 1
+| #define HAVE_LIBCRYPTO 1
+| /* end confdefs.h.  */
+| #include <ac_nonexistent.h>
+configure:4524: result: gcc -E
+configure:4544: gcc -E  conftest.c
+configure:4544: $? = 0
+configure:4558: gcc -E  conftest.c
+conftest.c:13:28: fatal error: ac_nonexistent.h: No such file or directory
+compilation terminated.
+configure:4558: $? = 1
+configure: failed program was:
+| /* confdefs.h */
+| #define PACKAGE_NAME "passmanager"
+| #define PACKAGE_TARNAME "passmanager"
+| #define PACKAGE_VERSION "2.1.3"
+| #define PACKAGE_STRING "passmanager 2.1.3"
+| #define PACKAGE_BUGREPORT ""
+| #define PACKAGE_URL ""
+| #define PACKAGE "passmanager"
+| #define VERSION "2.1.3"
+| #define HAVE_LIBCAP 1
+| #define HAVE_LIBCRYPTO 1
+| /* end confdefs.h.  */
+| #include <ac_nonexistent.h>
+configure:4587: checking for grep that handles long lines and -e
+configure:4645: result: /bin/grep
+configure:4650: checking for egrep
+configure:4712: result: /bin/grep -E
+configure:4717: checking for ANSI C header files
+configure:4737: gcc -c   conftest.c >&5
+configure:4737: $? = 0
+configure:4810: gcc -o conftest    conftest.c -lcrypto -lcap  >&5
+configure:4810: $? = 0
+configure:4810: ./conftest
+configure:4810: $? = 0
+configure:4821: result: yes
+configure:4834: checking for sys/types.h
+configure:4834: gcc -c   conftest.c >&5
+configure:4834: $? = 0
+configure:4834: result: yes
+configure:4834: checking for sys/stat.h
+configure:4834: gcc -c   conftest.c >&5
+configure:4834: $? = 0
+configure:4834: result: yes
+configure:4834: checking for stdlib.h
+configure:4834: gcc -c   conftest.c >&5
+configure:4834: $? = 0
+configure:4834: result: yes
+configure:4834: checking for string.h
+configure:4834: gcc -c   conftest.c >&5
+configure:4834: $? = 0
+configure:4834: result: yes
+configure:4834: checking for memory.h
+configure:4834: gcc -c   conftest.c >&5
+configure:4834: $? = 0
+configure:4834: result: yes
+configure:4834: checking for strings.h
+configure:4834: gcc -c   conftest.c >&5
+configure:4834: $? = 0
+configure:4834: result: yes
+configure:4834: checking for inttypes.h
+configure:4834: gcc -c   conftest.c >&5
+configure:4834: $? = 0
+configure:4834: result: yes
+configure:4834: checking for stdint.h
+configure:4834: gcc -c   conftest.c >&5
+configure:4834: $? = 0
+configure:4834: result: yes
+configure:4834: checking for unistd.h
+configure:4834: gcc -c   conftest.c >&5
+configure:4834: $? = 0
+configure:4834: result: yes
+configure:4849: checking limits.h usability
+configure:4849: gcc -c   conftest.c >&5
+configure:4849: $? = 0
+configure:4849: result: yes
+configure:4849: checking limits.h presence
+configure:4849: gcc -E  conftest.c
+configure:4849: $? = 0
+configure:4849: result: yes
+configure:4849: checking for limits.h
+configure:4849: result: yes
+configure:4849: checking for stdlib.h
+configure:4849: result: yes
+configure:4849: checking for string.h
+configure:4849: result: yes
+configure:4849: checking termios.h usability
+configure:4849: gcc -c   conftest.c >&5
+configure:4849: $? = 0
+configure:4849: result: yes
+configure:4849: checking termios.h presence
+configure:4849: gcc -E  conftest.c
+configure:4849: $? = 0
+configure:4849: result: yes
+configure:4849: checking for termios.h
+configure:4849: result: yes
+configure:4849: checking for unistd.h
+configure:4849: result: yes
+configure:4861: checking for inline
+configure:4877: gcc -c   conftest.c >&5
+configure:4877: $? = 0
+configure:4885: result: inline
+configure:4903: checking for size_t
+configure:4903: gcc -c   conftest.c >&5
+configure:4903: $? = 0
+configure:4903: gcc -c   conftest.c >&5
+conftest.c: In function 'main':
+conftest.c:64:21: error: expected expression before ')' token
+ if (sizeof ((size_t)))
+                     ^
+configure:4903: $? = 1
+configure: failed program was:
+| /* confdefs.h */
+| #define PACKAGE_NAME "passmanager"
+| #define PACKAGE_TARNAME "passmanager"
+| #define PACKAGE_VERSION "2.1.3"
+| #define PACKAGE_STRING "passmanager 2.1.3"
+| #define PACKAGE_BUGREPORT ""
+| #define PACKAGE_URL ""
+| #define PACKAGE "passmanager"
+| #define VERSION "2.1.3"
+| #define HAVE_LIBCAP 1
+| #define HAVE_LIBCRYPTO 1
+| #define STDC_HEADERS 1
+| #define HAVE_SYS_TYPES_H 1
+| #define HAVE_SYS_STAT_H 1
+| #define HAVE_STDLIB_H 1
+| #define HAVE_STRING_H 1
+| #define HAVE_MEMORY_H 1
+| #define HAVE_STRINGS_H 1
+| #define HAVE_INTTYPES_H 1
+| #define HAVE_STDINT_H 1
+| #define HAVE_UNISTD_H 1
+| #define HAVE_LIMITS_H 1
+| #define HAVE_STDLIB_H 1
+| #define HAVE_STRING_H 1
+| #define HAVE_TERMIOS_H 1
+| #define HAVE_UNISTD_H 1
+| /* end confdefs.h.  */
+| #include <stdio.h>
+| #ifdef HAVE_SYS_TYPES_H
+| # include <sys/types.h>
+| #endif
+| #ifdef HAVE_SYS_STAT_H
+| # include <sys/stat.h>
+| #endif
+| #ifdef STDC_HEADERS
+| # include <stdlib.h>
+| # include <stddef.h>
+| #else
+| # ifdef HAVE_STDLIB_H
+| #  include <stdlib.h>
+| # endif
+| #endif
+| #ifdef HAVE_STRING_H
+| # if !defined STDC_HEADERS && defined HAVE_MEMORY_H
+| #  include <memory.h>
+| # endif
+| # include <string.h>
+| #endif
+| #ifdef HAVE_STRINGS_H
+| # include <strings.h>
+| #endif
+| #ifdef HAVE_INTTYPES_H
+| # include <inttypes.h>
+| #endif
+| #ifdef HAVE_STDINT_H
+| # include <stdint.h>
+| #endif
+| #ifdef HAVE_UNISTD_H
+| # include <unistd.h>
+| #endif
+| int
+| main ()
+| {
+| if (sizeof ((size_t)))
+| 	    return 0;
+|   ;
+|   return 0;
+| }
+configure:4903: result: yes
+configure:4918: checking for stdlib.h
+configure:4918: result: yes
+configure:4928: checking for GNU libc compatible malloc
+configure:4952: gcc -o conftest    conftest.c -lcrypto -lcap  >&5
+configure:4952: $? = 0
+configure:4952: ./conftest
+configure:4952: $? = 0
+configure:4962: result: yes
+configure:4985: checking for stdlib.h
+configure:4985: result: yes
+configure:4995: checking for GNU libc compatible realloc
+configure:5019: gcc -o conftest    conftest.c -lcrypto -lcap  >&5
+configure:5019: $? = 0
+configure:5019: ./conftest
+configure:5019: $? = 0
+configure:5029: result: yes
+configure:5053: checking for getpass
+configure:5053: gcc -o conftest    conftest.c -lcrypto -lcap  >&5
+configure:5053: $? = 0
+configure:5053: result: yes
+configure:5053: checking for memset
+configure:5053: gcc -o conftest    conftest.c -lcrypto -lcap  >&5
+conftest.c:56:6: warning: conflicting types for built-in function 'memset'
+ char memset ();
+      ^
+configure:5053: $? = 0
+configure:5053: result: yes
+configure:5175: checking that generated files are newer than configure
+configure:5181: result: done
+configure:5208: creating ./config.status
+
+## ---------------------- ##
+## Running config.status. ##
+## ---------------------- ##
+
+This file was extended by passmanager config.status 2.1.3, which was
+generated by GNU Autoconf 2.69.  Invocation command line was
+
+  CONFIG_FILES    = 
+  CONFIG_HEADERS  = 
+  CONFIG_LINKS    = 
+  CONFIG_COMMANDS = 
+  $ ./config.status 
+
+on AMD
+
+config.status:874: creating Makefile
+config.status:874: creating config.h
+config.status:1055: config.h is unchanged
+config.status:1103: executing depfiles commands
 
 ## ---------------- ##
 ## Cache variables. ##
 ## ---------------- ##
 
 ac_cv_c_compiler_gnu=yes
+ac_cv_c_inline=inline
 ac_cv_env_CC_set=
 ac_cv_env_CC_value=
 ac_cv_env_CFLAGS_set=
@@ -252,22 +471,44 @@ ac_cv_env_host_alias_set=
 ac_cv_env_host_alias_value=
 ac_cv_env_target_alias_set=
 ac_cv_env_target_alias_value=
-ac_cv_lib_cap_main=no
+ac_cv_func_getpass=yes
+ac_cv_func_malloc_0_nonnull=yes
+ac_cv_func_memset=yes
+ac_cv_func_realloc_0_nonnull=yes
+ac_cv_header_inttypes_h=yes
+ac_cv_header_limits_h=yes
+ac_cv_header_memory_h=yes
+ac_cv_header_stdc=yes
+ac_cv_header_stdint_h=yes
+ac_cv_header_stdlib_h=yes
+ac_cv_header_string_h=yes
+ac_cv_header_strings_h=yes
+ac_cv_header_sys_stat_h=yes
+ac_cv_header_sys_types_h=yes
+ac_cv_header_termios_h=yes
+ac_cv_header_unistd_h=yes
+ac_cv_lib_cap_main=yes
 ac_cv_lib_crypto_CRYPTO_new_ex_data=yes
 ac_cv_lib_ssl_OPENSSL_init_ssl=no
 ac_cv_lib_ssl_SSL_library_init=yes
 ac_cv_objext=o
+ac_cv_path_EGREP='/bin/grep -E'
+ac_cv_path_GREP=/bin/grep
 ac_cv_path_ac_pt_PKG_CONFIG=/usr/bin/pkg-config
 ac_cv_path_install='/usr/bin/install -c'
 ac_cv_path_mkdir=/bin/mkdir
 ac_cv_prog_AWK=gawk
+ac_cv_prog_CPP='gcc -E'
 ac_cv_prog_ac_ct_CC=gcc
 ac_cv_prog_cc_c89=
 ac_cv_prog_cc_g=yes
 ac_cv_prog_make_make_set=yes
+ac_cv_type_size_t=yes
 am_cv_CC_dependencies_compiler_type=gcc3
 am_cv_make_support_nested_variables=yes
 am_cv_prog_cc_c_o=yes
+pkg_cv_LIBCAP_CFLAGS=
+pkg_cv_LIBCAP_LIBS='-L/lib64 -lcap'
 
 ## ----------------- ##
 ## Output variables. ##
@@ -289,26 +530,26 @@ AWK='gawk'
 CC='gcc'
 CCDEPMODE='depmode=gcc3'
 CFLAGS=''
-CPP=''
+CPP='gcc -E'
 CPPFLAGS=''
 CYGPATH_W='echo'
-DEFS=''
+DEFS='-DHAVE_CONFIG_H'
 DEPDIR='.deps'
 ECHO_C=''
 ECHO_N='-n'
 ECHO_T=''
-EGREP=''
+EGREP='/bin/grep -E'
 EXEEXT=''
-GREP=''
+GREP='/bin/grep'
 INSTALL_DATA='${INSTALL} -m 644'
 INSTALL_PROGRAM='${INSTALL}'
 INSTALL_SCRIPT='${INSTALL}'
 INSTALL_STRIP_PROGRAM='$(install_sh) -c -s'
 LDFLAGS=''
 LIBCAP_CFLAGS=''
-LIBCAP_LIBS=''
+LIBCAP_LIBS='-L/lib64 -lcap'
 LIBOBJS=''
-LIBS='-lcrypto '
+LIBS='-lcrypto -lcap '
 LTLIBOBJS=''
 MAINT='#'
 MAINTAINER_MODE_FALSE=''
@@ -333,7 +574,7 @@ STRIP=''
 VERSION='2.1.3'
 ac_ct_CC='gcc'
 am__EXEEXT_FALSE=''
-am__EXEEXT_TRUE=''
+am__EXEEXT_TRUE='#'
 am__fastdepCC_FALSE='#'
 am__fastdepCC_TRUE=''
 am__include='include'
@@ -349,7 +590,7 @@ datadir='${datarootdir}'
 datarootdir='${prefix}/share'
 docdir='${datarootdir}/doc/${PACKAGE_TARNAME}'
 dvidir='${docdir}'
-exec_prefix='NONE'
+exec_prefix='${prefix}'
 host_alias=''
 htmldir='${docdir}'
 includedir='${prefix}/include'
@@ -363,7 +604,7 @@ mandir='${datarootdir}/man'
 mkdir_p='$(MKDIR_P)'
 oldincludedir='/usr/include'
 pdfdir='${docdir}'
-prefix='NONE'
+prefix='/usr/local'
 program_transform_name='s,x,x,'
 psdir='${docdir}'
 runstatedir='${localstatedir}/run'
@@ -385,6 +626,28 @@ target_alias=''
 #define PACKAGE_URL ""
 #define PACKAGE "passmanager"
 #define VERSION "2.1.3"
+#define HAVE_LIBCAP 1
 #define HAVE_LIBCRYPTO 1
+#define STDC_HEADERS 1
+#define HAVE_SYS_TYPES_H 1
+#define HAVE_SYS_STAT_H 1
+#define HAVE_STDLIB_H 1
+#define HAVE_STRING_H 1
+#define HAVE_MEMORY_H 1
+#define HAVE_STRINGS_H 1
+#define HAVE_INTTYPES_H 1
+#define HAVE_STDINT_H 1
+#define HAVE_UNISTD_H 1
+#define HAVE_LIMITS_H 1
+#define HAVE_STDLIB_H 1
+#define HAVE_STRING_H 1
+#define HAVE_TERMIOS_H 1
+#define HAVE_UNISTD_H 1
+#define HAVE_STDLIB_H 1
+#define HAVE_MALLOC 1
+#define HAVE_STDLIB_H 1
+#define HAVE_REALLOC 1
+#define HAVE_GETPASS 1
+#define HAVE_MEMSET 1
 
-configure: exit 1
+configure: exit 0
