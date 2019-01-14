@@ -31,6 +31,8 @@ dnl Order matters!
      AS_IF([test "x$FOUND_SSL_LIB" = xno], [AC_MSG_ERROR([library 'ssleay32' or 'ssl' is required for OpenSSL])])
   fi
 
+PKG_CHECK_MODULES(LIBCAP, [libcap], [], [AC_MSG_ERROR([libcap not found])])
+
 # Checks for header files.
 AC_CHECK_HEADERS([limits.h stdlib.h string.h termios.h unistd.h])
 
