@@ -1,6 +1,9 @@
 /* config.h.  Generated from config.h.in by configure.  */
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Define to 1 if you have the <capabilities.h> header file. */
+/* #undef HAVE_CAPABILITIES_H */
+
 /* Define to 1 if you have the `getpass' function. */
 #define HAVE_GETPASS 1
 

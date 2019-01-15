@@ -16,7 +16,6 @@ AC_PROG_CC
 # Checks for libraries.
 AC_CHECK_LIB(cap,[main])
 
-
 dnl Order matters!
   if test "$PORTNAME" != "win32"; then
      AC_CHECK_LIB(crypto, CRYPTO_new_ex_data, [], [AC_MSG_ERROR([library 'crypto' is required for OpenSSL])])
