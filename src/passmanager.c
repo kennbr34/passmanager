@@ -40,6 +40,7 @@
 #include <sys/mman.h>
 #include <sys/capability.h>
 #include <sys/time.h>
+#include <sys/resource.h>
 
 
 
@@ -215,7 +216,15 @@ int main(int argc, char* argv[])
 		
 		//printf("euid: %i uid: %i\n", geteuid(), getuid());
 
-		/*Need structure for libcap functions*/
+		/*Prevent core dump if program crashes*/
+		struct rlimit rl;
+
+		rl.rlim_cur = 0;
+		rl.rlim_max = 0;
+
+		setrlimit(RLIMIT_CORE,&rl);
+
+		/*Need variables for libcap functions*/
 		cap_t caps;
 		cap_value_t cap_list[2];
 		cap_value_t clear_list[1];
