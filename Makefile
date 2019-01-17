@@ -228,7 +228,7 @@ AUTOMAKE = ${SHELL} /home/kenny/passmanager-rep/passmanager/missing automake-1.1
 AWK = gawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
-CFLAGS = 
+CFLAGS = -std=c99
 CPP = gcc -E
 CPPFLAGS = 
 CYGPATH_W = echo
@@ -247,7 +247,7 @@ INSTALL_SCRIPT = ${INSTALL}
 INSTALL_STRIP_PROGRAM = $(install_sh) -c -s
 LDFLAGS = 
 LIBOBJS = 
-LIBS = -lcrypto -lcap 
+LIBS = -lcrypto -lcrypto 
 LTLIBOBJS = 
 MAINT = #
 MAKEINFO = ${SHELL} /home/kenny/passmanager-rep/passmanager/missing makeinfo

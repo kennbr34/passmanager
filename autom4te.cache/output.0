@@ -2841,7 +2841,7 @@ fi
   
 
 
-: ${CFLAGS=""}
+: ${CFLAGS="-std=c99"}
 
 # Checks for programs.
 ac_ext=c
@@ -3886,13 +3886,13 @@ fi
 
 # Checks for libraries.
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -lcap" >&5
-$as_echo_n "checking for main in -lcap... " >&6; }
-if ${ac_cv_lib_cap_main+:} false; then :
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -lcrypto" >&5
+$as_echo_n "checking for main in -lcrypto... " >&6; }
+if ${ac_cv_lib_crypto_main+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lcap  $LIBS"
+LIBS="-lcrypto  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -3906,25 +3906,23 @@ return main ();
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_cap_main=yes
+  ac_cv_lib_crypto_main=yes
 else
-  ac_cv_lib_cap_main=no
+  ac_cv_lib_crypto_main=no
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_cap_main" >&5
-$as_echo "$ac_cv_lib_cap_main" >&6; }
-if test "x$ac_cv_lib_cap_main" = xyes; then :
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_crypto_main" >&5
+$as_echo "$ac_cv_lib_crypto_main" >&6; }
+if test "x$ac_cv_lib_crypto_main" = xyes; then :
   cat >>confdefs.h <<_ACEOF
-@%:@define HAVE_LIBCAP 1
+@%:@define HAVE_LIBCRYPTO 1
 _ACEOF
 
-  LIBS="-lcap $LIBS"
+  LIBS="-lcrypto $LIBS"
 
-else
-  as_fn_error $? "libcap not found" "$LINENO" 5
 fi
 
 

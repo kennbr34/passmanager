@@ -38,7 +38,6 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/mman.h>
-#include <sys/capability.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 
@@ -224,45 +223,6 @@ int main(int argc, char* argv[])
 		rl.rlim_max = 0;
 
 		setrlimit(RLIMIT_CORE,&rl);
-
-		/*Need variables for libcap functions*/
-		cap_t caps;
-		cap_value_t cap_list[2];
-		cap_value_t clear_list[1];
-		caps = cap_get_proc();
-		if (caps == NULL) {
-			perror("caps");
-			exit(1);
-		}
-		cap_list[0] = CAP_IPC_LOCK;
-		clear_list[0] = CAP_SYS_PTRACE;
-		
-		/*Set CAP_IPC_LOCK so we're not limited to a measely 32K of locked memory*/
-		if (cap_set_flag(caps, CAP_EFFECTIVE,1, cap_list, CAP_SET) == -1) {
-			perror("caplist CAP_EFFECTIVE");
-			exit(1);
-		}
-		if (cap_set_flag(caps, CAP_INHERITABLE,1, cap_list, CAP_SET) == -1) {
-			perror("caplit CAP INHERITABLE");
-			exit(1);
-		}
-		/*Disable ptrace ability*/
-		if (cap_set_flag(caps, CAP_EFFECTIVE,1, clear_list, CAP_CLEAR) == -1) {
-			perror("clearlist CAP_EFFECTIVE");
-			exit(1);
-		}
-		if (cap_set_flag(caps, CAP_INHERITABLE,1, clear_list, CAP_CLEAR) == -1) {
-			perror("clearlist CAP INHERITABLE");
-			exit(1);
-		}
-		if (cap_set_proc(caps) == -1) {
-			perror("cap_set_proc");
-			exit(1);
-		}
-		if (cap_free(caps) == -1) {
-			perror("cap_free");
-			exit(1);
-		}
 		
 		/*Lock all current and future  memory from being swapped*/
 		if ( mlockall(MCL_CURRENT|MCL_FUTURE) == -1 ) {

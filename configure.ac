@@ -8,13 +8,13 @@ AM_INIT_AUTOMAKE([subdir-objects foreign])
 AC_CONFIG_HEADERS([config.h])
 AM_MAINTAINER_MODE
 
-: ${CFLAGS=""}
+: ${CFLAGS="-std=c99"}
 
 # Checks for programs.
 AC_PROG_CC
 
 # Checks for libraries.
-AC_CHECK_LIB(cap,[main], [], [AC_MSG_ERROR(libcap not found)])
+AC_CHECK_LIB([crypto], [main])
 
 
 dnl Order matters!
