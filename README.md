@@ -6,23 +6,15 @@ Thorough documentation on design and use was also added via manual file, in addi
 
 # PLATFORMS
 
-The program utilizes OpenSSL and libcap and should work on any Linux.
+This version was ported for OpenBSD 6.4 and should need only OpenSSL libraries.
 
 Confirmed Operational On:
 
-Debian Buster/testing\
-Ubuntu (16.04 and 18.04)\
-Antegros 18.12\
-Manjaro 18.0\
-Sabayon 18.05\
-Slackware 14.2\
-openSUSE Leap 15.0\
+OpenBSD 6.4
 
 # DEPENDENCIES
 
 OpenSSL development files (1.0.1.g or higher)
-
-libcap development files (2.24-12 or higher)
 
 xclip (optional for clipboard functions)
 
@@ -40,7 +32,7 @@ $ make\
 
 If you don't want to install the automake package contents, and want to compile the binary alone, just link with lcrypto
 
-gcc passmanager.c -o passmanager -lcrypto -lcap
+gcc -std=c99 passmanager.c -o passmanager -lcrypto
 
 Special Note: I would advise against using optimization, because the functions which are used to clear memory of sensitive data may be optimized out.
 
