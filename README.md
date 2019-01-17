@@ -6,7 +6,7 @@ Thorough documentation on design and use was also added via manual file, in addi
 
 # PLATFORMS
 
-This version was ported for OpenBSD 6.4 and should need only OpenSSL libraries.
+This version was ported for OpenBSD 6.4 and should need only OpenSSL libraries. The ability to prevent process tracing was removed since the libcap functions needed to do this are Linux specific extensions. Memory is still locked and core dumping still prevented.
 
 Confirmed Operational On:
 
