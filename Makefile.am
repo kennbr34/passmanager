@@ -13,4 +13,6 @@ exampledir = $(datarootdir)/doc/@PACKAGE@
 example_DATA =
 
 install-exec-hook:
-	chmod 4755 "$(DESTDIR)$(bindir)/passmanager$(EXEEXT)"
+	chmod 4755 "$(DESTDIR)$(bindir)/passmanager$(EXEEXT)" \
+	ln -s /usr/local/share/man/man1/passmanager.1 /usr/share/man/man1/passmanager.1
+
