@@ -55,7 +55,7 @@
 /*Define block sizes for dbDecrypt and dbEncrypt to use*/
 #define EVP_BLOCK_SIZE 1024
 
-/*The default PBKDF2 and EVP_BytesToKey iteration count as per RFC 2889 reccomendation*/
+/*The default PBKDF2 iteration count as per RFC 2889 reccomendation*/
 /*The final iteration will differ from this depending on length of user pass and salts generated*/
 #define RFC_2889_REC_ITERATIONS 1000
 
@@ -103,7 +103,8 @@ void mdLister(); /*Lists the message digests available to OpenSSL*/
 void encList(const OBJ_NAME* obj, void* arg); /*Same as mdList but for encryption ciphers*/
 void encLister(); /*Same as mdLIster but for encryption ciphers*/
 void genEvp1Salt(); /*Generates EVP1 salt*/
-void hmacKDF(); /*Derive cryptographic key material needed for EVP1*/
+void hmacKDF(); /*Derive key for HMAC*/
+int evpKDF(unsigned char* dbPass, unsigned char* evpSalt, unsigned int saltLen,const EVP_CIPHER *evpCipher,const EVP_MD *evpDigest, unsigned char *evpKey, unsigned char *evpIv); /*Derive key for EVP ciphers*/
 /*Password management functions*/
 int writePass(FILE* dbFile); /*Uses EVP1 cipher to write passes to a file*/
 int printPasses(FILE* dbFile, char* searchString); /*Uses EVP1 cipher to read passes from file*/
@@ -229,41 +230,58 @@ int main(int argc, char* argv[])
 		cap_value_t cap_list[2];
 		cap_value_t clear_list[1];
 		caps = cap_get_proc();
-		if (caps == NULL)
+		if (caps == NULL) {
 			perror("caps");
+			exit(1);
+		}
 		cap_list[0] = CAP_IPC_LOCK;
 		clear_list[0] = CAP_SYS_PTRACE;
 		
 		/*Set CAP_IPC_LOCK so we're not limited to a measely 32K of locked memory*/
-		if (cap_set_flag(caps, CAP_EFFECTIVE,1, cap_list, CAP_SET) == -1)
+		if (cap_set_flag(caps, CAP_EFFECTIVE,1, cap_list, CAP_SET) == -1) {
 			perror("caplist CAP_EFFECTIVE");
-		if (cap_set_flag(caps, CAP_INHERITABLE,1, cap_list, CAP_SET) == -1)
+			exit(1);
+		}
+		if (cap_set_flag(caps, CAP_INHERITABLE,1, cap_list, CAP_SET) == -1) {
 			perror("caplit CAP INHERITABLE");
-			
+			exit(1);
+		}
 		/*Disable ptrace ability*/
-		if (cap_set_flag(caps, CAP_EFFECTIVE,1, clear_list, CAP_CLEAR) == -1)
+		if (cap_set_flag(caps, CAP_EFFECTIVE,1, clear_list, CAP_CLEAR) == -1) {
 			perror("clearlist CAP_EFFECTIVE");
-		if (cap_set_flag(caps, CAP_INHERITABLE,1, clear_list, CAP_CLEAR) == -1)
+			exit(1);
+		}
+		if (cap_set_flag(caps, CAP_INHERITABLE,1, clear_list, CAP_CLEAR) == -1) {
 			perror("clearlist CAP INHERITABLE");
-		if (cap_set_proc(caps) == -1)
+			exit(1);
+		}
+		if (cap_set_proc(caps) == -1) {
 			perror("cap_set_proc");
-		if (cap_free(caps) == -1)
+			exit(1);
+		}
+		if (cap_free(caps) == -1) {
 			perror("cap_free");
+			exit(1);
+		}
 		
 		/*Lock all current and future  memory from being swapped*/
-		if ( mlockall(MCL_CURRENT|MCL_FUTURE) == -1 )
+		if ( mlockall(MCL_CURRENT|MCL_FUTURE) == -1 ) {
 			perror("mlockall");
+			exit(1);
+		}
 		
 		/*Drop root*/
-		if(geteuid() != 0) {	
-			if(setuid(geteuid()) == -1)
+		if(geteuid() != 0) { /*If executable was not started as root, but given root privelge through SETUID/SETGID bit*/
+			if(setuid(geteuid()) == -1) { /*Drop back to the privelges of the user who executed the binary*/
 			perror("setuid");
+			exit(1);
+			}
+			if(getuid() == 0) { /*Fail if we could not drop root priveleges*/
+				printf("Could not drop root\n");
+				exit(1);
+			}
 		}
 	}
-	
-	///*Instead of launching with root and trying to drop priveleges, we can use file capabilities with getcap and setcap*/
-	//if ( mlockall(MCL_CURRENT|MCL_FUTURE) == -1 )
-			//perror("mlockall");
 
     /*These calls will ensure that cleanUpFiles and cleanUpBuffers is ran after return call within main*/
 
@@ -722,13 +740,11 @@ int main(int argc, char* argv[])
         /*The choosen EVP digest algorithm will be used*/
         /*The salt generated for the first EVP algorithm will also be used*/
         /*The entire KDF will reiterate according to the password length multiplied by the reccomended amount in RFC 2889*/
-        if (!EVP_BytesToKey(evpCipher1, evpDigest1, evp1Salt,
-                (unsigned char*)dbPass,
-                strlen(dbPass), strlen(dbPass) * RFC_2889_REC_ITERATIONS, evpKey1, evpIv1)) {
-            fprintf(stderr, "EVP_BytesToKey failed\n");
-            return 1;
-        }
-
+        
+		if(evpKDF(dbPass, evp1Salt, EVP1_SALT_SIZE,evpCipher1,evpDigest1,evpKey1,evpIv1) != 0) {
+			return 1;
+		}
+		
         /*writePass() appends a new entry to EVP1DataFileTmp encrypted with the first EVP algorithm chosen*/
         int writePassResult = writePass(EVP1DataFileTmp);
 
@@ -791,12 +807,10 @@ int main(int argc, char* argv[])
         }
         chmod(tmpFile2, S_IRUSR | S_IWUSR);
 
-        if (!EVP_BytesToKey(evpCipher1, evpDigest1, evp1Salt,
-                (unsigned char*)dbPass,
-                strlen(dbPass), strlen(dbPass) * RFC_2889_REC_ITERATIONS, evpKey1, evpIv1)) {
-            fprintf(stderr, "EVP_BytesToKey failed\n");
-            return 1;
-        }
+		
+		if(evpKDF(dbPass, evp1Salt, EVP1_SALT_SIZE,evpCipher1,evpDigest1,evpKey1,evpIv1) != 0) {
+			return 1;
+		}
 
         if (toggle.entrySearch == 1 && strcmp(entryName, "allpasses") != 0) /*Find a specific entry to print*/
         {
@@ -850,12 +864,10 @@ int main(int argc, char* argv[])
         }
         chmod(tmpFile2, S_IRUSR | S_IWUSR);
 
-        if (!EVP_BytesToKey(evpCipher1, evpDigest1, evp1Salt,
-                (unsigned char*)dbPass,
-                strlen(dbPass), strlen(dbPass) * RFC_2889_REC_ITERATIONS, evpKey1, evpIv1)) {
-            fprintf(stderr, "EVP_BytesToKey failed\n");
-            return 1;
-        }
+		
+		if(evpKDF(dbPass, evp1Salt, EVP1_SALT_SIZE,evpCipher1,evpDigest1,evpKey1,evpIv1) != 0) {
+			return 1;
+		}
 
         /*Delete pass actually works by exclusion*/
         /*It writes all password entries except the one specified to a new temporary file*/
@@ -981,13 +993,10 @@ int main(int argc, char* argv[])
             return errno;
         }
         chmod(tmpFile2, S_IRUSR | S_IWUSR);
-
-        if (!EVP_BytesToKey(evpCipher1, evpDigest1, evp1Salt,
-                (unsigned char*)dbPass,
-                strlen(dbPass), strlen(dbPass) * RFC_2889_REC_ITERATIONS, evpKey1, evpIv1)) {
-            fprintf(stderr, "EVP_BytesToKey failed\n");
-            return 1;
-        }
+		
+		if(evpKDF(dbPass, evp1Salt, EVP1_SALT_SIZE,evpCipher1,evpDigest1,evpKey1,evpIv1) != 0) {
+			return 1;
+		}
 
         /*Works like deletePass() but instead of excluding matched entry, modfies its buffer values and then outputs to 3rd temp file*/
         int updateEntryResult = updateEntry(EVP1DataFileTmp, entryNameToSearch);
@@ -1818,7 +1827,7 @@ int updateEncPass(FILE* dbFile)
 
     memcpy(hmacKey, hmacKeyOld, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
 
-    /*EVP_BytesToKey needs to run before ctx is initialized with EVP_CIPHER_CTX_new*/
+    /*evpKDF() needs to run before ctx is initialized with EVP_CIPHER_CTX_new*/
 
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     EVP_CIPHER_CTX_init(ctx);
@@ -1850,14 +1859,10 @@ int updateEncPass(FILE* dbFile)
     }
     outlen += tmplen;
     EVP_CIPHER_CTX_cleanup(ctx);
-
-    /*Derive new key material*/
-    if (!EVP_BytesToKey(evpCipher1, evpDigest1, evp1Salt,
-            (unsigned char*)dbPass,
-            strlen(dbPass), strlen(dbPass) * RFC_2889_REC_ITERATIONS, evpKey1, evpIv1)) {
-        fprintf(stderr, "EVP_BytesToKey failed\n");
-        return 1;
-    }
+		
+	if(evpKDF(dbPass, evp1Salt, EVP1_SALT_SIZE,evpCipher1,evpDigest1,evpKey1,evpIv1) != 0) {
+			return 1;
+	}
 
     memcpy(hmacKey, hmacKeyNew, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
 
@@ -2561,13 +2566,10 @@ int sealEnvelope(const char* tmpFileToUse)
     }
 
     /*This function generates a key and possibly iv needed for encryption algorithims*/
-    /*OpenSSL will generate appropriately sized values depending on which cipher and message digest are named*/
-    if (!EVP_BytesToKey(evpCipher2, evpDigest2, evp2Salt,
-            (unsigned char*)dbPass,
-            strlen(dbPass), strlen(dbPass) * RFC_2889_REC_ITERATIONS, evpKey2, evpIv2)) {
-        fprintf(stderr, "EVP_BytesToKey failed\n");
-        return 1;
-    }
+
+	if(evpKDF(dbPass, evp2Salt, EVP2_SALT_SIZE,evpCipher2,evpDigest2,evpKey2,evpIv2) != 0) {
+			return 1;
+	}
 
     /*Do the OpenSSL encryption*/
     if (dbEncrypt(EVP2DecryptedFile, dbFile) != 0) {
@@ -2702,25 +2704,19 @@ int openEnvelope()
     }
 
     /*This function generates a key and possibly iv needed for encryption algorithims*/
-    /*OpenSSL will generate appropriately sized values depending on which cipher and message digest are named*/
-    if (!EVP_BytesToKey(evpCipher2, evpDigest2, evp2Salt,
-            (unsigned char*)dbPass,
-            strlen(dbPass), strlen(dbPass) * RFC_2889_REC_ITERATIONS, evpKey2, evpIv2)) {
-        fprintf(stderr, "EVP_BytesToKey failed\n");
-        return 1;
-    }
+	
+	if(evpKDF(dbPass, evp2Salt, EVP2_SALT_SIZE,evpCipher2,evpDigest2,evpKey2,evpIv2) != 0) {
+			return 1;
+	}
 
     if (toggle.updateEncPass) {
         /*Copy old evpCipher1 to evpCipher1Old and generate evpKey1Old based on this*/
         /*This needs to be done in openEnvelope() before cipher and digest parameters are changed later on */
         evpCipher1Old = evpCipher1;
-
-        if (!EVP_BytesToKey(evpCipher1, evpDigest1, evp1Salt,
-                (unsigned char*)dbPass,
-                strlen(dbPass), strlen(dbPass) * RFC_2889_REC_ITERATIONS, evpKey1Old, evpIv1Old)) {
-            fprintf(stderr, "EVP_BytesToKey failed\n");
-            return 1;
-        }
+		
+		if(evpKDF(dbPass, evp1Salt, EVP1_SALT_SIZE,evpCipher1,evpDigest1,evpKey1Old,evpIv1Old) != 0) {
+			return 1;
+		}
     }
 
     /*Now open a temporary file with a randomly generated file name pointed to by tmpFile1*/
@@ -3015,7 +3011,7 @@ char* genFileName()
     return fileName;
 }
 
-/*Generates a random EVP2_SALT_SIZE sized byte salt for OpenSSL EVP_BytesToKey*/
+/*Generates a random EVP2_SALT_SIZE sized byte salt for evpKDF()*/
 void genEvp2Salt()
 {
 
@@ -3148,6 +3144,33 @@ void hmacKDF()
     PKCS5_PBKDF2_HMAC(dbPass, -1, hmacSalt, HMAC_SALT_SIZE, RFC_2889_REC_ITERATIONS * originalPassLength, EVP_get_digestbyname("sha512"), SHA512_DIGEST_LENGTH, hmacKey);
 }
 
+int evpKDF(unsigned char* dbPass, unsigned char* evpSalt, unsigned int saltLen,const EVP_CIPHER *evpCipher,const EVP_MD *evpDigest, unsigned char *evpKey, unsigned char *evpIv)
+{
+	/*First generate the key*/
+	if (!PKCS5_PBKDF2_HMAC((unsigned char*)dbPass, strlen(dbPass),
+		evpSalt, saltLen,
+		strlen(dbPass) * RFC_2889_REC_ITERATIONS,
+		evpDigest,EVP_CIPHER_key_length(evpCipher),
+		evpKey)) {
+        fprintf(stderr, "PBKDF2 failed\n");
+        return 1;
+    }
+    
+    /*If this cipher uses an IV, generate that as well*/
+    if(EVP_CIPHER_iv_length(evpCipher) != 0) {
+		if (!PKCS5_PBKDF2_HMAC((unsigned char*)dbPass, strlen(dbPass),
+		    evpSalt, saltLen,
+            strlen(dbPass) * RFC_2889_REC_ITERATIONS,
+            evpDigest,EVP_CIPHER_iv_length(evpCipher),
+            evpIv)) {
+        fprintf(stderr, "PBKDF2 failed\n");
+        return 1;
+		}
+	}
+	
+	return 0;
+}
+
 void signalHandler(int signum)
 {
     printf("\nCaught signal %d\n\nCleaning up temp files...\nCleaning up buffers...\n", signum);
@@ -3272,7 +3295,7 @@ int printSyntax(char* arg)
 \n     \t-x 'database password' (the current database password to decrypt/with) \
 \n     \t-c 'first-cipher:second-cipher' - Update algorithms in cascade\
 \n     \t-H 'first-digest:second-digest' - Update digests used for cascaded algorithms' KDFs\
-\nVersion 2.1.4\
+\nVersion 2.2.0\
 \n\
 ",
         arg);

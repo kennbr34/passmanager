@@ -2,6 +2,10 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+2019-1-16
+(+ver 2.2.0)
+	Changed KDF routines from EVP_BytesToKey to PKCS5_PBKDF2_HMAC
+	Added conditional to ensure root priveleges are dropped
 2019-1-14
 (+ver 2.1.4)
 	Prevent core dumping
