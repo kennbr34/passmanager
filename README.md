@@ -15,7 +15,7 @@ Ubuntu (16.04 and 18.04)\
 Antegros 18.12\
 Manjaro 18.0\
 Sabayon 18.05\
-Slackware 14.2\
+Slackware 14.2
 
 # DEPENDENCIES
 
