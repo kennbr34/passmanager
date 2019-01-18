@@ -1559,7 +1559,7 @@ int deletePass(FILE* dbFile, char* searchString)
 {
     int i, ii = 0, iii = 0;
     int lastCheck = 0;
-    int noEntryMatched = 1;
+    //int noEntryMatched = 1;
     int entriesMatched = 0;
 
     int outlen, tmplen;
@@ -1792,7 +1792,7 @@ int deletePass(FILE* dbFile, char* searchString)
 
 int updateEncPass(FILE* dbFile)
 {
-    int i;
+    //int i;
     int outlen, tmplen;
 
     FILE* tmpFile;
@@ -2217,7 +2217,7 @@ int dbEncrypt(FILE* in, FILE* out)
 {
     /* Allow enough space in output buffer for additional block */
     unsigned char inbuf[EVP_BLOCK_SIZE], outbuf[EVP_BLOCK_SIZE + EVP_MAX_BLOCK_LENGTH];
-    int inlen, outlen, tlen;
+    int inlen, outlen;
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     EVP_CIPHER_CTX_init(ctx);
     EVP_EncryptInit_ex(ctx, evpCipher2, NULL, evpKey2, evpIv2);
@@ -2266,7 +2266,7 @@ int dbDecrypt(FILE* in, FILE* out)
 {
     /* Allow enough space in output buffer for additional block */
     unsigned char inbuf[EVP_BLOCK_SIZE], outbuf[EVP_BLOCK_SIZE + EVP_MAX_BLOCK_LENGTH];
-    int inlen, outlen, tlen;
+    int inlen, outlen;
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     EVP_CIPHER_CTX_init(ctx);
     EVP_DecryptInit(ctx, evpCipher2, evpKey2, evpIv2);
@@ -2477,7 +2477,7 @@ int sealEnvelope(const char* tmpFileToUse)
         cleanUpFiles();
         exit(1);
     }
-    int EVP1DataSize = returnFileSize(tmpFileToUse);
+    //int EVP1DataSize = returnFileSize(tmpFileToUse);
 
     FILE *EVP2DecryptedFile, *EVP1DataFileTmp, *dbFile;
 
@@ -2597,7 +2597,7 @@ int openEnvelope()
 {
     unsigned char cryptoHeader[BUFFER_SIZES];
     unsigned char* token;
-    int i;
+    //int i;
 
     /*a temporary buffer to store the contents of the password file between read and writes to temporary files*/
     unsigned char* tmpBuffer;
@@ -2660,7 +2660,7 @@ int openEnvelope()
     token = strtok(NULL, ":");
     if (token == NULL) {
         printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
-        cleanUpFiles;
+        cleanUpFiles();
         exit(1);
     }
 
@@ -2670,7 +2670,7 @@ int openEnvelope()
     token = strtok(NULL, ":");
     if (token == NULL) {
         printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
-        cleanUpFiles;
+        cleanUpFiles();
         exit(1);
     }
 
@@ -2964,14 +2964,14 @@ void genPassWord(int stringLength)
         /*Tests that byte to be printable and not blank*/
         /*If it is it fills the temporary pass string buffer with that byte*/
         if (toggle.generateEntryPass == 1) {
-            if (isalnum(b) != 0 || ispunct(b) != 0 && isblank(b) == 0) {
+            if ((isalnum(b) != 0 || ispunct(b) != 0) && isblank(b) == 0) {
                 tempPassString[i] = b;
                 i++;
             }
         }
 
         if (toggle.generateEntryPassAlpha == 1) {
-            if (isupper(b) != 0 || islower(b) != 0 || isdigit(b) != 0 && isblank(b) == 0) {
+            if ((isupper(b) != 0 || islower(b) != 0 || isdigit(b) != 0) && isblank(b) == 0) {
                 tempPassString[i] = b;
                 i++;
             }
@@ -2999,7 +2999,7 @@ char* genFileName()
 
         /*Tests that byte to be printable and not blank*/
         /*If it is it fills the temporary pass string buffer with that byte*/
-        if (isupper(b) != 0 || islower(b) != 0 || isdigit(b) != 0 && isblank(b) == 0) {
+        if ((isupper(b) != 0 || islower(b) != 0 || isdigit(b) != 0) && isblank(b) == 0) {
             fileNameBuffer[i] = b;
             i++;
         }
