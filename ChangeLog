@@ -2,6 +2,9 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+2019-1-18
+(+ver 2.2.1)
+	Added #ifdef tests to include libcap functions or not, so now can compile on BSD with one source file
 2019-1-16
 (+ver 2.2.0)
 	Changed KDF routines from EVP_BytesToKey to PKCS5_PBKDF2_HMAC
