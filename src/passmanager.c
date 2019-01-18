@@ -555,7 +555,11 @@ int main(int argc, char* argv[])
 
     /*Before anything else, back up the password database*/
     if (returnFileSize(dbFileName) != 0 && toggle.Read != 1) {
+		#ifdef __bsdi__
+		strlcpy(backupFileName,dbFileName,NAME_MAX;
+		#elif
         strcpy(backupFileName, dbFileName);
+        #endif
         strcat(backupFileName, ".autobak");
         FILE* backUpFile = fopen(backupFileName, "w");
         if (backUpFile == NULL) {
