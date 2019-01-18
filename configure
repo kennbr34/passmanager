@@ -2841,7 +2841,7 @@ fi
 
 
 
-: ${CFLAGS="-std=c99"}
+: ${CFLAGS="-Wall"}
 
 # Checks for programs.
 ac_ext=c

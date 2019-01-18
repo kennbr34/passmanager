@@ -8,7 +8,7 @@ AM_INIT_AUTOMAKE([subdir-objects foreign])
 AC_CONFIG_HEADERS([config.h])
 AM_MAINTAINER_MODE
 
-: ${CFLAGS="-std=c99"}
+: ${CFLAGS="-Wall"}
 
 # Checks for programs.
 AC_PROG_CC
