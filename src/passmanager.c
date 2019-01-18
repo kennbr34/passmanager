@@ -1175,7 +1175,7 @@ int main(int argc, char* argv[])
         /*Must store old evp1 key data to decrypt database before new key material is generated*/
         #ifdef __bsdi__
         strlcpy(dbPassOld, dbPass, BUFFER_SIZES);
-        #ifdef __linux__
+        #elif __linux__
         strcpy(dbPassOld, dbPass);
         #endif
         memcpy(hmacKeyOld, hmacKey, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
