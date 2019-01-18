@@ -3149,6 +3149,7 @@ void signalHandler(int signum)
 char* getPass(const char* prompt, unsigned char* paddedPass)
 {
     size_t len = 0;
+    int i;
 
     if (!RAND_bytes(paddedPass, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
@@ -3194,7 +3195,7 @@ char* getPass(const char* prompt, unsigned char* paddedPass)
     printf("\n");
 
     /*Copy pass into paddedPass then remove sensitive information*/
-    for (int i = 0; i < strlen(pass) + 1; i++)
+    for (i = 0; i < strlen(pass) + 1; i++)
         paddedPass[i] = pass[i];
 
     OPENSSL_cleanse(pass, sizeof(unsigned char) * nread);
