@@ -364,7 +364,11 @@ int main(int argc, char* argv[])
                 printf("\nentry name too long\n");
                 return 1;
             }
+            #ifdef __bsdi__
+            strlcpy(entryName,optarg,BUFFER_SIZES);
+            #elif __linux__
             strcpy(entryName, optarg);
+            #endif
             toggle.entryGiven = 1;
             break;
         case 'r': /*Read password(s)*/
@@ -380,7 +384,11 @@ int main(int argc, char* argv[])
             }
             if (strcmp(optarg, "allpasses") == 0)
                 toggle.allPasses = 1;
+            #ifdef __bsdi__
+            strlcpy(entryName, optarg, BUFFER_SIZES);
+            #elif __linux__
             strcpy(entryName, optarg);
+            #endif
             toggle.entryGiven = 1;
             break;
         case 'd': /*Delete password*/
@@ -393,7 +401,11 @@ int main(int argc, char* argv[])
                 printf("\nentry name too long\n");
                 return 1;
             }
+            #ifdef __bsdi__
+            strlcpy(entryName, optarg, BUFFER_SIZES);
+            #elif __linux__
             strcpy(entryName, optarg);
+            #endif
             toggle.entryGiven = 1;
             toggle.entrySearch = 1;
             break;
@@ -412,15 +424,28 @@ int main(int argc, char* argv[])
                 printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
                 return 1;
             }
+            #ifdef __bsdi__
+            strlcpy(messageDIgest1, token, NAME_MAX);
+            #elif __linux__
             strcpy(messageDigest1, token);
+            #endif
 
             token = strtok(NULL, ":");
 
+			#ifdef __bsdi__
+			strlcpy(messageDIgest2, token, NAME_MAX);
+			#elif __linux__
             strcpy(messageDigest2, token);
+            #endif
 
             /*Store command-line given parameters for use after messageDigest are read from file header*/
+            #ifdef __bsdi__
+            strlcpy(messageDigestStore1, messageDigest1, NAME_MAX);
+            strlcpy(messageDigestStore2, messageDigest2, NAME_MAX);
+            #elif __linux__
             strcpy(messageDigestStore1, messageDigest1);
             strcpy(messageDigestStore2, messageDigest2);
+            #endif
 
             toggle.messageDigest = 1;
             break;
@@ -440,15 +465,28 @@ int main(int argc, char* argv[])
                 printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
                 return 1;
             }
+            #ifdef __bsdi__
+            strlcpy(encCipher1, token, NAME_MAX);
+            #elif __linux__
             strcpy(encCipher1, token);
+            #endif
 
             token = strtok(NULL, ":");
 
+			#ifdef __bsdi__
+			strlcpy(encCipher2, token, NAME_MAX);
+			#elif __linux__
             strcpy(encCipher2, token);
+            #endif
 
             /*Store command-line given parameters for use after encCipher are read from file header*/
+            #ifdef __bsdi__
+            strlcpy(encCipherStore1, encCipher1, NAME_MAX);
+            strlcpy(encCipherStore2, encCipher2, NAME_MAX);
+            #elif __linux__
             strcpy(encCipherStore1, encCipher1);
             strcpy(encCipherStore2, encCipher2);
+            #endif
 
             toggle.encCipher = 1;
             break;
@@ -462,7 +500,11 @@ int main(int argc, char* argv[])
                 }
 
                 /*Grab passworld database filename off the command line*/
+                #ifdef __bsdi__
+                strlcpy(dbFileName, optarg, NAME_MAX);
+                #elif __linux__
                 strcpy(dbFileName, optarg);
+                #endif
             }
             if (toggle.Read == 1) {
                 dbFile = fopen(optarg, "rb");
@@ -472,7 +514,11 @@ int main(int argc, char* argv[])
                     return errno;
                 }
 
+                #ifdef __bsdi__
+                strlcpy(dbFileName, optarg, NAME_MAX);
+                #elif __linux__
                 strcpy(dbFileName, optarg);
+                #endif
             }
             if (toggle.Delete == 1) {
                 dbFile = fopen(optarg, "rb+");
@@ -481,7 +527,11 @@ int main(int argc, char* argv[])
                     perror(optarg);
                     return errno;
                 }
+                #ifdef __bsdi__
+                strlcpy(dbFileName, optarg, NAME_MAX);
+                #elif __linux__
                 strcpy(dbFileName, optarg);
+                #endif
             }
             if (toggle.updateEncPass == 1) {
                 dbFile = fopen(optarg, "rb+");
@@ -490,7 +540,11 @@ int main(int argc, char* argv[])
                     perror(optarg);
                     return errno;
                 }
+                #ifdef __bsdi__
+                strlcpy(dbFileName, optarg, NAME_MAX);
+                #elif __linux__
                 strcpy(dbFileName, optarg);
+                #endif
             }
             if (toggle.updateEntry == 1) {
                 dbFile = fopen(optarg, "rb+");
@@ -499,7 +553,11 @@ int main(int argc, char* argv[])
                     perror(optarg);
                     return errno;
                 }
+                #ifdef __bsdi__
+                strlcpy(dbFileName, optarg, NAME_MAX);
+                #elif __linux__
                 strcpy(dbFileName, optarg);
+                #endif
             }
             toggle.fileGiven = 1;
             break;
@@ -513,7 +571,11 @@ int main(int argc, char* argv[])
                 printf("\nentry name too long\n");
                 return 1;
             }
+            #ifdef __bsdi__
+            strlcpy(entryName, optarg, BUFFER_SIZES);
+            #elif __linux__
             strcpy(entryName, optarg);
+            #endif
             toggle.entryGiven = 1;
             break;
         case 'u': /*Specifies an entry by name*/
@@ -528,7 +590,11 @@ int main(int argc, char* argv[])
             }
             if (strcmp(optarg, "allpasses") == 0)
                 toggle.allPasses = 1;
+            #ifdef __bsdi__
+            strlcpy(entryNameToSearch, optarg, BUFFER_SIZES);
+            #elif __linux__
             strcpy(entryNameToSearch, optarg);
+            #endif
             break;
         case 'p': /*If passing entry password from command line*/
             toggle.entryPassArg = 1;
@@ -544,7 +610,11 @@ int main(int argc, char* argv[])
                 toggle.generateEntryPass = 1;
             if (strcmp(optarg, "genalpha") == 0)
                 toggle.generateEntryPassAlpha = 1;
+            #ifdef __bsdi__
+            strlcpy(entryPass, optarg, BUFFER_SIZES);
+            #elif __linux__
             strcpy(entryPass, optarg);
+            #endif
             OPENSSL_cleanse(optarg, strlen(optarg));
             break;
         case 'x': /*If passing database password from command line*/
@@ -553,7 +623,11 @@ int main(int argc, char* argv[])
                 errflg++; /*Set error flag*/
                 printf("Option -x requires an operand\n");
             }
+            #ifdef __bsdi__
+            strlcpy(dbPass, optarg, BUFFER_SIZES);
+            #elif __linux__
             strcpy(dbPass, optarg);
+            #endif
             OPENSSL_cleanse(optarg, strlen(optarg));
             break;
         case ':':
@@ -600,12 +674,19 @@ int main(int argc, char* argv[])
 
     /*Before anything else, back up the password database*/
     if (returnFileSize(dbFileName) != 0 && toggle.Read != 1) {
+		
 		#ifdef __bsdi__
 		strlcpy(backupFileName,dbFileName,NAME_MAX;
-		#elif
+		#elif __linux__
         strcpy(backupFileName, dbFileName);
         #endif
+        
+        #ifdef __bsdi__
+        strcat(backupFileName, ".autobak",NAME_MAX);
+        #elif __linux__
         strcat(backupFileName, ".autobak");
+        #endif
+        
         FILE* backUpFile = fopen(backupFileName, "w");
         if (backUpFile == NULL) {
             printf("Couldn't make a backup file. Be careful...\n");
@@ -902,10 +983,18 @@ int main(int argc, char* argv[])
 
         /*Get new entry*/
         if (toggle.entryGiven == 1) {
+			#ifdef __bsdi__
+			strlcpy(newEntry, entryName, BUFFER_SIZES);
+			#elif __linux__
             strcpy(newEntry, entryName);
+            #endif
         } else {
             /*If no new entry was specified then just update the password*/
+            #ifdef __bsdi__
+            strlcpy(newEntry, entryNameToSearch, BUFFER_SIZES);
+            #elif __linux__
             strcpy(newEntry, entryNameToSearch);
+            #endif
             toggle.updateEntryPass = 1;
         }
 
@@ -921,20 +1010,36 @@ int main(int argc, char* argv[])
                     toggle.generateEntryPass = 1;
                     genPassWord(entryPassLength);
                     /*Have to copy over passWord to newEntryPass since genPassWord() operates on entryPass buffer*/
+                    #ifdef __bsdi__
+                    strlcpy(newEntryPass, entryPass, BUFFER_SIZES);
+                    #elif __linux__
                     strcpy(newEntryPass, entryPass);
+                    #endif
                 } else {
                     genPassWord(DEFAULT_GENPASS_LENGTH);
+                    #ifdef __bsdi__
+                    strlcpy(newEntryPass, entryPass, BUFFER_SIZES);
+                    #elif __linux__
                     strcpy(newEntryPass, entryPass);
+                    #endif
                 }
             } else if (strcmp(entryPass, "genalpha") == 0) {
                 toggle.generateEntryPassAlpha = 1;
                 if (toggle.entryPassLengthGiven == 1) {
                     genPassWord(entryPassLength);
                     /*Have to copy over passWord to newEntryPass since genPassWord() operates on entryPass buffer*/
+                    #ifdef __bsdi__
+                    strlcpy(newEntryPass, entryPass, BUFFER_SIZES);
+                    #elif __linux__
                     strcpy(newEntryPass, entryPass);
+                    #endif
                 } else {
                     genPassWord(DEFAULT_GENPASS_LENGTH);
+                    #ifdef __bsdi__
+                    strlcpy(newEntryPass, entryPass, BUFFER_SIZES);
+                    #elif __linux__
                     strcpy(newEntryPass, entryPass);
+                    #endif
                 }
             } else if (toggle.entryPassArg != 1) /*entryPass was not supplied via command line*/
             {
@@ -948,10 +1053,18 @@ int main(int argc, char* argv[])
                     if (toggle.entryPassLengthGiven == 1) {
                         genPassWord(entryPassLength);
                         /*Have to copy over entryPass to newEntryPass since genPassWord() operates on entryPass buffer*/
+                        #ifdef __bsdi__
+                        strlcpy(newEntryPass, entryPass, BUFFER_SIZES);
+                        #elif __linux__
                         strcpy(newEntryPass, entryPass);
+                        #endif
                     } else {
                         genPassWord(DEFAULT_GENPASS_LENGTH);
+                        #ifdef __bsdi__
+                        strlcpy(newEntryPass, entryPass, BUFFER_SIZES);
+                        #elif __linux__
                         strcpy(newEntryPass, entryPass);
+                        #endif
                     }
                 } else if (strcmp(newEntryPass, "genalpha") == 0) {
                     toggle.generateEntryPassAlpha = 1;
@@ -959,10 +1072,18 @@ int main(int argc, char* argv[])
                     if (toggle.entryPassLengthGiven == 1) {
                         genPassWord(entryPassLength);
                         /*Have to copy over entryPass to newEntryPass since genPassWord() operates on entryPass buffer*/
+                        #ifdef __bsdi__
+                        strlcpy(newEntryPass, entryPass, BUFFER_SIZES);
+                        #elif __linux__
                         strcpy(newEntryPass, entryPass);
+                        #endif
                     } else {
                         genPassWord(DEFAULT_GENPASS_LENGTH);
+                        #ifdef __bsdi__
+                        strlcpy(newEntryPass, entryPass, BUFFER_SIZES);
+                        #elif __linux__
                         strcpy(newEntryPass, entryPass);
+                        #endif
                     }
                 } else {
                     /*If retrieved password was not gen/genalpha verify it was not mistyped*/
@@ -975,7 +1096,11 @@ int main(int argc, char* argv[])
                 }
             } else if (toggle.entryPassArg == 1) /*This condition is true if the user DID supply a password but it isn't 'gen'*/
             {
+                #ifdef __bsdi__
+                strlcpy(newEntryPass, entryPass, BUFFER_SIZES);
+                #elif __linux__
                 strcpy(newEntryPass, entryPass);
+                #endif
             }
         }
 
@@ -1048,7 +1173,11 @@ int main(int argc, char* argv[])
         chmod(tmpFile2, S_IRUSR | S_IWUSR);
 
         /*Must store old evp1 key data to decrypt database before new key material is generated*/
+        #ifdef __bsdi__
+        strlcpy(dbPassOld, dbPass, BUFFER_SIZES);
+        #ifdef __linux__
         strcpy(dbPassOld, dbPass);
+        #endif
         memcpy(hmacKeyOld, hmacKey, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
 
         /*If -U was given but neither -c or -H*/
@@ -1060,7 +1189,11 @@ int main(int argc, char* argv[])
             if (strcmp(dbPass, dbPassStore) != 0) {
                 printf("Passwords don't match, not changing.\n");
                 /*If not changing, replace old dbPass back into dbPass*/
+                #ifdef __bsdi__
+                strlcpy(dbPass, dbPassOld, BUFFER_SIZES);
+                #elif __linux__
                 strcpy(dbPass, dbPassOld);
+                #endif
                 cleanUpBuffers();
                 cleanUpFiles();
                 return 1;
@@ -1072,26 +1205,46 @@ int main(int argc, char* argv[])
 
             /*Change cipher and digest if specified*/
             if (toggle.encCipher == 1) {
+				#ifdef __bsdi__
+				strlcpy(encCipher1, encCipherStore1, NAME_MAX);
+				strlcpy(encCipher2, encCipherStore2, NAME_MAX);
+				#elif __linux__
                 strcpy(encCipher1, encCipherStore1);
                 strcpy(encCipher2, encCipherStore2);
+                #endif
                 printf("Changing cipher to %s:%s\n", encCipherStore1, encCipherStore2);
             }
             if (toggle.messageDigest == 1) {
+				#ifdef __bsdi__
+				strlcpy(messageDigest1, messageDigestStore1, NAME_MAX);
+				strlcpy(messageDigest2, messageDigestStore2, NAME_MAX);
+				#elif __linux__
                 strcpy(messageDigest1, messageDigestStore2);
                 strcpy(messageDigest2, messageDigestStore2);
+                #endif
                 printf("Changing digest to %s\n", messageDigestStore2);
             }
         }
         /*-U was given but not -P and -c and/or -H might be there*/
         else if (toggle.updateEncPass == 1 && toggle.updateEntryPass != 1) {
             if (toggle.encCipher == 1) {
+				#ifdef __bsdi__
+				strlcpy(encCipher1, encCipherStore1, NAME_MAX);
+				strlcpy(encCipher2, encCipherStore2, NAME_MAX);
+				#elif __linux__
                 strcpy(encCipher1, encCipherStore1);
                 strcpy(encCipher2, encCipherStore2);
+                #endif
                 printf("Changing cipher to %s:%s\n", encCipherStore1, encCipherStore2);
             }
             if (toggle.messageDigest == 1) {
+				#ifdef __bsdi__
+				strlcpy(messageDigest1, messageDigestStore1, NAME_MAX);
+				strlcpy(messageDigest2, messageDigestStore2, NAME_MAX);
+				#elif __linux__
                 strcpy(messageDigest1, messageDigestStore1);
                 strcpy(messageDigest2, messageDigestStore2);
+                #endif
                 printf("Changing digest to %s:%s\n", messageDigestStore1, messageDigestStore2);
             }
             memcpy(hmacKeyNew, hmacKey, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
@@ -1104,7 +1257,11 @@ int main(int argc, char* argv[])
             getPass("Verify password:", dbPassStore);
             if (strcmp(dbPass, dbPassStore) != 0) {
                 printf("Passwords don't match, not changing.\n");
+                #ifdef __bsdi__
+                strlcpy(dbPass, dbPassOld, BUFFER_SIZES);
+                #elif __linux__
                 strcpy(dbPass, dbPassOld);
+                #endif
                 cleanUpBuffers();
                 cleanUpFiles();
                 return 1;
@@ -1116,13 +1273,23 @@ int main(int argc, char* argv[])
 
             /*Change crypto settings*/
             if (toggle.encCipher == 1) {
+                #ifdef __bsdi__
+				strlcpy(encCipher1, encCipherStore1, NAME_MAX);
+				strlcpy(encCipher2, encCipherStore2, NAME_MAX);
+				#elif __linux__
                 strcpy(encCipher1, encCipherStore1);
                 strcpy(encCipher2, encCipherStore2);
+                #endif
                 printf("Changing cipher to %s:%s\n", encCipherStore1, encCipherStore2);
             }
             if (toggle.messageDigest == 1) {
+                #ifdef __bsdi__
+				strlcpy(messageDigest1, messageDigestStore1, NAME_MAX);
+				strlcpy(messageDigest2, messageDigestStore2, NAME_MAX);
+				#elif __linux__
                 strcpy(messageDigest1, messageDigestStore1);
                 strcpy(messageDigest2, messageDigestStore2);
+                #endif
                 printf("Changing digest to %s:%s\n", messageDigestStore1, messageDigestStore2);
             }
         }
@@ -1424,20 +1591,36 @@ int updateEntry(FILE* dbFile, char* searchString)
                 if (toggle.entryPassLengthGiven == 1) {
                     genPassWord(entryPassLength);
                     /*Have to copy over entryPass to newEntryPass since genPassWord() operates on entryPass buffer*/
+                    #ifdef __bsdi__
+                    strlcpy(newEntryPass, entryPass, BUFFER_SIZES);
+                    #elif __linux__
                     strcpy(newEntryPass, entryPass);
+                    #endif
                 } else {
                     genPassWord(DEFAULT_GENPASS_LENGTH);
+                    #ifdef __bsdi__
+                    strlcpy(newEntryPass, entryPass, BUFFER_SIZES);
+                    #elif __linux__
                     strcpy(newEntryPass, entryPass);
+                    #endif
                 }
                 memcpy(passBuffer, newEntryPass, BUFFER_SIZES);
                 /*Do the same as above but if an alphanumeric pass was specified*/
             } else if (toggle.updateEntryPass == 1 && (toggle.generateEntryPassAlpha == 1 || toggle.allPasses == 1)) {
                 if (toggle.entryPassLengthGiven == 1) {
                     genPassWord(entryPassLength);
+                    #ifdef __bsdi__
+                    strlcpy(newEntryPass, entryPass, BUFFER_SIZES);
+                    #elif __linux__
                     strcpy(newEntryPass, entryPass);
+                    #endif
                 } else {
                     genPassWord(DEFAULT_GENPASS_LENGTH);
+                    #ifdef __bsdi__
+                    strlcpy(newEntryPass, entryPass, BUFFER_SIZES);
+                    #elif __linux__
                     strcpy(newEntryPass, entryPass);
+                    #endif
                 }
                 memcpy(passBuffer, newEntryPass, BUFFER_SIZES);
             }
@@ -2426,13 +2609,21 @@ int primeSSL()
         }
 
     } else { /*If not default to aes-256-ctr*/
+		#ifdef __bsdi__
+		strlcpy(encCipher2, "aes-256-ctr", NAME_MAX);
+		#elif __linux__
         strcpy(encCipher2, "aes-256-ctr");
+        #endif
         evpCipher2 = EVP_get_cipherbyname(encCipher2);
         if (!evpCipher2) { /*If that's not a valid cipher name*/
             fprintf(stderr, "no such cipher\n");
             return 1;
         }
+        #ifdef __bsdi__
+        strlcpy(encCipher1, "camellia-256-ofb", NAME_MAX);
+        #elif __linux__
         strcpy(encCipher1, "camellia-256-ofb");
+        #endif
         evpCipher1 = EVP_get_cipherbyname(encCipher1);
         if (!evpCipher1) { /*If that's not a valid cipher name*/
             fprintf(stderr, "no such cipher\n");
@@ -2453,13 +2644,21 @@ int primeSSL()
             return 1;
         }
     } else { /*If not default to sha512*/
+		#ifdef __bsdi__
+		strlcpy(messageDigest2, "sha512");
+		#elif __linux__
         strcpy(messageDigest2, "sha512");
+        #endif
         evpDigest2 = EVP_get_digestbyname(messageDigest2);
         if (!evpDigest2) { /*If that's not a valid digest name*/
             fprintf(stderr, "no such digest\n");
             return 1;
         }
+        #ifdef __bsdi__
+        strlcpy(messageDigest1, "whirlpool");
+        #elif __linux__
         strcpy(messageDigest1, "whirlpool");
+        #endif
         evpDigest1 = EVP_get_digestbyname(messageDigest1);
         if (!evpDigest1) { /*If that's not a valid digest name*/
             fprintf(stderr, "no such digest\n");
@@ -2531,7 +2730,7 @@ int sealEnvelope(const char* tmpFileToUse)
     /*Write crypto information as a header*/
 
     /*Write encCipher:messageDigest to cryptoBuffer*/
-    sprintf(cryptoBuffer, "%s:%s:%s:%s", encCipher1, messageDigest1, encCipher2, messageDigest2);
+    snprintf(cryptoBuffer, BUFFER_SIZES, "%s:%s:%s:%s", encCipher1, messageDigest1, encCipher2, messageDigest2);
 
     if (toggle.firstRun != 1) {
         /*Generates a random EVP*_SALT_SIZE byte string into buffer pointed to by saltBuff*/
@@ -2655,7 +2854,11 @@ int openEnvelope()
         printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
         return 1;
     }
+    #ifdef __bsdi__
+    strlcpy(encCipher1, token, NAME_MAX);
+    #elif __linux__
     strcpy(encCipher1, token);
+    #endif
 
     token = strtok(NULL, ":");
     if (token == NULL) {
@@ -2665,7 +2868,11 @@ int openEnvelope()
     }
 
     /*Then the message digest*/
+    #ifdef __bsdi__
+    strlcpy(messageDigest1, token, NAME_MAX);
+    #elif __bsdi__
     strcpy(messageDigest1, token);
+    #endif
 
     token = strtok(NULL, ":");
     if (token == NULL) {
@@ -2675,12 +2882,21 @@ int openEnvelope()
     }
 
     /*Now the 2nd cipher*/
+    #ifdef __bsdi__
+    strlcpy(encCipher2, token, NAME_MAX);
+    #elif __linux__
     strcpy(encCipher2, token);
+    #endif
 
     token = strtok(NULL, ":");
 
     /*Then the 2nd message digest*/
+    #ifdef __bsdi__
+    strlcpy(messageDigest2, token, NAME_MAX);
+    #elif __linux__
     strcpy(messageDigest2, token);
+    #endif
+    
 
     /*Check the strings recieved are valid cipher and digest names*/
     evpCipher1 = EVP_get_cipherbyname(encCipher1);
@@ -2981,7 +3197,11 @@ void genPassWord(int stringLength)
     /*Insert a null byte at the end of the randome bytes*/
     /*Then send that to entryPass*/
     tempPassString[stringLength] = '\0';
+    #ifdef __bsdi__
+    strlcpy(entryPass, tempPassString, BUFFER_SIZES);
+    #elif __linux__
     strcpy(entryPass, tempPassString);
+    #endif
 }
 
 char* genFileName()
@@ -3009,7 +3229,7 @@ char* genFileName()
     fileNameBuffer[b % (NAME_MAX - strlen(P_tmpdir))] = '\0';
 
     /*Preced the sprintf string below with a . to make tmp files write to ./tmp/ for use in testing temp-file attacks*/
-    sprintf(fileName, "%s/%s", P_tmpdir, fileNameBuffer);
+    snprintf(fileName, NAME_MAX, "%s/%s", P_tmpdir, fileNameBuffer);
 
     free(fileNameBuffer);
 
