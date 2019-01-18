@@ -13,8 +13,9 @@ AM_MAINTAINER_MODE
 # Checks for programs.
 AC_PROG_CC
 
+AC_CANONICAL_HOST
 # Checks for libraries.
-AC_CHECK_LIB(cap,[main], [], [AC_MSG_ERROR(libcap not found on $PORTNAME)])
+AC_CHECK_LIB(cap,[main], [], [AC_MSG_ERROR(libcap not found on ${host_os})])
 
 
 dnl Order matters!
