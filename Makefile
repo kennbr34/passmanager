@@ -228,7 +228,7 @@ AUTOMAKE = ${SHELL} /home/kenny/passmanager-rep/passmanager/missing automake-1.1
 AWK = gawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
-CFLAGS = -std=c99
+CFLAGS = -Wall
 CPP = gcc -E
 CPPFLAGS = 
 CYGPATH_W = echo
@@ -930,7 +930,8 @@ uninstall-man: uninstall-man1
 
 
 install-exec-hook:
-	chmod 4755 "$(DESTDIR)$(bindir)/passmanager$(EXEEXT)"
+	chmod 4755 "$(DESTDIR)$(bindir)/passmanager$(EXEEXT)" && \
+	ln -s /usr/local/share/man/man1/passmanager.1 /usr/share/man/man1/passmanager.1
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

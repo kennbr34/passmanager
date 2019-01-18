@@ -2915,14 +2915,14 @@ void genPassWord(int stringLength)
         /*Tests that byte to be printable and not blank*/
         /*If it is it fills the temporary pass string buffer with that byte*/
         if (toggle.generateEntryPass == 1) {
-            if (isalnum(b) != 0 || ispunct(b) != 0 && isblank(b) == 0) {
+            if ((isalnum(b) != 0 || ispunct(b) != 0) && isblank(b) == 0) {
                 tempPassString[i] = b;
                 i++;
             }
         }
 
         if (toggle.generateEntryPassAlpha == 1) {
-            if (isupper(b) != 0 || islower(b) != 0 || isdigit(b) != 0 && isblank(b) == 0) {
+            if ((isupper(b) != 0 || islower(b) != 0 || isdigit(b) != 0) && isblank(b) == 0) {
                 tempPassString[i] = b;
                 i++;
             }
@@ -2950,7 +2950,7 @@ char* genFileName()
 
         /*Tests that byte to be printable and not blank*/
         /*If it is it fills the temporary pass string buffer with that byte*/
-        if (isupper(b) != 0 || islower(b) != 0 || isdigit(b) != 0 && isblank(b) == 0) {
+        if ((isupper(b) != 0 || islower(b) != 0 || isdigit(b) != 0) && isblank(b) == 0) {
             fileNameBuffer[i] = b;
             i++;
         }
