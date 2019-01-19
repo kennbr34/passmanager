@@ -38,9 +38,8 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/mman.h>
-#ifdef __linux__
 #include <sys/capability.h>
-#endif
+#
 #include <sys/time.h>
 #include <sys/resource.h>
 
@@ -227,7 +226,6 @@ int main(int argc, char* argv[])
 
 		setrlimit(RLIMIT_CORE,&rl);
 
-		#ifdef __linux__
 		/*Need variables for libcap functions*/
 		cap_t caps;
 		cap_value_t cap_list[2];
@@ -266,9 +264,7 @@ int main(int argc, char* argv[])
 			perror("cap_free");
 			exit(1);
 		}
-		
-		#endif
-		
+				
 		/*Lock all current and future  memory from being swapped*/
 		if ( mlockall(MCL_CURRENT|MCL_FUTURE) == -1 ) {
 			perror("mlockall");

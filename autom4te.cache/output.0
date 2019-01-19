@@ -3924,7 +3924,7 @@ _ACEOF
   LIBS="-lcap $LIBS"
 
 else
-  as_fn_error $? "libcap not found on" "$LINENO" 5
+  as_fn_error $? "libcap not found" "$LINENO" 5
 fi
 
 

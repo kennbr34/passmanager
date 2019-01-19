@@ -14,7 +14,7 @@ AM_MAINTAINER_MODE
 AC_PROG_CC
 
 # Checks for libraries.
-AC_CHECK_LIB(cap,[main], [], [AC_MSG_ERROR(libcap not found on)])
+AC_CHECK_LIB(cap,[main], [], [AC_MSG_ERROR(libcap not found)])
 
 
 dnl Order matters!
