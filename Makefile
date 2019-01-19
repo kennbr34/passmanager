@@ -228,7 +228,7 @@ AUTOMAKE = ${SHELL} /home/kenny/passmanager-rep/passmanager/missing automake-1.1
 AWK = gawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
-CFLAGS = 
+CFLAGS = -Wall
 CPP = gcc -E
 CPPFLAGS = 
 CYGPATH_W = echo
