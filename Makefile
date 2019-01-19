@@ -200,8 +200,8 @@ CTAGS = ctags
 CSCOPE = cscope
 AM_RECURSIVE_TARGETS = cscope
 am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/config.h.in AUTHORS \
-	ChangeLog INSTALL NEWS README compile config.guess config.sub \
-	depcomp install-sh missing
+	ChangeLog INSTALL NEWS README compile config.guess depcomp \
+	install-sh missing
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -256,15 +256,15 @@ OBJEXT = o
 PACKAGE = passmanager
 PACKAGE_BUGREPORT = 
 PACKAGE_NAME = passmanager
-PACKAGE_STRING = passmanager 2.2.1
+PACKAGE_STRING = passmanager 2.2.0
 PACKAGE_TARNAME = passmanager
 PACKAGE_URL = 
-PACKAGE_VERSION = 2.2.1
+PACKAGE_VERSION = 2.2.0
 PATH_SEPARATOR = :
 SET_MAKE = 
 SHELL = /bin/bash
 STRIP = 
-VERSION = 2.2.1
+VERSION = 2.2.0
 abs_builddir = /home/kenny/passmanager-rep/passmanager
 abs_srcdir = /home/kenny/passmanager-rep/passmanager
 abs_top_builddir = /home/kenny/passmanager-rep/passmanager
