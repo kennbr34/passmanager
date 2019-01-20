@@ -97,37 +97,37 @@ int openEnvelope(); /*Opens EVP encrypted envelope file and checks MAC attached*
 void genEvp2Salt(); /*Generates an 8byte random salt to be used by EVP*/
 int dbDecrypt(FILE* in, FILE* out); /*OpenSSSL EVP decryption routine*/
 int dbEncrypt(FILE* in, FILE* out); /*OpenSSL EVP encryption routine*/
-int sealEnvelope(const unsigned char* tmpFileToUse); /*Writes Message data to EVP ecncrypted envelope and attaches MAC*/
+int sealEnvelope(const char* tmpFileToUse); /*Writes Message data to EVP ecncrypted envelope and attaches MAC*/
 void mdList(const OBJ_NAME* obj, void* arg); /*Sets up structure objects needed to list message digests available to OpenSSL*/
 void mdLister(); /*Lists the message digests available to OpenSSL*/
 void encList(const OBJ_NAME* obj, void* arg); /*Same as mdList but for encryption ciphers*/
 void encLister(); /*Same as mdLIster but for encryption ciphers*/
 void genEvp1Salt(); /*Generates EVP1 salt*/
 void hmacKDF(); /*Derive key for HMAC*/
-int evpKDF(unsigned char* dbPass, unsigned char* evpSalt, unsigned int saltLen,const EVP_CIPHER *evpCipher,const EVP_MD *evpDigest, unsigned char *evpKey, unsigned char *evpIv); /*Derive key for EVP ciphers*/
+int evpKDF(char* dbPass, unsigned char* evpSalt, unsigned int saltLen,const EVP_CIPHER *evpCipher,const EVP_MD *evpDigest, unsigned char *evpKey, unsigned char *evpIv); /*Derive key for EVP ciphers*/
 /*Password management functions*/
 int writePass(FILE* dbFile); /*Uses EVP1 cipher to write passes to a file*/
-int printPasses(FILE* dbFile, unsigned char* searchString); /*Uses EVP1 cipher to read passes from file*/
-int deletePass(FILE* dbFile, unsigned char* searchString); /*Uses EVP1 cipher to delete passes from a file*/
-int updateEntry(FILE* dbFile, unsigned char* searchString); /*Updates entryName or entryName AND passWord*/
+int printPasses(FILE* dbFile, char* searchString); /*Uses EVP1 cipher to read passes from file*/
+int deletePass(FILE* dbFile, char* searchString); /*Uses EVP1 cipher to delete passes from a file*/
+int updateEntry(FILE* dbFile, char* searchString); /*Updates entryName or entryName AND passWord*/
 int updateEncPass(FILE* dbFile); /*Update database encryption password*/
 /*Password input functions*/
 void genPassWord(int stringLength); /*Generates an entry password if 'gen' is specifed*/
-unsigned char* getPass(const char* prompt, char* paddedPass); /*Function to retrive passwords with no echo*/
+char* getPass(const char* prompt, char* paddedPass); /*Function to retrive passwords with no echo*/
 /*Setup functions*/
 void allocateBuffers(); /*Allocates all the buffers used*/
-int doesFileExist(const unsigned char* filename); /*Checks if the file exists using stat()*/
-int returnFileSize(const unsigned char* filename); /*Returns filesize using stat()*/
-unsigned char* genFileName(); /*Generates random file names for temporary files*/
+int doesFileExist(const char* filename); /*Checks if the file exists using stat()*/
+int returnFileSize(const char* filename); /*Returns filesize using stat()*/
+char* genFileName(); /*Generates random file names for temporary files*/
 /*Cleanup functions*/
 void cleanUpFiles(); /*Cleans up temp files*/
 void cleanUpBuffers(); /*Writes zeroes to all the buffers we used when done*/
-int wipeFile(const unsigned char* filename); /*Wipes temp files used with Schneier 7-Pass method*/
+int wipeFile(const char* filename); /*Wipes temp files used with Schneier 7-Pass method*/
 /*Misc functions*/
 void signalHandler(int signum); /*Signal handler for Ctrl+C*/
 int sendToClipboard(); /*Sends an entry password directly to clipboard*/
-int printSyntax(unsigned char* arg); /*Print program usage and help*/
-int printMACErrMessage(unsigned char* backupFileName); /*Print MAC error information*/
+int printSyntax(char* arg); /*Print program usage and help*/
+int printMACErrMessage(char* backupFileName); /*Print MAC error information*/
 
 /*OpenSSL variables*/
 
@@ -140,15 +140,15 @@ unsigned char evpIv1[EVP_MAX_IV_LENGTH], evpIv1Old[EVP_MAX_KEY_LENGTH], evpIv2[E
 const EVP_MD *evpDigest1 = NULL, *evpDigest2 = NULL;
 
 /*These hold the user-supplied password for the database encryption*/
-unsigned char* dbPass; /*Will hold the user-supplied database password*/
-unsigned char* dbPassStore; /*This stores the dbPass entered by the user to verify it was not mistyped*/
-unsigned char* dbPassOld; /*Store old dbPassword for updateEncPass()*/
+char* dbPass; /*Will hold the user-supplied database password*/
+char* dbPassStore; /*This stores the dbPass entered by the user to verify it was not mistyped*/
+char* dbPassOld; /*Store old dbPassword for updateEncPass()*/
 
 /*EVP cipher and MD name character arrays*/
-unsigned char messageDigest1[NAME_MAX], messageDigest2[NAME_MAX]; /*Message digest name to send to EVP functions*/
-unsigned char messageDigestStore1[NAME_MAX], messageDigestStore2[NAME_MAX]; /*Stores messageDigest given on commandline*/
-unsigned char encCipher1[NAME_MAX], encCipher2[NAME_MAX]; /*Cipher name to send to EVP functions*/
-unsigned char encCipherStore1[NAME_MAX], encCipherStore2[NAME_MAX]; /*Stores the encCipher given on commandline*/
+char messageDigest1[NAME_MAX], messageDigest2[NAME_MAX]; /*Message digest name to send to EVP functions*/
+char messageDigestStore1[NAME_MAX], messageDigestStore2[NAME_MAX]; /*Stores messageDigest given on commandline*/
+char encCipher1[NAME_MAX], encCipher2[NAME_MAX]; /*Cipher name to send to EVP functions*/
+char encCipherStore1[NAME_MAX], encCipherStore2[NAME_MAX]; /*Stores the encCipher given on commandline*/
 
 /*Holds a 64 byte key derived in hmacKDF to be used in HMAC function*/
 unsigned char *hmacKey, *hmacKeyNew, *hmacKeyOld;
@@ -164,23 +164,23 @@ unsigned char fMac[SHA512_DIGEST_LENGTH]; /*MAC read from file to check against,
 unsigned int* gMacLength; /*HMAC() needs an int pointer to put the length of the mac generated into*/
 
 /*Character arrays to hold temp file random names*/
-unsigned char* tmpFile1;
-unsigned char* tmpFile2;
-unsigned char* tmpFile3;
+char* tmpFile1;
+char* tmpFile2;
+char* tmpFile3;
 
 /*Backup and database file names*/
-unsigned char dbFileName[NAME_MAX]; /*Password file name*/
-unsigned char backupFileName[NAME_MAX]; /*Buffer to hold the name of backup file for passwords file which will be the same with a .sav suffix*/
+char dbFileName[NAME_MAX]; /*Password file name*/
+char backupFileName[NAME_MAX]; /*Buffer to hold the name of backup file for passwords file which will be the same with a .sav suffix*/
 
 /*Input buffers*/
-unsigned char* entryPass; /*Entry password*/
-unsigned char* entryPassStore; /*Buffer to store password for verification checks*/
-unsigned char* entryName; /*Entry name*/
-unsigned char* entryNameToSearch; /*A buffer with an entry name to search for with updateEntry*/
-unsigned char* newEntry; /*A buffer with an entry name to update to with updateEntry*/
-unsigned char* newEntryPass; /*A buffer with a password to update an entry's password to with updateEntry*/
-unsigned char* newEntryPassStore; /*A buffer to store previous mentioned password for verification*/
-unsigned char* paddedPass; /*Holds pointer to buffer for user pass from getPass()*/
+char* entryPass; /*Entry password*/
+char* entryPassStore; /*Buffer to store password for verification checks*/
+char* entryName; /*Entry name*/
+char* entryNameToSearch; /*A buffer with an entry name to search for with updateEntry*/
+char* newEntry; /*A buffer with an entry name to update to with updateEntry*/
+char* newEntryPass; /*A buffer with a password to update an entry's password to with updateEntry*/
+char* newEntryPassStore; /*A buffer to store previous mentioned password for verification*/
+char* paddedPass; /*Holds pointer to buffer for user pass from getPass()*/
 
 /*Misc variables*/
 
@@ -193,7 +193,7 @@ int entryPassLength;
 
 /*To store return values for checking*/
 /*Made global in case a function needs to return something else to its caller*/
-int returnVal;
+unsigned int returnVal;
 
 /*Structs needed to hold termios info when resetting terminal echo'ing after taking password*/
 struct termios termisOld, termiosNew;
@@ -309,9 +309,9 @@ int main(int argc, char* argv[])
     int opt; /*for getop()*/
     int errflg = 0; /*Toggle this flag on and off so we can check for errors and act accordingly*/
 
-    unsigned i;
+    int i;
 
-    unsigned char* token;
+    char* token;
 
     /*Process through arguments*/
     while ((opt = getopt(argc, argv, "s:l:f:u:n:d:a:r:p:x:H:c:hUPC")) != -1) {
@@ -601,17 +601,17 @@ int main(int argc, char* argv[])
             printf("Couldn't make a backup file. Be careful...\n");
         } else {
             FILE* copyFile = fopen(dbFileName, "r");
-            unsigned char* backUpFileBuffer = calloc(sizeof(unsigned char), returnFileSize(dbFileName));
-            returnVal = fread(backUpFileBuffer, sizeof(unsigned char), returnFileSize(dbFileName), copyFile);
-            if (returnVal != returnFileSize(dbFileName) / sizeof(unsigned char)) {
+            char* backUpFileBuffer = calloc(sizeof(char), returnFileSize(dbFileName));
+            returnVal = fread(backUpFileBuffer, sizeof(char), returnFileSize(dbFileName), copyFile);
+            if (returnVal != returnFileSize(dbFileName) / sizeof(char)) {
                 if (ferror(copyFile)) {
                     printf("Fread failed\n");
                     return 1;
                 }
             }
 
-            returnVal = fwrite(backUpFileBuffer, sizeof(unsigned char), returnFileSize(dbFileName), backUpFile);
-            if (returnVal != returnFileSize(dbFileName) / sizeof(unsigned char))
+            returnVal = fwrite(backUpFileBuffer, sizeof(char), returnFileSize(dbFileName), backUpFile);
+            if (returnVal != returnFileSize(dbFileName) / sizeof(char))
                 ;
             {
                 if (ferror(backUpFile)) {
@@ -1039,7 +1039,7 @@ int main(int argc, char* argv[])
 
         /*Must store old evp1 key data to decrypt database before new key material is generated*/
         strcpy(dbPassOld, dbPass);
-        memcpy(hmacKeyOld, hmacKey, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
+        memcpy(hmacKeyOld, hmacKey, sizeof(char) * SHA512_DIGEST_LENGTH);
 
         /*If -U was given but neither -c or -H*/
         if (toggle.updateEncPass == 1 && (toggle.encCipher != 1 && toggle.messageDigest != 1)) {
@@ -1057,7 +1057,7 @@ int main(int argc, char* argv[])
             } else {
                 printf("Changed password.\n");
                 hmacKDF();
-                memcpy(hmacKeyNew, hmacKey, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
+                memcpy(hmacKeyNew, hmacKey, sizeof(char) * SHA512_DIGEST_LENGTH);
             }
 
             /*Change cipher and digest if specified*/
@@ -1084,7 +1084,7 @@ int main(int argc, char* argv[])
                 strcpy(messageDigest2, messageDigestStore2);
                 printf("Changing digest to %s:%s\n", messageDigestStore1, messageDigestStore2);
             }
-            memcpy(hmacKeyNew, hmacKey, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
+            memcpy(hmacKeyNew, hmacKey, sizeof(char) * SHA512_DIGEST_LENGTH);
         }
         /*If -P is given along with -c or -H*/
         else {
@@ -1101,7 +1101,7 @@ int main(int argc, char* argv[])
             } else {
                 printf("Changed password.\n");
                 hmacKDF();
-                memcpy(hmacKeyNew, hmacKey, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
+                memcpy(hmacKeyNew, hmacKey, sizeof(char) * SHA512_DIGEST_LENGTH);
             }
 
             /*Change crypto settings*/
@@ -1148,9 +1148,9 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-int printPasses(FILE* dbFile, unsigned char* searchString)
+int printPasses(FILE* dbFile, char* searchString)
 {
-    unsigned i, ii;
+    int i, ii;
     int entriesMatched = 0;
 
     int outlen, tmplen;
@@ -1163,10 +1163,10 @@ int printPasses(FILE* dbFile, unsigned char* searchString)
     fileSize = ftell(dbFile);
     fseek(dbFile, 0L, SEEK_SET);
 
-    unsigned char* entryBuffer = calloc(sizeof(unsigned char), BUFFER_SIZES);
-    unsigned char* passBuffer = calloc(sizeof(unsigned char), BUFFER_SIZES);
-    unsigned char* encryptedBuffer = calloc(sizeof(unsigned char), fileSize);
-    unsigned char* decryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
+    unsigned char* entryBuffer = calloc(sizeof(char), BUFFER_SIZES);
+    unsigned char* passBuffer = calloc(sizeof(char), BUFFER_SIZES);
+    unsigned char* encryptedBuffer = calloc(sizeof(char), fileSize);
+    unsigned char* decryptedBuffer = calloc(sizeof(char), fileSize + EVP_MAX_BLOCK_LENGTH);
 
     /*Read the file into a buffer and check for error*/
     returnVal = fread(encryptedBuffer, sizeof(unsigned char), fileSize, dbFile);
@@ -1244,7 +1244,7 @@ int printPasses(FILE* dbFile, unsigned char* searchString)
         {
             /*Use strncmp and search the first n elements of entryBuffer, where n is the length of the search string*/
             /*This will allow the search of partial matches, or an exact match to be printed*/
-            if (strncmp(searchString, entryBuffer, strlen(searchString)) == 0) {
+            if (strncmp(searchString, (char *)entryBuffer, strlen(searchString)) == 0) {
                 if (toggle.sendToClipboard == 1) {
                     printf("%s\n", entryBuffer);
                     sendToClipboard(passBuffer);
@@ -1273,9 +1273,9 @@ int printPasses(FILE* dbFile, unsigned char* searchString)
     return 0;
 }
 
-int updateEntry(FILE* dbFile, unsigned char* searchString)
+int updateEntry(FILE* dbFile, char* searchString)
 {
-    unsigned i, ii = 0;
+    int i, ii = 0;
     int lastCheck = 0;
     int noEntryMatched = 1;
 
@@ -1379,7 +1379,7 @@ int updateEntry(FILE* dbFile, unsigned char* searchString)
         }
 
         /*If an entry matched searchString or allpasses was specified*/
-        if ((lastCheck = strncmp(searchString, entryBuffer, strlen(searchString))) == 0 || toggle.allPasses == 1) {
+        if ((lastCheck = strncmp(searchString, (char *)entryBuffer, strlen(searchString))) == 0 || toggle.allPasses == 1) {
 
             /*A clunky boolean to test if any entries were matched*/
             noEntryMatched = 0;
@@ -1391,7 +1391,7 @@ int updateEntry(FILE* dbFile, unsigned char* searchString)
 
             /*This will preserve the alphanumeric nature of a password if it has no symbols*/
             if (toggle.allPasses == 1) {
-                for (i = 0; i < strlen(passBuffer); i++) {
+                for (i = 0; i < (int)strlen((char *)passBuffer); i++) {
                     if (isupper(passBuffer[i]) == 0 && islower(passBuffer[i]) == 0 && isdigit(passBuffer[i]) == 0)
                         numberOfSymbols++;
                 }
@@ -1549,9 +1549,9 @@ int updateEntry(FILE* dbFile, unsigned char* searchString)
     return 0;
 }
 
-int deletePass(FILE* dbFile, unsigned char* searchString)
+int deletePass(FILE* dbFile, char* searchString)
 {
-    unsigned i, ii = 0, iii = 0;
+    int i, ii = 0, iii = 0;
     int lastCheck = 0;
     //int noEntryMatched = 1;
     int entriesMatched = 0;
@@ -1656,7 +1656,7 @@ int deletePass(FILE* dbFile, unsigned char* searchString)
         }
 
         /*Use strcmp to match the exact entry here*/
-        if ((lastCheck = strncmp(searchString, entryBuffer, strlen(searchString))) == 0) /*Now we're going to find the specific entry to delete it*/
+        if ((lastCheck = strncmp(searchString, (char *)entryBuffer, strlen(searchString))) == 0) /*Now we're going to find the specific entry to delete it*/
         {
             if (ii == (fileSize - (BUFFER_SIZES * 2))) /*If ii is one entry short of fileSize*/
             {
@@ -1927,7 +1927,7 @@ int updateEncPass(FILE* dbFile)
 int writePass(FILE* dbFile)
 {
     /*We need a set of incrementors to crawl through buffers*/
-    unsigned i;
+    int i;
     long fileSize;
 
     unsigned char outbuf[1024 + EVP_MAX_BLOCK_LENGTH];
@@ -1945,7 +1945,7 @@ int writePass(FILE* dbFile)
     unsigned char* decryptedBuffer = calloc(sizeof(unsigned char), fileSize + (BUFFER_SIZES * 2) + EVP_MAX_BLOCK_LENGTH);
     unsigned char* encryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
 
-    /*Put the unsigned chars, include random whitespace ones, from entryName and entryPass into infoBuffer, again splitting the BUFFER_SIZES * 2 unsigned chars between the two*/
+    /*Put the chars, include random whitespace ones, from entryName and entryPass into infoBuffer, again splitting the BUFFER_SIZES * 2 chars between the two*/
     for (i = 0; i < BUFFER_SIZES; i++)
         infoBuffer[i] = entryName[i];
     for (i = 0; i < BUFFER_SIZES; i++)
@@ -2154,10 +2154,10 @@ int writePass(FILE* dbFile)
 /*Over write the data we put in the temporary files with Schneier 7-Pass Method*/
 /*https://en.wikipedia.org/wiki/Data_remanence#Feasibility_of_recovering_overwritten_data*/
 /*https://en.wikipedia.org/wiki/Data_erasure#Standards*/
-int wipeFile(const unsigned char* filename)
+int wipeFile(const char* filename)
 {
     int fileSize = returnFileSize(filename);
-    unsigned i, ii, passes = 7;
+    int i, ii, passes = 7;
     unsigned char b;
     FILE* fileToWrite;
     for (ii = 0; ii <= passes; ii++) {
@@ -2188,7 +2188,7 @@ int wipeFile(const unsigned char* filename)
 }
 
 /*Use stat() to check if a file exists. Returns 0 on success*/
-int doesFileExist(const unsigned char* filename)
+int doesFileExist(const char* filename)
 {
     struct stat st;
     int result = stat(filename, &st);
@@ -2196,7 +2196,7 @@ int doesFileExist(const unsigned char* filename)
 }
 
 /*Use stat() to return the filesize of file given at filename*/
-int returnFileSize(const unsigned char* filename)
+int returnFileSize(const char* filename)
 {
     struct stat st;
     stat(filename, &st);
@@ -2226,7 +2226,7 @@ int dbEncrypt(FILE* in, FILE* out)
             return 1;
         }
         returnVal = fwrite(outbuf, 1, outlen, out);
-        if (returnVal != outlen)
+        if (returnVal != (unsigned int)outlen)
             ;
         {
             if (ferror(out)) {
@@ -2241,7 +2241,7 @@ int dbEncrypt(FILE* in, FILE* out)
         return 1;
     }
     returnVal = fwrite(outbuf, 1, outlen, out);
-    if (returnVal != outlen)
+    if (returnVal != (unsigned int)outlen)
         ;
     {
         if (ferror(out)) {
@@ -2275,7 +2275,7 @@ int dbDecrypt(FILE* in, FILE* out)
             return 1;
         }
         returnVal = fwrite(outbuf, 1, outlen, out);
-        if (returnVal != outlen)
+        if (returnVal != (unsigned int)outlen)
             ;
         {
             if (ferror(out)) {
@@ -2290,7 +2290,7 @@ int dbDecrypt(FILE* in, FILE* out)
         return 1;
     }
     returnVal = fwrite(outbuf, 1, outlen, out);
-    if (returnVal != outlen)
+    if (returnVal != (unsigned int)outlen)
         ;
     {
         if (ferror(out)) {
@@ -2340,9 +2340,9 @@ void mdLister()
 /*Will also enforce CFB, OFB or CTR modes*/
 int primeSSL()
 {
-    unsigned char modeTag[3];
+    char modeTag[3];
     int stringStart, modeLength;
-    unsigned i;
+    int i;
 
     /*If the user has specified a cipher to use*/
     if (toggle.encCipher == 1 || encCipher2[0] != 0) {
@@ -2462,10 +2462,10 @@ int primeSSL()
     return 0;
 }
 
-int sealEnvelope(const unsigned char* tmpFileToUse)
+int sealEnvelope(const char* tmpFileToUse)
 {
-    unsigned char cryptoBuffer[BUFFER_SIZES];
-    if (!RAND_bytes(cryptoBuffer, BUFFER_SIZES)) {
+    char cryptoBuffer[BUFFER_SIZES];
+    if (!RAND_bytes((unsigned char*)cryptoBuffer, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         cleanUpBuffers();
         cleanUpFiles();
@@ -2589,12 +2589,12 @@ int sealEnvelope(const unsigned char* tmpFileToUse)
 
 int openEnvelope()
 {
-    unsigned char cryptoHeader[BUFFER_SIZES];
-    unsigned char* token;
+    char cryptoHeader[BUFFER_SIZES];
+    char* token;
     //int i;
 
     /*a temporary buffer to store the contents of the password file between read and writes to temporary files*/
-    unsigned char* tmpBuffer;
+    char* tmpBuffer;
 
     /*file handles to be used  for envelope and temporary files*/
     FILE *EVP2EncryptedFile, *EVP2DecryptedFile, *EVP1DataFileTmp;
@@ -2613,16 +2613,16 @@ int openEnvelope()
     /*Then will be the cipher and the message digest names delimited with ':'*/
 
     /*fread overwrites the randomly generated salt with the one read from file*/
-    returnVal = fread(evp2Salt, sizeof(unsigned char), EVP2_SALT_SIZE, EVP2EncryptedFile);
-    if (returnVal != EVP2_SALT_SIZE / sizeof(unsigned char)) {
+    returnVal = fread(evp2Salt, sizeof(char), EVP2_SALT_SIZE, EVP2EncryptedFile);
+    if (returnVal != EVP2_SALT_SIZE / sizeof(char)) {
         if (ferror(EVP2EncryptedFile)) {
             printf("Fread failed\n");
             return 1;
         }
     }
 
-    returnVal = fread(evp1Salt, sizeof(unsigned char), EVP1_SALT_SIZE, EVP2EncryptedFile);
-    if (returnVal != EVP1_SALT_SIZE / sizeof(unsigned char)) {
+    returnVal = fread(evp1Salt, sizeof(char), EVP1_SALT_SIZE, EVP2EncryptedFile);
+    if (returnVal != EVP1_SALT_SIZE / sizeof(char)) {
         if (ferror(EVP2EncryptedFile)) {
             printf("Fread failed\n");
             return 1;
@@ -2633,8 +2633,8 @@ int openEnvelope()
     hmacKDF();
 
     /*Read the cipher and message digest information in*/
-    returnVal = fread(cryptoHeader, sizeof(unsigned char), BUFFER_SIZES, EVP2EncryptedFile);
-    if (returnVal != BUFFER_SIZES / sizeof(unsigned char)) {
+    returnVal = fread(cryptoHeader, sizeof(char), BUFFER_SIZES, EVP2EncryptedFile);
+    if (returnVal != BUFFER_SIZES / sizeof(char)) {
         if (ferror(EVP2EncryptedFile)) {
             printf("Fread failed\n");
             return 1;
@@ -2772,8 +2772,8 @@ int openEnvelope()
 
     /*Read the MAC from EVP2DecryptedFile into buffer pointed to by fMac*/
     /*fMac for file MAC. Will compare this one against the one generated for gMac*/
-    returnVal = fread(fMac, sizeof(unsigned char), SHA512_DIGEST_LENGTH, EVP2DecryptedFile);
-    if (returnVal != SHA512_DIGEST_LENGTH / sizeof(unsigned char)) {
+    returnVal = fread(fMac, sizeof(char), SHA512_DIGEST_LENGTH, EVP2DecryptedFile);
+    if (returnVal != SHA512_DIGEST_LENGTH / sizeof(char)) {
         if (ferror(EVP2DecryptedFile)) {
             printf("Fread failed\n");
             return 1;
@@ -2784,19 +2784,19 @@ int openEnvelope()
     fseek(EVP2DecryptedFile, 0L, SEEK_SET);
 
     /*Allocate a buffer big enough for the EVP2DecryptedFile file minus the MAC*/
-    tmpBuffer = calloc(sizeof(unsigned char), (fileSize - SHA512_DIGEST_LENGTH));
+    tmpBuffer = calloc(sizeof(char), (fileSize - SHA512_DIGEST_LENGTH));
 
     /*Read the cipher-text data into the temp buffer, then write it out to tmpFile2*/
-    returnVal = fread(tmpBuffer, sizeof(unsigned char), fileSize - SHA512_DIGEST_LENGTH, EVP2DecryptedFile);
-    if (returnVal != fileSize - SHA512_DIGEST_LENGTH / sizeof(unsigned char)) {
+    returnVal = fread(tmpBuffer, sizeof(char), fileSize - SHA512_DIGEST_LENGTH, EVP2DecryptedFile);
+    if (returnVal != fileSize - SHA512_DIGEST_LENGTH / sizeof(char)) {
         if (ferror(EVP2DecryptedFile)) {
             printf("Fread failed\n");
             return 1;
         }
     }
 
-    returnVal = fwrite(tmpBuffer, sizeof(unsigned char), fileSize - SHA512_DIGEST_LENGTH, EVP1DataFileTmp);
-    if (returnVal != fileSize - SHA512_DIGEST_LENGTH / sizeof(unsigned char))
+    returnVal = fwrite(tmpBuffer, sizeof(char), fileSize - SHA512_DIGEST_LENGTH, EVP1DataFileTmp);
+    if (returnVal != fileSize - SHA512_DIGEST_LENGTH / sizeof(char))
         ;
     {
         if (ferror(EVP1DataFileTmp)) {
@@ -2840,62 +2840,62 @@ void cleanUpFiles()
 /*Allocate and randomize with OpenSSL's PRNG*/
 void allocateBuffers()
 {
-    entryPass = calloc(sizeof(unsigned char), BUFFER_SIZES);
-    if (!RAND_bytes(entryPass, BUFFER_SIZES)) {
+    entryPass = calloc(sizeof(char), BUFFER_SIZES);
+    if (!RAND_bytes((unsigned char *)entryPass, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
 
-    entryPassStore = calloc(sizeof(unsigned char), BUFFER_SIZES);
-    if (!RAND_bytes(entryPassStore, BUFFER_SIZES)) {
+    entryPassStore = calloc(sizeof(char), BUFFER_SIZES);
+    if (!RAND_bytes((unsigned char *)entryPassStore, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
 
-    entryName = calloc(sizeof(unsigned char), BUFFER_SIZES);
-    if (!RAND_bytes(entryName, BUFFER_SIZES)) {
+    entryName = calloc(sizeof(char), BUFFER_SIZES);
+    if (!RAND_bytes((unsigned char *)entryName, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
 
-    entryNameToSearch = calloc(sizeof(unsigned char), BUFFER_SIZES);
-    if (!RAND_bytes(entryNameToSearch, BUFFER_SIZES)) {
+    entryNameToSearch = calloc(sizeof(char), BUFFER_SIZES);
+    if (!RAND_bytes((unsigned char *)entryNameToSearch, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
 
-    newEntry = calloc(sizeof(unsigned char), BUFFER_SIZES);
-    if (!RAND_bytes(newEntry, BUFFER_SIZES)) {
+    newEntry = calloc(sizeof(char), BUFFER_SIZES);
+    if (!RAND_bytes((unsigned char *)newEntry, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
 
-    newEntryPass = calloc(sizeof(unsigned char), BUFFER_SIZES);
-    if (!RAND_bytes(newEntryPass, BUFFER_SIZES)) {
+    newEntryPass = calloc(sizeof(char), BUFFER_SIZES);
+    if (!RAND_bytes((unsigned char *)newEntryPass, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
 
-    newEntryPassStore = calloc(sizeof(unsigned char), BUFFER_SIZES);
-    if (!RAND_bytes(newEntryPassStore, BUFFER_SIZES)) {
+    newEntryPassStore = calloc(sizeof(char), BUFFER_SIZES);
+    if (!RAND_bytes((unsigned char *)newEntryPassStore, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
 
     dbPass = calloc(sizeof(unsigned char), BUFFER_SIZES * 2);
-    if (!RAND_bytes(dbPass, BUFFER_SIZES * 2)) {
+    if (!RAND_bytes((unsigned char *)dbPass, BUFFER_SIZES * 2)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
 
     dbPassStore = calloc(sizeof(unsigned char), BUFFER_SIZES * 2);
-    if (!RAND_bytes(dbPassStore, BUFFER_SIZES * 2)) {
+    if (!RAND_bytes((unsigned char *)dbPassStore, BUFFER_SIZES * 2)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
 
     dbPassOld = calloc(sizeof(unsigned char), BUFFER_SIZES * 2);
-    if (!RAND_bytes(dbPassOld, BUFFER_SIZES * 2)) {
+    if (!RAND_bytes((unsigned char *)dbPassOld, BUFFER_SIZES * 2)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
@@ -2925,11 +2925,11 @@ void allocateBuffers()
 /*Fill up the buffers we stored the information in with 0's before exiting*/
 void cleanUpBuffers()
 {
-    OPENSSL_cleanse(entryPass, sizeof(unsigned char) * BUFFER_SIZES);
-    OPENSSL_cleanse(entryName, sizeof(unsigned char) * BUFFER_SIZES);
-    OPENSSL_cleanse(entryNameToSearch, sizeof(unsigned char) * BUFFER_SIZES);
-    OPENSSL_cleanse(newEntry, sizeof(unsigned char) * BUFFER_SIZES);
-    OPENSSL_cleanse(newEntryPass, sizeof(unsigned char) * BUFFER_SIZES);
+    OPENSSL_cleanse(entryPass, sizeof(char) * BUFFER_SIZES);
+    OPENSSL_cleanse(entryName, sizeof(char) * BUFFER_SIZES);
+    OPENSSL_cleanse(entryNameToSearch, sizeof(char) * BUFFER_SIZES);
+    OPENSSL_cleanse(newEntry, sizeof(char) * BUFFER_SIZES);
+    OPENSSL_cleanse(newEntryPass, sizeof(char) * BUFFER_SIZES);
     OPENSSL_cleanse(dbPass, sizeof(unsigned char) * strlen(dbPass));
     OPENSSL_cleanse(dbPassOld, sizeof(unsigned char) * BUFFER_SIZES * 2);
     OPENSSL_cleanse(evpKey2, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
@@ -2942,8 +2942,8 @@ void cleanUpBuffers()
 void genPassWord(int stringLength)
 {
     unsigned char b; /*Random byte*/
-    unsigned char tempPassString[stringLength];
-    unsigned i = 0;
+    char tempPassString[stringLength];
+    int i = 0;
 
     /*Go until i has iterated over the length of the pass requested*/
     while (i < stringLength) {
@@ -2978,13 +2978,13 @@ void genPassWord(int stringLength)
     strcpy(entryPass, tempPassString);
 }
 
-unsigned char* genFileName()
+char* genFileName()
 {
     unsigned char b; /*Random byte*/
-    unsigned char* fileNameBuffer = calloc(sizeof(unsigned char), NAME_MAX);
+    char* fileNameBuffer = calloc(sizeof(char), NAME_MAX);
     /*Allocate fileName buffer to be large enough to accomodate default temporary directory name*/
-    unsigned char* fileName = calloc(sizeof(unsigned char), NAME_MAX - strlen(P_tmpdir));
-    unsigned i = 0;
+    char* fileName = calloc(sizeof(char), NAME_MAX - strlen(P_tmpdir));
+    int i = 0;
 
     /*Go until i has iterated over the length of the pass requested*/
     while (i < NAME_MAX) {
@@ -3015,7 +3015,7 @@ void genEvp2Salt()
 {
 
     unsigned char b; /*Random byte*/
-    unsigned i = 0;
+    int i = 0;
 
     while (i < EVP2_SALT_SIZE) {
         if (!RAND_bytes(&b, 1)) {
@@ -3034,7 +3034,7 @@ void genEvp1Salt()
 {
 
     unsigned char b; /*Random byte*/
-    unsigned int i = 0;
+    int i = 0;
 
     while (i < EVP1_SALT_SIZE) {
         if (!RAND_bytes(&b, 1)) {
@@ -3050,11 +3050,11 @@ void genEvp1Salt()
 
 /*Puts an entry's password directly into the clipboard*/
 /*System must have xclip installed*/
-int sendToClipboard(unsigned char* textToSend)
+int sendToClipboard(char* textToSend)
 {
-    unsigned char xclipCommand[] = "xclip -in";
-    unsigned char wipeCommand[] = "xclip -in";
-    unsigned char wipeOutBuffer[strlen(textToSend)];
+    char xclipCommand[] = "xclip -in";
+    char wipeCommand[] = "xclip -in";
+    char wipeOutBuffer[strlen(textToSend)];
     OPENSSL_cleanse(wipeOutBuffer, strlen(textToSend));
     FILE* xclipFile = popen(xclipCommand, "w");
     FILE* wipeFile = popen(wipeCommand, "w");
@@ -3064,8 +3064,8 @@ int sendToClipboard(unsigned char* textToSend)
         perror("xclip");
         return errno;
     }
-    returnVal = fwrite(textToSend, sizeof(unsigned char), strlen(textToSend), xclipFile);
-    if (returnVal != strlen(textToSend) / sizeof(unsigned char))
+    returnVal = fwrite(textToSend, sizeof(char), strlen(textToSend), xclipFile);
+    if (returnVal != strlen(textToSend) / sizeof(char))
         ;
     {
         if (ferror(xclipFile)) {
@@ -3112,8 +3112,8 @@ int sendToClipboard(unsigned char* textToSend)
 
     sleep(xclipClearTime);
 
-    returnVal = fwrite(wipeOutBuffer, sizeof(unsigned char), strlen(textToSend), wipeFile);
-    if (returnVal != strlen(textToSend) / sizeof(unsigned char))
+    returnVal = fwrite(wipeOutBuffer, sizeof(char), strlen(textToSend), wipeFile);
+    if (returnVal != strlen(textToSend) / sizeof(char))
         ;
     {
         if (ferror(wipeFile)) {
@@ -3143,10 +3143,10 @@ void hmacKDF()
     PKCS5_PBKDF2_HMAC(dbPass, -1, hmacSalt, HMAC_SALT_SIZE, RFC_2889_REC_ITERATIONS * originalPassLength, EVP_get_digestbyname("sha512"), SHA512_DIGEST_LENGTH, hmacKey);
 }
 
-int evpKDF(unsigned char* dbPass, unsigned char* evpSalt, unsigned int saltLen,const EVP_CIPHER *evpCipher,const EVP_MD *evpDigest, unsigned char *evpKey, unsigned char *evpIv)
+int evpKDF(char* dbPass, unsigned char* evpSalt, unsigned int saltLen,const EVP_CIPHER *evpCipher,const EVP_MD *evpDigest, unsigned char *evpKey, unsigned char *evpIv)
 {
 	/*First generate the key*/
-	if (!PKCS5_PBKDF2_HMAC((unsigned char*)dbPass, strlen(dbPass),
+	if (!PKCS5_PBKDF2_HMAC((char*)dbPass, strlen(dbPass),
 		evpSalt, saltLen,
 		strlen(dbPass) * RFC_2889_REC_ITERATIONS,
 		evpDigest,EVP_CIPHER_key_length(evpCipher),
@@ -3157,7 +3157,7 @@ int evpKDF(unsigned char* dbPass, unsigned char* evpSalt, unsigned int saltLen,c
     
     /*If this cipher uses an IV, generate that as well*/
     if(EVP_CIPHER_iv_length(evpCipher) != 0) {
-		if (!PKCS5_PBKDF2_HMAC((unsigned char*)dbPass, strlen(dbPass),
+		if (!PKCS5_PBKDF2_HMAC((char*)dbPass, strlen(dbPass),
 		    evpSalt, saltLen,
             strlen(dbPass) * RFC_2889_REC_ITERATIONS,
             evpDigest,EVP_CIPHER_iv_length(evpCipher),
@@ -3185,14 +3185,14 @@ void signalHandler(int signum)
     exit(signum);
 }
 
-unsigned char* getPass(const char* prompt, char* paddedPass)
+char* getPass(const char* prompt, char* paddedPass)
 {
     size_t len = 0;
     int i;
     char* pass = NULL;
 
 
-    if (!RAND_bytes(paddedPass, BUFFER_SIZES)) {
+    if (!RAND_bytes((unsigned char* )paddedPass, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         /* Restore terminal. */
         (void)tcsetattr(fileno(stdin), TCSAFLUSH, &termisOld);
@@ -3201,7 +3201,7 @@ unsigned char* getPass(const char* prompt, char* paddedPass)
         printf("\nPassword was too large\n");
         exit(1);
     }
-    size_t nread;
+    int nread;
 
     /* Turn echoing off and fail if we can’t. */
     if (tcgetattr(fileno(stdin), &termisOld) != 0)
@@ -3236,23 +3236,23 @@ unsigned char* getPass(const char* prompt, char* paddedPass)
     printf("\n");
 
     /*Copy pass into paddedPass then remove sensitive information*/
-    for (i = 0; i < strlen(pass) + 1; i++)
+    for (i = 0; i < (int)strlen(pass) + 1; i++)
         paddedPass[i] = pass[i];
 
-    OPENSSL_cleanse(pass, sizeof(unsigned char) * nread);
+    OPENSSL_cleanse(pass, sizeof(char) * nread);
     free(pass);
 
     return paddedPass;
 }
 
-int printMACErrMessage(unsigned char* backupFileName)
+int printMACErrMessage(char* backupFileName)
 {
     printf("Message Authentication Failed\nWrong password?\n");
 
     return 0;
 }
 
-int printSyntax(unsigned char* arg)
+int printSyntax(char* arg)
 {
     printf("\
 \nReccomend Syntax: \
@@ -3297,7 +3297,7 @@ int printSyntax(unsigned char* arg)
 \n     \t-x 'database password' (the current database password to decrypt/with) \
 \n     \t-c 'first-cipher:second-cipher' - Update algorithms in cascade\
 \n     \t-H 'first-digest:second-digest' - Update digests used for cascaded algorithms' KDFs\
-\nVersion 2.2.0\
+\nVersion 2.2.1\
 \n\
 ",
         arg);
