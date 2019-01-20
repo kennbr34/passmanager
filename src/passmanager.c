@@ -38,7 +38,9 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#ifdef __linux__
 #include <sys/capability.h>
+#endif
 #include <sys/time.h>
 #include <sys/resource.h>
 
@@ -206,6 +208,7 @@ int main(int argc, char* argv[])
         return 1;
     }
     
+    #ifdef __linux__
     /*Check for super user priveleges*/
     if(geteuid() != 0 && getuid() != 0) {
 		printf("euid: %i uid: %i\n", geteuid(), getuid());
@@ -281,7 +284,8 @@ int main(int argc, char* argv[])
 			}
 		}
 	}
-
+	#endif
+    
     /*These calls will ensure that cleanUpFiles and cleanUpBuffers is ran after return call within main*/
 
     atexit(cleanUpFiles);
