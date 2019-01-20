@@ -6,21 +6,22 @@ Thorough documentation on design and use was also added via manual file, in addi
 
 # PLATFORMS
 
-~The program utilizes OpenSSL and libcap and should work on any Linux.~
-
-The BSD port of this program does not employ any memory locking, core dump prevention, or ptrace protection like the Linux version does, so it only needs OpenSSL.
+The program utilizes OpenSSL and libcap and should work on any Linux.
 
 Confirmed Operational On:
 
-GhostBSD 18.02
-
-Semi-Operational On:
-
-OpenBSD 6.4 (Updating database encryption or password does not work)
+Debian Buster/testing\
+Ubuntu (16.04 and 18.04)\
+Antegros 18.12\
+Manjaro 18.0\
+Sabayon 18.05\
+Slackware 14.2
 
 # DEPENDENCIES
 
 OpenSSL development files (1.0.1.g or higher)
+
+libcap development files (2.24-12 or higher)
 
 xclip (optional for clipboard functions)
 
@@ -38,7 +39,7 @@ $ make\
 
 If you don't want to install the automake package contents, and want to compile the binary alone, just link with lcrypto
 
-(g)cc passmanager.c -o passmanager -lcrypto
+gcc passmanager.c -o passmanager -lcrypto -lcap
 
 Special Note: I would advise against using optimization, because the functions which are used to clear memory of sensitive data may be optimized out.
 
