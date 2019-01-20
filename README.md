@@ -6,22 +6,21 @@ Thorough documentation on design and use was also added via manual file, in addi
 
 # PLATFORMS
 
-The program utilizes OpenSSL and libcap and should work on any Linux.
+~The program utilizes OpenSSL and libcap and should work on any Linux.~
+
+The BSD port of this program does not employ any memory locking, core dump prevention, or ptrace protection like the Linux version does, so it only needs OpenSSL.
 
 Confirmed Operational On:
 
-Debian Buster/testing\
-Ubuntu (16.04 and 18.04)\
-Antegros 18.12\
-Manjaro 18.0\
-Sabayon 18.05\
-Slackware 14.2
+GhostBSD 18.02
+
+Semi-Operational On:
+
+OpenBSD 6.4 (Updating database encryption or password does not work)
 
 # DEPENDENCIES
 
 OpenSSL development files (1.0.1.g or higher)
-
-libcap development files (2.24-12 or higher)
 
 xclip (optional for clipboard functions)
 
