@@ -10,12 +10,12 @@ The program utilizes OpenSSL and libcap and should work on any Linux.
 
 Confirmed Operational On:
 
-Debian Buster/testing\
-Ubuntu (16.04 and 18.04)\
-Antegros 18.12\
-Manjaro 18.0\
-Sabayon 18.05\
-Slackware 14.2
+* Debian Buster/testing
+* Ubuntu (16.04 and 18.04)
+* Antegros 18.12
+* Manjaro 18.0
+* Sabayon 18.05
+* Slackware 14.2
 
 # DEPENDENCIES
 
