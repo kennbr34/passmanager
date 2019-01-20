@@ -38,7 +38,7 @@ $ make\
 
 If you don't want to install the automake package contents, and want to compile the binary alone, just link with lcrypto
 
-gcc passmanager.c -o passmanager -lcrypto -lcap
+(g)cc passmanager.c -o passmanager -lcrypto
 
 Special Note: I would advise against using optimization, because the functions which are used to clear memory of sensitive data may be optimized out.
 
