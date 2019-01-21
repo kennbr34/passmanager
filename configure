@@ -2841,7 +2841,7 @@ fi
 
 
 
-: ${CFLAGS="-Wall -Wextra -pedantic -Wno-empty-body -Wno-unused-parameter"}
+: ${CFLAGS="-Wall -Wextra -pedantic"}
 
 # Checks for programs.
 ac_ext=c

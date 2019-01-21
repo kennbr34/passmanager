@@ -8,7 +8,7 @@ AM_INIT_AUTOMAKE([subdir-objects foreign])
 AC_CONFIG_HEADERS([config.h])
 AM_MAINTAINER_MODE
 
-: ${CFLAGS="-Wall -Wextra -pedantic -Wno-empty-body -Wno-unused-parameter"}
+: ${CFLAGS="-Wall -Wextra -pedantic"}
 
 # Checks for programs.
 AC_PROG_CC

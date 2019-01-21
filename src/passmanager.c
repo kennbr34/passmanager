@@ -129,7 +129,7 @@ int wipeFile(const char* filename); /*Wipes temp files used with Schneier 7-Pass
 void signalHandler(int signum); /*Signal handler for Ctrl+C*/
 int sendToClipboard(); /*Sends an entry password directly to clipboard*/
 int printSyntax(char* arg); /*Print program usage and help*/
-int printMACErrMessage(char* backupFileName); /*Print MAC error information*/
+int printMACErrMessage(void); /*Print MAC error information*/
 
 /*OpenSSL variables*/
 
@@ -616,7 +616,6 @@ int main(int argc, char* argv[])
 
             returnVal = fwrite(backUpFileBuffer, sizeof(char), returnFileSize(dbFileName), backUpFile);
             if (returnVal != returnFileSize(dbFileName) / sizeof(char))
-                ;
             {
                 if (ferror(backUpFile)) {
                     printf("fwrite failed @ 485\n");
@@ -1156,6 +1155,8 @@ int printPasses(FILE* dbFile, char* searchString)
 {
     int i, ii;
     int entriesMatched = 0;
+    
+    char entryName[BUFFER_SIZES];
 
     int outlen, tmplen;
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
@@ -1187,7 +1188,7 @@ int printPasses(FILE* dbFile, char* searchString)
     /*Check if the MAC from the EVP2DecryptedFile matches MAC generated via HMAC*/
     /*Return error status before proceeding and clean up sensitive data*/
     if (memcmp(fMac, gMac, SHA512_DIGEST_LENGTH) != 0) {
-        printMACErrMessage(backupFileName);
+        printMACErrMessage();
 
         free(entryBuffer);
         free(passBuffer);
@@ -1243,12 +1244,14 @@ int printPasses(FILE* dbFile, char* searchString)
             entryBuffer[i] = decryptedBuffer[i + ii];
             passBuffer[i] = decryptedBuffer[i + ii + BUFFER_SIZES];
         }
+        
+        memcpy(entryName,entryBuffer,BUFFER_SIZES);
 
         if (searchString != NULL) /*If an entry name was specified*/
         {
             /*Use strncmp and search the first n elements of entryBuffer, where n is the length of the search string*/
             /*This will allow the search of partial matches, or an exact match to be printed*/
-            if (strncmp(searchString, (char *)entryBuffer, strlen(searchString)) == 0) {
+            if (strncmp(searchString, entryName, strlen(searchString)) == 0) {
                 if (toggle.sendToClipboard == 1) {
                     printf("%s\n", entryBuffer);
                     sendToClipboard(passBuffer);
@@ -1282,6 +1285,10 @@ int updateEntry(FILE* dbFile, char* searchString)
     int i, ii = 0;
     int lastCheck = 0;
     int noEntryMatched = 1;
+    int passLength;
+    
+    char entryName[BUFFER_SIZES];
+    char passWord[BUFFER_SIZES];
 
     int outlen, tmplen;
 
@@ -1318,7 +1325,7 @@ int updateEntry(FILE* dbFile, char* searchString)
 
     /*Return error status before proceeding and clean up sensitive data*/
     if (memcmp(fMac, gMac, SHA512_DIGEST_LENGTH) != 0) {
-        printMACErrMessage(backupFileName);
+        printMACErrMessage();
 
         free(entryBuffer);
         free(passBuffer);
@@ -1381,9 +1388,12 @@ int updateEntry(FILE* dbFile, char* searchString)
             entryBuffer[i] = decryptedBuffer[i + ii];
             passBuffer[i] = decryptedBuffer[i + ii + BUFFER_SIZES];
         }
+        
+        memcpy(entryName,entryBuffer,BUFFER_SIZES);
+        memcpy(passWord,passBuffer,BUFFER_SIZES);
 
         /*If an entry matched searchString or allpasses was specified*/
-        if ((lastCheck = strncmp(searchString, (char *)entryBuffer, strlen(searchString))) == 0 || toggle.allPasses == 1) {
+        if ((lastCheck = strncmp(searchString, entryName, strlen(searchString))) == 0 || toggle.allPasses == 1) {
 
             /*A clunky boolean to test if any entries were matched*/
             noEntryMatched = 0;
@@ -1395,7 +1405,8 @@ int updateEntry(FILE* dbFile, char* searchString)
 
             /*This will preserve the alphanumeric nature of a password if it has no symbols*/
             if (toggle.allPasses == 1) {
-                for (i = 0; i < (int)strlen((char *)passBuffer); i++) {
+				passLength = strlen(passWord);
+                for (i = 0; i < passLength; i++) {
                     if (isupper(passBuffer[i]) == 0 && islower(passBuffer[i]) == 0 && isdigit(passBuffer[i]) == 0)
                         numberOfSymbols++;
                 }
@@ -1465,6 +1476,7 @@ int updateEntry(FILE* dbFile, char* searchString)
     OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * BUFFER_SIZES);
     OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * BUFFER_SIZES);
     OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
+    OPENSSL_cleanse(passWord, sizeof(char) * BUFFER_SIZES);
 
     /*Clear the old encrypted information out to use encryptedBuffer to store cipher-text of modifications*/
     free(encryptedBuffer);
@@ -1532,7 +1544,6 @@ int updateEntry(FILE* dbFile, char* searchString)
     /*Write the encryptedBuffer out and check for errors*/
     returnVal = fwrite(encryptedBuffer, fileSize, sizeof(unsigned char), tmpFile);
     if (returnVal != fileSize / sizeof(unsigned char))
-        ;
     {
         if (ferror(tmpFile)) {
             printf("fwrite failed @ 1365\n");
@@ -1557,8 +1568,9 @@ int deletePass(FILE* dbFile, char* searchString)
 {
     int i, ii = 0, iii = 0;
     int lastCheck = 0;
-    //int noEntryMatched = 1;
     int entriesMatched = 0;
+    
+    char entryName[BUFFER_SIZES];
 
     int outlen, tmplen;
 
@@ -1594,7 +1606,7 @@ int deletePass(FILE* dbFile, char* searchString)
 
     /*Return error status before proceeding and clean up sensitive data*/
     if (memcmp(fMac, gMac, SHA512_DIGEST_LENGTH) != 0) {
-        printMACErrMessage(backupFileName);
+        printMACErrMessage();
 
         free(entryBuffer);
         free(passBuffer);
@@ -1658,9 +1670,11 @@ int deletePass(FILE* dbFile, char* searchString)
             entryBuffer[i] = decryptedBuffer[i + ii];
             passBuffer[i] = decryptedBuffer[i + ii + BUFFER_SIZES];
         }
+        
+        memcpy(entryName,entryBuffer,BUFFER_SIZES);
 
         /*Use strcmp to match the exact entry here*/
-        if ((lastCheck = strncmp(searchString, (char *)entryBuffer, strlen(searchString))) == 0) /*Now we're going to find the specific entry to delete it*/
+        if ((lastCheck = strncmp(searchString, entryName, strlen(searchString))) == 0) /*Now we're going to find the specific entry to delete it*/
         {
             if (ii == (fileSize - (BUFFER_SIZES * 2))) /*If ii is one entry short of fileSize*/
             {
@@ -1757,7 +1771,6 @@ int deletePass(FILE* dbFile, char* searchString)
         printf("Nothing matched that exactly.\n");
         returnVal = fwrite(encryptedBuffer, fileSize, sizeof(unsigned char), tmpFile);
         if (returnVal != fileSize / sizeof(unsigned char))
-            ;
         {
             if (ferror(tmpFile)) {
                 printf("fwrite failed @ 1550\n");
@@ -1768,7 +1781,6 @@ int deletePass(FILE* dbFile, char* searchString)
         printf("If you deleted more than you intended to, restore from %s.autobak\n", dbFileName);
         returnVal = fwrite(encryptedBuffer, fileSize - ((BUFFER_SIZES * 2) * entriesMatched), sizeof(unsigned char), tmpFile);
         if (returnVal != fileSize - ((BUFFER_SIZES * 2) * entriesMatched) / sizeof(unsigned char))
-            ;
         {
             if (ferror(tmpFile)) {
                 printf("fwrite failed @ 1558\n");
@@ -1790,7 +1802,6 @@ int deletePass(FILE* dbFile, char* searchString)
 
 int updateEncPass(FILE* dbFile)
 {
-    //int i;
     int outlen, tmplen;
 
     FILE* tmpFile;
@@ -1819,7 +1830,7 @@ int updateEncPass(FILE* dbFile)
 
     /*Return error status before proceeding and clean up sensitive data*/
     if (memcmp(fMac, gMac, SHA512_DIGEST_LENGTH) != 0) {
-        printMACErrMessage(backupFileName);
+        printMACErrMessage();
 
         free(decryptedBuffer);
         free(encryptedBuffer);
@@ -1912,7 +1923,6 @@ int updateEncPass(FILE* dbFile)
 
     returnVal = fwrite(encryptedBuffer, fileSize, sizeof(unsigned char), tmpFile);
     if (returnVal != fileSize / sizeof(unsigned char))
-        ;
     {
         if (ferror(tmpFile)) {
             printf("fwrite failed @ 1707\n");
@@ -1973,7 +1983,7 @@ int writePass(FILE* dbFile)
 
         /*Return error status before proceeding and clean up sensitive data*/
         if (memcmp(fMac, gMac, SHA512_DIGEST_LENGTH) != 0) {
-            printMACErrMessage(backupFileName);
+            printMACErrMessage();
             OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * BUFFER_SIZES * 2);
 
             free(infoBuffer);
@@ -2071,7 +2081,6 @@ int writePass(FILE* dbFile)
         /*Write the encrypted information to file*/
         returnVal = fwrite(outbuf, 1, sizeof(unsigned char) * outlen, dbFile);
         if (returnVal != outlen * sizeof(unsigned char))
-            ;
         {
             if (ferror(dbFile)) {
                 printf("fwrite failed @ 1837\n");
@@ -2137,7 +2146,6 @@ int writePass(FILE* dbFile)
 
         returnVal = fwrite(encryptedBuffer, 1, outlen * sizeof(unsigned char), dbFile);
         if (returnVal != outlen * sizeof(unsigned char))
-            ;
         {
             if (ferror(dbFile)) {
                 printf("fwrite failed @ 1881\n");
@@ -2213,6 +2221,8 @@ int returnFileSize(const char* filename)
 /*Code was gleamed from OpenSSL man pages for EVP_EncryptInit*/
 int dbEncrypt(FILE* in, FILE* out)
 {
+	int returnValLocal;
+	
     /* Allow enough space in output buffer for additional block */
     unsigned char inbuf[EVP_BLOCK_SIZE], outbuf[EVP_BLOCK_SIZE + EVP_MAX_BLOCK_LENGTH];
     int inlen, outlen;
@@ -2229,9 +2239,8 @@ int dbEncrypt(FILE* in, FILE* out)
             EVP_CIPHER_CTX_cleanup(ctx);
             return 1;
         }
-        returnVal = fwrite(outbuf, 1, outlen, out);
-        if (returnVal != (unsigned int)outlen)
-            ;
+        returnValLocal = fwrite(outbuf, 1, outlen, out);
+        if (returnValLocal != outlen)
         {
             if (ferror(out)) {
                 printf("fwrite failed 1975\n");
@@ -2244,9 +2253,8 @@ int dbEncrypt(FILE* in, FILE* out)
         EVP_CIPHER_CTX_cleanup(ctx);
         return 1;
     }
-    returnVal = fwrite(outbuf, 1, outlen, out);
-    if (returnVal != (unsigned int)outlen)
-        ;
+    returnValLocal = fwrite(outbuf, 1, outlen, out);
+    if (returnValLocal != outlen)
     {
         if (ferror(out)) {
             printf("fwrite failed 1987\n");
@@ -2262,6 +2270,8 @@ int dbEncrypt(FILE* in, FILE* out)
 /*Basically the same operation but to be used in openEnvelope()*/
 int dbDecrypt(FILE* in, FILE* out)
 {
+	int returnValLocal;
+	
     /* Allow enough space in output buffer for additional block */
     unsigned char inbuf[EVP_BLOCK_SIZE], outbuf[EVP_BLOCK_SIZE + EVP_MAX_BLOCK_LENGTH];
     int inlen, outlen;
@@ -2278,9 +2288,8 @@ int dbDecrypt(FILE* in, FILE* out)
             EVP_CIPHER_CTX_cleanup(ctx);
             return 1;
         }
-        returnVal = fwrite(outbuf, 1, outlen, out);
-        if (returnVal != (unsigned int)outlen)
-            ;
+        returnValLocal = fwrite(outbuf, 1, outlen, out);
+        if (returnValLocal != outlen)
         {
             if (ferror(out)) {
                 printf("fwrite failed @ 2018\n");
@@ -2293,9 +2302,8 @@ int dbDecrypt(FILE* in, FILE* out)
         EVP_CIPHER_CTX_cleanup(ctx);
         return 1;
     }
-    returnVal = fwrite(outbuf, 1, outlen, out);
-    if (returnVal != (unsigned int)outlen)
-        ;
+    returnValLocal = fwrite(outbuf, 1, outlen, out);
+    if (returnValLocal != outlen)
     {
         if (ferror(out)) {
             printf("fwrite failed @ 2030\n");
@@ -2312,6 +2320,10 @@ int dbDecrypt(FILE* in, FILE* out)
 /*https://stackoverflow.com/questions/47476427/get-a-list-of-all-supported-digest-algorithms*/
 void encList(const OBJ_NAME* obj, void* arg)
 {
+	/*I don't want to use -Wno-unused-parameter to suppress compiler warnings*/
+	/*So this does nothing with it to make gcc think it did something*/
+	arg = arg;
+	
     printf("Cipher: %s\n", obj->name);
 }
 
@@ -2328,6 +2340,11 @@ void encLister()
 /*Same as encList but for message digest*/
 void mdList(const OBJ_NAME* obj, void* arg)
 {
+	
+	/*I don't want to use -Wno-unused-parameter to suppress compiler warnings*/
+	/*So this does nothing with it to make gcc think it did something*/
+	arg = arg;
+	
     printf("Digest: %s\n", obj->name);
 }
 
@@ -2469,14 +2486,16 @@ int primeSSL()
 int sealEnvelope(const char* tmpFileToUse)
 {
     char cryptoBuffer[BUFFER_SIZES];
-    if (!RAND_bytes((unsigned char*)cryptoBuffer, BUFFER_SIZES)) {
+    unsigned char *cryptoBufferPadding = calloc(sizeof(unsigned char),BUFFER_SIZES);
+    
+    if (!RAND_bytes(cryptoBufferPadding, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         cleanUpBuffers();
         cleanUpFiles();
         exit(1);
     }
-    //int EVP1DataSize = returnFileSize(tmpFileToUse);
-
+    memcpy(cryptoBuffer,cryptoBufferPadding,sizeof(char) * BUFFER_SIZES);
+    
     FILE *EVP2DecryptedFile, *EVP1DataFileTmp, *dbFile;
 
     /*Generate MAC from EVP1Data written to temp file*/
@@ -2501,7 +2520,6 @@ int sealEnvelope(const char* tmpFileToUse)
     /*Append the MAC and close the file*/
     returnVal = fwrite(gMac, sizeof(unsigned char), SHA512_DIGEST_LENGTH, EVP1DataFileTmp);
     if (returnVal != SHA512_DIGEST_LENGTH / sizeof(unsigned char))
-        ;
     {
         if (ferror(EVP1DataFileTmp)) {
             printf("fwrite failed @ 2148\n");
@@ -2538,7 +2556,6 @@ int sealEnvelope(const char* tmpFileToUse)
     /*Write the first algorithm's salt*/
     returnVal = fwrite(evp2Salt, sizeof(unsigned char), EVP2_SALT_SIZE, dbFile);
     if (returnVal != EVP2_SALT_SIZE / sizeof(unsigned char))
-        ;
     {
         if (ferror(dbFile)) {
             printf("fwrite failed @ 2184\n");
@@ -2549,7 +2566,6 @@ int sealEnvelope(const char* tmpFileToUse)
     /*Write the second algorithm's salt*/
     returnVal = fwrite(evp1Salt, sizeof(unsigned char), EVP1_SALT_SIZE, dbFile);
     if (returnVal != EVP1_SALT_SIZE / sizeof(unsigned char))
-        ;
     {
         if (ferror(dbFile)) {
             printf("fwrite failed 2 2192\n");
@@ -2560,7 +2576,6 @@ int sealEnvelope(const char* tmpFileToUse)
     /*Write buffer pointed to by cryptoBuffer*/
     returnVal = fwrite(cryptoBuffer, sizeof(unsigned char), BUFFER_SIZES, dbFile);
     if (returnVal != BUFFER_SIZES / sizeof(unsigned char))
-        ;
     {
         if (ferror(dbFile)) {
             printf("fwrite failed @ 2200\n");
@@ -2801,7 +2816,6 @@ int openEnvelope()
 
     returnVal = fwrite(tmpBuffer, sizeof(char), fileSize - SHA512_DIGEST_LENGTH, EVP1DataFileTmp);
     if (returnVal != fileSize - SHA512_DIGEST_LENGTH / sizeof(char))
-        ;
     {
         if (ferror(EVP1DataFileTmp)) {
             printf("fwrite failed @ 2411\n");
@@ -2844,65 +2858,77 @@ void cleanUpFiles()
 /*Allocate and randomize with OpenSSL's PRNG*/
 void allocateBuffers()
 {
+	unsigned char *tmpBuffer = calloc(sizeof(unsigned char), BUFFER_SIZES);
+	
     entryPass = calloc(sizeof(char), BUFFER_SIZES);
-    if (!RAND_bytes((unsigned char *)entryPass, BUFFER_SIZES)) {
+    if (!RAND_bytes(tmpBuffer, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
+    memcpy(entryPass,tmpBuffer,sizeof(unsigned char) * BUFFER_SIZES);
 
     entryPassStore = calloc(sizeof(char), BUFFER_SIZES);
-    if (!RAND_bytes((unsigned char *)entryPassStore, BUFFER_SIZES)) {
+    if (!RAND_bytes(tmpBuffer, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
+	memcpy(entryPassStore,tmpBuffer,sizeof(unsigned char) * BUFFER_SIZES);
 
     entryName = calloc(sizeof(char), BUFFER_SIZES);
-    if (!RAND_bytes((unsigned char *)entryName, BUFFER_SIZES)) {
+    if (!RAND_bytes(tmpBuffer, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
+    memcpy(entryName,tmpBuffer,sizeof(unsigned char) * BUFFER_SIZES);
 
     entryNameToSearch = calloc(sizeof(char), BUFFER_SIZES);
-    if (!RAND_bytes((unsigned char *)entryNameToSearch, BUFFER_SIZES)) {
+    if (!RAND_bytes(tmpBuffer, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
+    memcpy(entryNameToSearch,tmpBuffer,sizeof(unsigned char) * BUFFER_SIZES);
 
     newEntry = calloc(sizeof(char), BUFFER_SIZES);
-    if (!RAND_bytes((unsigned char *)newEntry, BUFFER_SIZES)) {
+    if (!RAND_bytes(tmpBuffer, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
+    memcpy(entryPass,tmpBuffer,sizeof(unsigned char) * BUFFER_SIZES);
 
     newEntryPass = calloc(sizeof(char), BUFFER_SIZES);
-    if (!RAND_bytes((unsigned char *)newEntryPass, BUFFER_SIZES)) {
+    if (!RAND_bytes(tmpBuffer, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
+    memcpy(newEntryPass,tmpBuffer,sizeof(unsigned char) * BUFFER_SIZES);
 
     newEntryPassStore = calloc(sizeof(char), BUFFER_SIZES);
-    if (!RAND_bytes((unsigned char *)newEntryPassStore, BUFFER_SIZES)) {
+    if (!RAND_bytes(tmpBuffer, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
+    memcpy(newEntryPassStore,tmpBuffer,sizeof(unsigned char) * BUFFER_SIZES);
 
-    dbPass = calloc(sizeof(unsigned char), BUFFER_SIZES * 2);
-    if (!RAND_bytes((unsigned char *)dbPass, BUFFER_SIZES * 2)) {
+    dbPass = calloc(sizeof(unsigned char), BUFFER_SIZES);
+    if (!RAND_bytes(tmpBuffer, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
+    memcpy(dbPass,tmpBuffer,sizeof(unsigned char) * BUFFER_SIZES);
 
-    dbPassStore = calloc(sizeof(unsigned char), BUFFER_SIZES * 2);
-    if (!RAND_bytes((unsigned char *)dbPassStore, BUFFER_SIZES * 2)) {
+    dbPassStore = calloc(sizeof(unsigned char), BUFFER_SIZES);
+    if (!RAND_bytes(tmpBuffer, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
+    memcpy(dbPassStore,tmpBuffer,sizeof(unsigned char) * BUFFER_SIZES);
 
-    dbPassOld = calloc(sizeof(unsigned char), BUFFER_SIZES * 2);
-    if (!RAND_bytes((unsigned char *)dbPassOld, BUFFER_SIZES * 2)) {
+    dbPassOld = calloc(sizeof(unsigned char), BUFFER_SIZES);
+    if (!RAND_bytes(tmpBuffer, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(1);
     }
+    memcpy(dbPassOld,tmpBuffer,sizeof(unsigned char) * BUFFER_SIZES);
 
     hmacKey = calloc(sizeof(unsigned char), SHA512_DIGEST_LENGTH);
     if (!RAND_bytes(hmacKey, SHA512_DIGEST_LENGTH)) {
@@ -3070,7 +3096,6 @@ int sendToClipboard(char* textToSend)
     }
     returnVal = fwrite(textToSend, sizeof(char), strlen(textToSend), xclipFile);
     if (returnVal != strlen(textToSend) / sizeof(char))
-        ;
     {
         if (ferror(xclipFile)) {
             printf("fwrite failed @ 2640\n");
@@ -3118,7 +3143,6 @@ int sendToClipboard(char* textToSend)
 
     returnVal = fwrite(wipeOutBuffer, sizeof(char), strlen(textToSend), wipeFile);
     if (returnVal != strlen(textToSend) / sizeof(char))
-        ;
     {
         if (ferror(wipeFile)) {
             printf("fwrite failed @ 2684\n");
@@ -3193,10 +3217,12 @@ char* getPass(const char* prompt, char* paddedPass)
 {
     size_t len = 0;
     int i;
+    int passLength;
     char* pass = NULL;
+    unsigned char *paddedPassTmp = calloc(sizeof(unsigned char), BUFFER_SIZES);
 
 
-    if (!RAND_bytes((unsigned char* )paddedPass, BUFFER_SIZES)) {
+    if (!RAND_bytes(paddedPassTmp, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         /* Restore terminal. */
         (void)tcsetattr(fileno(stdin), TCSAFLUSH, &termisOld);
@@ -3205,6 +3231,8 @@ char* getPass(const char* prompt, char* paddedPass)
         printf("\nPassword was too large\n");
         exit(1);
     }
+    memcpy(paddedPass,paddedPassTmp,sizeof(char) * BUFFER_SIZES);
+    
     int nread;
 
     /* Turn echoing off and fail if we can’t. */
@@ -3240,7 +3268,8 @@ char* getPass(const char* prompt, char* paddedPass)
     printf("\n");
 
     /*Copy pass into paddedPass then remove sensitive information*/
-    for (i = 0; i < (int)strlen(pass) + 1; i++)
+    passLength = strlen(pass);
+    for (i = 0; i < passLength + 1; i++)
         paddedPass[i] = pass[i];
 
     OPENSSL_cleanse(pass, sizeof(char) * nread);
@@ -3249,7 +3278,7 @@ char* getPass(const char* prompt, char* paddedPass)
     return paddedPass;
 }
 
-int printMACErrMessage(char* backupFileName)
+int printMACErrMessage(void)
 {
     printf("Message Authentication Failed\nWrong password?\n");
 
