@@ -2841,7 +2841,7 @@ fi
 
 
 
-: ${CFLAGS="-Wall -Wextra -pedantic"}
+: ${CFLAGS="-Wall -Wextra -pedantic -Wno-self-assign"}
 
 # Checks for programs.
 ac_ext=c
