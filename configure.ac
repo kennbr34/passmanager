@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([passmanager], [2.2.1])
+AC_INIT([passmanager], [2.2.2])
 AC_CONFIG_SRCDIR([src/passmanager.c])
 AM_INIT_AUTOMAKE([subdir-objects foreign])
 AC_CONFIG_HEADERS([config.h])

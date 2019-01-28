@@ -2,6 +2,13 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+2019-1-27
+(+ver 2.2.2)
+	Unneeded cleanup functions calls were removed after clean-up routines registered with atexit().
+	sendToClipBoard also changed to clear sensitive buffers which were copied from the fork() from the main process.
+	Clearer error messages used in perror() calls
+
+	https://github.com/kennbr34/passmanager/pull/15
 2019-1-19
 (+ver 2.2.1)
 	Added #ifdef clauses on libcap, rlimit and memory locking routines so I can compile for BSD
