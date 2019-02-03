@@ -233,7 +233,7 @@ int main(int argc, char* argv[])
 		cap_value_t clear_list[1];
 		caps = cap_get_proc();
 		if (caps == NULL) {
-			perror("caps");
+			perror("libcap");
 			exit(1);
 		}
 		cap_list[0] = CAP_IPC_LOCK;
@@ -609,8 +609,8 @@ int main(int argc, char* argv[])
             returnVal = fread(backUpFileBuffer, sizeof(char), returnFileSize(dbFileName), copyFile);
             if (returnVal != returnFileSize(dbFileName) / sizeof(char)) {
                 if (ferror(copyFile)) {
-                    printf("Fread failed\n");
-                    return 1;
+                    perror("backupfile read");
+                    return errno;
                 }
             }
 
@@ -618,8 +618,8 @@ int main(int argc, char* argv[])
             if (returnVal != returnFileSize(dbFileName) / sizeof(char))
             {
                 if (ferror(backUpFile)) {
-                    printf("fwrite failed @ 485\n");
-                    return 1;
+                    perror("backupile write");
+                    return errno;
                 }
             }
             fclose(copyFile);
@@ -805,6 +805,7 @@ int main(int argc, char* argv[])
             perror(argv[0]);
             cleanUpBuffers();
             cleanUpFiles();
+            printf("Couldn't open file: %s\n", tmpFile2);
             return errno;
         }
         chmod(tmpFile2, S_IRUSR | S_IWUSR);
@@ -848,6 +849,7 @@ int main(int argc, char* argv[])
         if (primeSSL()) {
             cleanUpBuffers();
             cleanUpFiles();
+            printf("Couldn't open file: %s\n", tmpFile2);
             return 1;
         }
 
@@ -992,6 +994,7 @@ int main(int argc, char* argv[])
             perror(argv[0]);
             cleanUpBuffers();
             cleanUpFiles();
+            printf("Couldn't open file: %s\n", tmpFile2);
             return errno;
         }
         chmod(tmpFile2, S_IRUSR | S_IWUSR);
@@ -1036,6 +1039,7 @@ int main(int argc, char* argv[])
             perror(argv[0]);
             cleanUpBuffers();
             cleanUpFiles();
+            printf("Couldn't open file: %s\n", tmpFile2);
             return errno;
         }
         chmod(tmpFile2, S_IRUSR | S_IWUSR);
@@ -1177,8 +1181,8 @@ int printPasses(FILE* dbFile, char* searchString)
     returnVal = fread(encryptedBuffer, sizeof(unsigned char), fileSize, dbFile);
     if (returnVal != fileSize / sizeof(unsigned char)) {
         if (ferror(dbFile)) {
-            printf("Fread failed in printPasses\n");
-            return 1;
+            perror("printPasses fread encryptedBuffer");
+            return errno;
         }
     }
 
@@ -1313,8 +1317,8 @@ int updateEntry(FILE* dbFile, char* searchString)
     returnVal = fread(encryptedBuffer, sizeof(unsigned char), fileSize, dbFile);
     if (returnVal != fileSize / sizeof(unsigned char)) {
         if (ferror(dbFile)) {
-            printf("Fread failed in updatePass()\n");
-            return 1;
+            perror("updateEntry fread encryptedBuffer");
+            return errno;
         }
     }
 
@@ -1536,8 +1540,8 @@ int updateEntry(FILE* dbFile, char* searchString)
     /*Write the modified cipher-text to this temporary file for sealEnvelope()*/
     tmpFile = fopen(tmpFile3, "wb");
     if (tmpFile == NULL) {
-        perror("passmanager");
-        return errno;
+        perror("updateEntry fwrite tmpFile3");
+        printf("Couldn't open file: %s\n", tmpFile3);
     }
     chmod(tmpFile3, S_IRUSR | S_IWUSR);
 
@@ -1546,8 +1550,8 @@ int updateEntry(FILE* dbFile, char* searchString)
     if (returnVal != fileSize / sizeof(unsigned char))
     {
         if (ferror(tmpFile)) {
-            printf("fwrite failed @ 1365\n");
-            return 1;
+            perror("updateEntry fwrite encryptedBuffer");
+            return errno;
         }
     }
 
@@ -1594,8 +1598,8 @@ int deletePass(FILE* dbFile, char* searchString)
     returnVal = fread(encryptedBuffer, sizeof(unsigned char), fileSize, dbFile);
     if (returnVal != fileSize / sizeof(unsigned char)) {
         if (ferror(dbFile)) {
-            printf("Fread failed in deletePass()\n");
-            return 1;
+            perror("deletePass fread encryptedBuffer");
+            return errno;
         }
     }
 
@@ -1762,7 +1766,8 @@ int deletePass(FILE* dbFile, char* searchString)
     /*Write the modified cipher-text to this temporary file for sealEnvelope()*/
     tmpFile = fopen(tmpFile3, "wb");
     if (tmpFile == NULL) {
-        perror("passmanager");
+        perror("deletePass fwrite tmpFile3");
+        printf("Couldn't open file: %s\n", tmpFile3);
         return errno;
     }
     chmod(tmpFile3, S_IRUSR | S_IWUSR);
@@ -1773,8 +1778,8 @@ int deletePass(FILE* dbFile, char* searchString)
         if (returnVal != fileSize / sizeof(unsigned char))
         {
             if (ferror(tmpFile)) {
-                printf("fwrite failed @ 1550\n");
-                return 1;
+                perror("deletePass fwrite encryptedBuffer");
+                return errno;
             }
         }
     } else {
@@ -1783,8 +1788,8 @@ int deletePass(FILE* dbFile, char* searchString)
         if (returnVal != fileSize - ((BUFFER_SIZES * 2) * entriesMatched) / sizeof(unsigned char))
         {
             if (ferror(tmpFile)) {
-                printf("fwrite failed @ 1558\n");
-                return 1;
+                perror("deletePass fwrite encryptedBuffer");
+                return errno;
             }
         }
     }
@@ -1818,8 +1823,8 @@ int updateEncPass(FILE* dbFile)
     returnVal = fread(encryptedBuffer, sizeof(unsigned char), fileSize, dbFile);
     if (returnVal != fileSize / sizeof(unsigned char)) {
         if (ferror(dbFile)) {
-            printf("Fread failed in updateEncPass()\n");
-            return 1;
+            perror("updateEncPass fread encryptedBuffer");
+            return errno;
         }
     }
 
@@ -1916,7 +1921,8 @@ int updateEncPass(FILE* dbFile)
     tmpFile = fopen(tmpFile3, "wb"); /*Now open a temp file just to write the new evp1 data to, clean up in the calling function*/
     if (tmpFile == NULL) /*Make sure the file opens*/
     {
-        perror("passmanager");
+        perror("updateEncPass tmpFile3");
+        printf("Couldn't open file: %s\n", tmpFile3);
         return errno;
     }
     chmod(tmpFile3, S_IRUSR | S_IWUSR);
@@ -1925,8 +1931,8 @@ int updateEncPass(FILE* dbFile)
     if (returnVal != fileSize / sizeof(unsigned char))
     {
         if (ferror(tmpFile)) {
-            printf("fwrite failed @ 1707\n");
-            return 1;
+            perror("updateEncPass fwrite encryptedBuffer");
+            return errno;
         }
     }
     fclose(tmpFile);
@@ -1969,8 +1975,8 @@ int writePass(FILE* dbFile)
     returnVal = fread(encryptedBuffer, sizeof(unsigned char), fileSize, dbFile);
     if (returnVal != fileSize / sizeof(unsigned char)) {
         if (ferror(dbFile)) {
-            printf("Fread failed in writePass()\n");
-            return 1;
+            perror("writePass fread encryptedBuffer");
+            return errno;
         }
     }
 
@@ -2083,8 +2089,8 @@ int writePass(FILE* dbFile)
         if (returnVal != outlen * sizeof(unsigned char))
         {
             if (ferror(dbFile)) {
-                printf("fwrite failed @ 1837\n");
-                return 1;
+                perror("writePass fwrite outbuf");
+                return errno;
             }
         }
 
@@ -2148,8 +2154,8 @@ int writePass(FILE* dbFile)
         if (returnVal != outlen * sizeof(unsigned char))
         {
             if (ferror(dbFile)) {
-                printf("fwrite failed @ 1881\n");
-                return 1;
+                perror("writePass fwrite encryptedBuffer");
+                return errno;
             }
         }
     }
@@ -2176,7 +2182,8 @@ int wipeFile(const char* filename)
         fileToWrite = fopen(filename, "w+");
         if (fileToWrite == NULL) /*Make sure the file opens*/
         {
-            perror("passmanager");
+            perror("wipeFile");
+            printf("Couldn't open file: %s\n", filename);
             return errno;
         }
         if (ii == 0) {
@@ -2243,8 +2250,8 @@ int dbEncrypt(FILE* in, FILE* out)
         if (returnValLocal != outlen)
         {
             if (ferror(out)) {
-                printf("fwrite failed 1975\n");
-                return 1;
+                perror("dbEncrypt fwrite outbuf");
+                return errno;
             }
         }
     }
@@ -2257,8 +2264,8 @@ int dbEncrypt(FILE* in, FILE* out)
     if (returnValLocal != outlen)
     {
         if (ferror(out)) {
-            printf("fwrite failed 1987\n");
-            return 1;
+            perror("dbEncrypt fwrite outbuf");
+            return errno;
         }
     }
     EVP_CIPHER_CTX_cleanup(ctx);
@@ -2292,8 +2299,8 @@ int dbDecrypt(FILE* in, FILE* out)
         if (returnValLocal != outlen)
         {
             if (ferror(out)) {
-                printf("fwrite failed @ 2018\n");
-                return 1;
+                perror("dbDecrypt fwrite outbuf");
+                return errno;
             }
         }
     }
@@ -2306,8 +2313,8 @@ int dbDecrypt(FILE* in, FILE* out)
     if (returnValLocal != outlen)
     {
         if (ferror(out)) {
-            printf("fwrite failed @ 2030\n");
-            return 1;
+            perror("dbDecrypt fwrite outbuf");
+            return errno;
         }
     }
     EVP_CIPHER_CTX_cleanup(ctx);
@@ -2502,7 +2509,8 @@ int sealEnvelope(const char* tmpFileToUse)
     /*Generate MAC from EVP1Data written to temp file*/
     EVP1DataFileTmp = fopen(tmpFileToUse, "rb");
     if (EVP1DataFileTmp == NULL) {
-        perror("passmanager");
+        perror("sealEnvelope fopen tmpFileToUse");
+        printf("Couldn't open file: %s\n", tmpFileToUse);
         return errno;
     }
     chmod(tmpFileToUse, S_IRUSR | S_IWUSR);
@@ -2513,7 +2521,8 @@ int sealEnvelope(const char* tmpFileToUse)
     EVP1DataFileTmp = fopen(tmpFileToUse, "ab");
     if (EVP1DataFileTmp == NULL) /*Make sure the file opens*/
     {
-        perror("passmanager");
+        perror("sealEnvelope fopen tmpFileToUse");
+        printf("Couldn't open file: %s\n", tmpFileToUse);
         return errno;
     }
     chmod(tmpFileToUse, S_IRUSR | S_IWUSR);
@@ -2523,8 +2532,8 @@ int sealEnvelope(const char* tmpFileToUse)
     if (returnVal != SHA512_DIGEST_LENGTH / sizeof(unsigned char))
     {
         if (ferror(EVP1DataFileTmp)) {
-            printf("fwrite failed @ 2148\n");
-            return 1;
+            perror("sealEnvelope: fwrite gMac");
+            return errno;
         }
     }
     fclose(EVP1DataFileTmp);
@@ -2532,7 +2541,8 @@ int sealEnvelope(const char* tmpFileToUse)
     /*Open EVP1 file for reading, so we can use OpenSSL to encrypt it into the final password database file*/
     EVP2DecryptedFile = fopen(tmpFileToUse, "rb");
     if (EVP2DecryptedFile == NULL) {
-        perror("passmanager");
+        perror("sealEnvelope fopen tmpFileToUse");
+        printf("Couldn't open file: %s\n", tmpFileToUse);
         return errno;
     }
     chmod(tmpFileToUse, S_IRUSR | S_IWUSR);
@@ -2540,7 +2550,8 @@ int sealEnvelope(const char* tmpFileToUse)
     /*This will now be an EVP2EncryptedFile but calling it dbFile to clarify it is the final step*/
     dbFile = fopen(dbFileName, "wb");
     if (dbFile == NULL) {
-        perror("passmanager");
+        perror("sealEnvelope fopen dbFileName");
+        printf("Couldn't open file: %s\n", dbFileName);
         return errno;
     }
 
@@ -2559,8 +2570,8 @@ int sealEnvelope(const char* tmpFileToUse)
     if (returnVal != EVP2_SALT_SIZE / sizeof(unsigned char))
     {
         if (ferror(dbFile)) {
-            printf("fwrite failed @ 2184\n");
-            return 1;
+            perror("sealEnvelope fwrite evp2Salt");
+            return errno;
         }
     }
 
@@ -2569,8 +2580,8 @@ int sealEnvelope(const char* tmpFileToUse)
     if (returnVal != EVP1_SALT_SIZE / sizeof(unsigned char))
     {
         if (ferror(dbFile)) {
-            printf("fwrite failed 2 2192\n");
-            return 1;
+            perror("sealEnvelope fwrite evp1Salt");
+            return errno;
         }
     }
 
@@ -2579,8 +2590,8 @@ int sealEnvelope(const char* tmpFileToUse)
     if (returnVal != BUFFER_SIZES / sizeof(unsigned char))
     {
         if (ferror(dbFile)) {
-            printf("fwrite failed @ 2200\n");
-            return 1;
+            perror("sealEnvelope fwrite cryptoBuffer");
+            return errno;
         }
     }
 
@@ -2623,7 +2634,8 @@ int openEnvelope()
     EVP2EncryptedFile = fopen(dbFileName, "rb");
     if (EVP2EncryptedFile == NULL) /*Make sure the file opens*/
     {
-        perror("passmanager");
+        perror("openEnvelope fopen dbFileName");
+        printf("Couldn't open file: %s\n", dbFileName);
         return errno;
     }
 
@@ -2636,16 +2648,16 @@ int openEnvelope()
     returnVal = fread(evp2Salt, sizeof(char), EVP2_SALT_SIZE, EVP2EncryptedFile);
     if (returnVal != EVP2_SALT_SIZE / sizeof(char)) {
         if (ferror(EVP2EncryptedFile)) {
-            printf("Fread failed\n");
-            return 1;
+            perror("openEnvelope fread evp2Salt");
+            return errno;
         }
     }
 
     returnVal = fread(evp1Salt, sizeof(char), EVP1_SALT_SIZE, EVP2EncryptedFile);
     if (returnVal != EVP1_SALT_SIZE / sizeof(char)) {
         if (ferror(EVP2EncryptedFile)) {
-            printf("Fread failed\n");
-            return 1;
+            perror("openEnvelope fread evp1Salt");
+            return errno;
         }
     }
 
@@ -2656,8 +2668,8 @@ int openEnvelope()
     returnVal = fread(cryptoHeader, sizeof(char), BUFFER_SIZES, EVP2EncryptedFile);
     if (returnVal != BUFFER_SIZES / sizeof(char)) {
         if (ferror(EVP2EncryptedFile)) {
-            printf("Fread failed\n");
-            return 1;
+            perror("openEnvelope fread cryptoBuffer");
+            return errno;;
         }
     }
 
@@ -2743,8 +2755,8 @@ int openEnvelope()
     EVP1DataFileTmp = fopen(tmpFile1, "wb");
     if (EVP1DataFileTmp == NULL) /*Make sure the file opens*/
     {
-        perror("passmanager");
-        printf("Could not open file: %s", tmpFile1);
+        perror("openEnvelope fopen tmpFile1");
+        printf("Couldn't open file: %s\n", tmpFile1);
         return errno;
     }
     chmod(tmpFile1, S_IRUSR | S_IWUSR);
@@ -2767,8 +2779,8 @@ int openEnvelope()
     EVP2DecryptedFile = fopen(tmpFile1, "rb");
     if (EVP2DecryptedFile == NULL) /*Make sure the file opens*/
     {
-        perror("passmanager");
-        printf("Could not open file: %s", tmpFile1);
+        perror("openEnvelope fopen tmpFile1");
+        printf("Couldn't open file: %s\n", tmpFile1);
         return errno;
     }
     chmod(tmpFile1, S_IRUSR | S_IWUSR);
@@ -2777,7 +2789,8 @@ int openEnvelope()
     EVP1DataFileTmp = fopen(tmpFile2, "wb");
     if (EVP1DataFileTmp == NULL) /*Make sure the file opens*/
     {
-        perror("passmanager");
+        perror("openEnvelope fopen tmpFile2");
+        printf("Couldn't open file: %s\n", tmpFile2);
         return errno;
     }
     chmod(tmpFile2, S_IRUSR | S_IWUSR);
@@ -2795,8 +2808,8 @@ int openEnvelope()
     returnVal = fread(fMac, sizeof(char), SHA512_DIGEST_LENGTH, EVP2DecryptedFile);
     if (returnVal != SHA512_DIGEST_LENGTH / sizeof(char)) {
         if (ferror(EVP2DecryptedFile)) {
-            printf("Fread failed\n");
-            return 1;
+            perror("openEnvelope fread fMac");
+            return errno;
         }
     }
 
@@ -2810,8 +2823,8 @@ int openEnvelope()
     returnVal = fread(tmpBuffer, sizeof(char), fileSize - SHA512_DIGEST_LENGTH, EVP2DecryptedFile);
     if (returnVal != fileSize - SHA512_DIGEST_LENGTH / sizeof(char)) {
         if (ferror(EVP2DecryptedFile)) {
-            printf("Fread failed\n");
-            return 1;
+            perror("openEnvelope fread tmpBuffer");
+            return errno;
         }
     }
 
@@ -2819,8 +2832,8 @@ int openEnvelope()
     if (returnVal != fileSize - SHA512_DIGEST_LENGTH / sizeof(char))
     {
         if (ferror(EVP1DataFileTmp)) {
-            printf("fwrite failed @ 2411\n");
-            return 1;
+            perror("openEnvelope fwrite tmpBuffer");
+            return errno;
         }
     }
 
@@ -2959,16 +2972,11 @@ void allocateBuffers()
 void cleanUpBuffers()
 {
     OPENSSL_cleanse(entryPass, sizeof(char) * BUFFER_SIZES);
-    OPENSSL_cleanse(entryName, sizeof(char) * BUFFER_SIZES);
-    OPENSSL_cleanse(entryNameToSearch, sizeof(char) * BUFFER_SIZES);
-    OPENSSL_cleanse(newEntry, sizeof(char) * BUFFER_SIZES);
     OPENSSL_cleanse(newEntryPass, sizeof(char) * BUFFER_SIZES);
     OPENSSL_cleanse(dbPass, sizeof(unsigned char) * strlen(dbPass));
-    OPENSSL_cleanse(dbPassOld, sizeof(unsigned char) * BUFFER_SIZES);
+    OPENSSL_cleanse(dbPassOld, sizeof(unsigned char) * BUFFER_SIZES * 2);
     OPENSSL_cleanse(evpKey2, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
     OPENSSL_cleanse(evpIv2, sizeof(unsigned char) * EVP_MAX_IV_LENGTH);
-    OPENSSL_cleanse(fMac, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
-    OPENSSL_cleanse(gMac, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
 }
 
 /*This function generates a random passsword if 'gen' is given as the entry's password*/
@@ -3101,8 +3109,8 @@ int sendToClipboard(char* textToSend)
     if (returnVal != strlen(textToSend) / sizeof(char))
     {
         if (ferror(xclipFile)) {
-            printf("fwrite failed @ 2640\n");
-            return 1;
+            perror("xclip");
+			return errno;
         }
     }
     if (pclose(xclipFile) == -1) {
