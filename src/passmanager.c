@@ -2495,6 +2495,7 @@ int sealEnvelope(const char* tmpFileToUse)
         exit(1);
     }
     memcpy(cryptoBuffer,cryptoBufferPadding,sizeof(char) * BUFFER_SIZES);
+    free(cryptoBufferPadding);
     
     FILE *EVP2DecryptedFile, *EVP1DataFileTmp, *dbFile;
 
@@ -2950,6 +2951,8 @@ void allocateBuffers()
 
     evp1Salt = calloc(sizeof(unsigned char), EVP1_SALT_SIZE);
     evp2Salt = calloc(sizeof(unsigned char), EVP2_SALT_SIZE);
+    
+    free(tmpBuffer);
 }
 
 /*Fill up the buffers we stored the information in with 0's before exiting*/
@@ -2961,7 +2964,7 @@ void cleanUpBuffers()
     OPENSSL_cleanse(newEntry, sizeof(char) * BUFFER_SIZES);
     OPENSSL_cleanse(newEntryPass, sizeof(char) * BUFFER_SIZES);
     OPENSSL_cleanse(dbPass, sizeof(unsigned char) * strlen(dbPass));
-    OPENSSL_cleanse(dbPassOld, sizeof(unsigned char) * BUFFER_SIZES * 2);
+    OPENSSL_cleanse(dbPassOld, sizeof(unsigned char) * BUFFER_SIZES);
     OPENSSL_cleanse(evpKey2, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
     OPENSSL_cleanse(evpIv2, sizeof(unsigned char) * EVP_MAX_IV_LENGTH);
     OPENSSL_cleanse(fMac, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
