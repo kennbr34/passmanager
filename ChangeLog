@@ -4,10 +4,11 @@
 
 2019-1-27
 (+ver 2.2.2)
-	Unneeded cleanup functions calls were removed after clean-up routines registered with atexit().
 	sendToClipBoard also changed to clear sensitive buffers which were copied from the fork() from the main process.
 	Clearer error messages used in perror() calls
 
+	https://github.com/kennbr34/passmanager/pull/20
+	https://github.com/kennbr34/passmanager/pull/18
 	https://github.com/kennbr34/passmanager/pull/15
 2019-1-19
 (+ver 2.2.1)
