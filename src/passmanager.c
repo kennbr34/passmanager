@@ -3096,17 +3096,20 @@ int sendToClipboard(char* textToSend)
     char xclipCommand[] = "xclip -in";
     char wipeCommand[] = "xclip -in";
     char wipeOutBuffer[strlen(textToSend)];
+    char *passBuffer = calloc(sizeof(char), strlen(textToSend));
     OPENSSL_cleanse(wipeOutBuffer, strlen(textToSend));
     FILE* xclipFile = popen(xclipCommand, "w");
     FILE* wipeFile = popen(wipeCommand, "w");
     pid_t pid, sid;
+    
+    strncpy(passBuffer,textToSend,strlen(textToSend));
 
     if (xclipFile == NULL) {
         perror("xclip");
         return errno;
     }
-    returnVal = fwrite(textToSend, sizeof(char), strlen(textToSend), xclipFile);
-    if (returnVal != strlen(textToSend) / sizeof(char))
+    returnVal = fwrite(passBuffer, sizeof(char), strlen(passBuffer), xclipFile);
+    if (returnVal != strlen(passBuffer) / sizeof(char))
     {
         if (ferror(xclipFile)) {
             perror("xclip");
@@ -3117,7 +3120,8 @@ int sendToClipboard(char* textToSend)
         perror("xclip");
         return errno;
     }
-    OPENSSL_cleanse(textToSend, strlen(textToSend));
+    OPENSSL_cleanse(passBuffer, strlen(passBuffer));
+    OPENSSL_cleanse(textToSend,strlen(textToSend));
 
     printf("\n%i seconds before password is cleared from clipboard\n", xclipClearTime);
 
@@ -3149,15 +3153,17 @@ int sendToClipboard(char* textToSend)
     signal(SIGHUP, SIG_IGN);
 
     sid = setsid();
-
+    
+    cleanUpBuffers();
+    
     sleep(xclipClearTime);
 
-    returnVal = fwrite(wipeOutBuffer, sizeof(char), strlen(textToSend), wipeFile);
-    if (returnVal != strlen(textToSend) / sizeof(char))
+    returnVal = fwrite(wipeOutBuffer, sizeof(char), strlen(passBuffer), wipeFile);
+    if (returnVal != strlen(passBuffer) / sizeof(char))
     {
         if (ferror(wipeFile)) {
-            printf("fwrite failed @ 2684\n");
-            return 1;
+            perror("sendToClipboard fwrite wipeOutBuffer");
+            return errno;
         }
     }
 
