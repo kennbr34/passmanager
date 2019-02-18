@@ -1,4 +1,4 @@
-This password manager has been my project to learn to code with. I tried to make the interface as simple as possible, and focused more on security and simplicity. The end result is a password manager that modifies and displays an encrypted password database as if it were parsing a simple text file, with a couple bells and whistles like a password generator and automated clipboard loading/clearing. 
+This password manager has been my project of mine to learn to code with, evolving its design over time. I tried to make the interface as simple as possible, and focused more on security and simplicity. The end result is a password manager that modifies and displays an encrypted password database as if it were parsing a simple text file, with a couple bells and whistles like a password generator and automated clipboard loading/clearing. 
 
 The bulk of the program is under the hood, because it pays special attention to security. Care is taken to not display more passwords on screen at one time than needed (if not able to to use clipboard) and sensitive information is cleared from memory. Cascaded and authenticated encryption is used through OpenSSL libraries. with the default configuration encrypting  first into Camellia-256-OFB, and then encrypting that ciper-text with AES-256-CTR.
 
@@ -53,4 +53,4 @@ There is also an accompanying manual file at 'man/passmanager.1' or installed to
 
 # SCRIPTS AND EXAMPLES
 
-A script to demonstrate and test the progarm is available at 'scripts/demofunctions.sh'. It will create an fake database file, encrypting it with the password 'password' and save it to 'scripts/examplepasswords1.dat'  It can be ran after 'make'
+A script to demonstrate and test the progarm is available at 'scripts/demofunctions.sh'. It will create a fake database file, encrypting it with the password 'password' and save it to 'scripts/examplepasswords1.dat'  It can be ran after 'make'
