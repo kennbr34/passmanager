@@ -57,10 +57,6 @@
 /*Define block sizes for dbDecrypt and dbEncrypt to use*/
 #define EVP_BLOCK_SIZE 1024
 
-/*The default PBKDF2 iteration count as per RFC 2889 reccomendation*/
-/*The final iteration will differ from this depending on length of user pass and salts generated*/
-#define RFC_2889_REC_ITERATIONS 1000
-
 /*Default size of password if generation is chosen*/
 #define DEFAULT_GENPASS_LENGTH 16
 
@@ -83,6 +79,7 @@ struct toggleStruct {
     int entryPassLengthGiven; /*Use to specify a length of generated pass*/
     int sendToClipboard; /*Toggle sending entry's password directly to clipboard*/
     int xclipClearTime; /*To use a non-default clear time for the clipboard*/
+    int keyIterations; /*To toggle whether a user-specified iteration for KDF is used*/
     int firstRun; /*Keep track if it's the first run*/
     int generateEntryPass; /*Toggle to generate random entry pass*/
     int generateEntryPassAlpha; /*Toggle to generate alphanumeric pass*/
@@ -164,6 +161,9 @@ unsigned char* evp1Salt; /*This stores the salt to use in EVPBytestoKey for the 
 unsigned char gMac[SHA512_DIGEST_LENGTH]; /*MAC generated from plain-text, thus gMac for generatedMac*/
 unsigned char fMac[SHA512_DIGEST_LENGTH]; /*MAC read from file to check against, thus fMac for fileMac*/
 unsigned int* gMacLength; /*HMAC() needs an int pointer to put the length of the mac generated into*/
+
+/*KDF*/
+int keyIterations = 200000; /*Default iterations to use for KDF*/
 
 /*Character arrays to hold temp file random names*/
 char* tmpFile1;
@@ -318,7 +318,7 @@ int main(int argc, char* argv[])
     char* token;
 
     /*Process through arguments*/
-    while ((opt = getopt(argc, argv, "s:l:f:u:n:d:a:r:p:x:H:c:hUPC")) != -1) {
+    while ((opt = getopt(argc, argv, "i:s:l:f:u:n:d:a:r:p:x:H:c:hUPC")) != -1) {
         switch (opt) {
         case 'h': /*Help*/
             printSyntax("passmanager");
@@ -331,6 +331,14 @@ int main(int argc, char* argv[])
             }
             xclipClearTime = atoi(optarg);
             toggle.xclipClearTime = 1;
+            break;
+        case 'i':
+            if (optarg[0] == '-') {
+                printf("Option -i requires an operand\n");
+                errflg++; /*Set the error flag so program will halt after getopt() is done*/
+            }
+            keyIterations = atoi(optarg);
+            toggle.keyIterations = 1;
             break;
         case 'l':
             if (optarg[0] == '-') {
@@ -561,6 +569,10 @@ int main(int argc, char* argv[])
         case '?': /*Get opt error handling, these check that the options were entered in correct syntax but not that the options are right*/
             //u:n:p:x:f:H:c:
             if (optopt == 'f')
+                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
+            if (optopt == 's')
+                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
+            if (optopt == 'i')
                 fprintf(stderr, "Option -%c requires an argument.\n", optopt);
             if (optopt == 'u')
                 fprintf(stderr, "Option -%c requires an argument.\n", optopt);
@@ -3174,7 +3186,7 @@ int sendToClipboard(char* textToSend)
 void hmacKDF()
 {
 
-    int i, originalPassLength;
+    int i;
     unsigned char hmacSalt[HMAC_SALT_SIZE];
 
     /*Derive a larger salt for HMAC from evp1Salt*/
@@ -3182,10 +3194,8 @@ void hmacKDF()
     for (i = 0; i < HMAC_SALT_SIZE; i++)
         hmacSalt[i] = evp1Salt[i] ^ (i + 3);
 
-    originalPassLength = strlen(dbPass);
-
     /*Generate a separate key to use for HMAC*/
-    PKCS5_PBKDF2_HMAC(dbPass, -1, hmacSalt, HMAC_SALT_SIZE, RFC_2889_REC_ITERATIONS * originalPassLength, EVP_get_digestbyname("sha512"), SHA512_DIGEST_LENGTH, hmacKey);
+    PKCS5_PBKDF2_HMAC(dbPass, -1, hmacSalt, HMAC_SALT_SIZE, keyIterations, EVP_get_digestbyname("sha512"), SHA512_DIGEST_LENGTH, hmacKey);
 }
 
 int evpKDF(char* dbPass, unsigned char* evpSalt, unsigned int saltLen,const EVP_CIPHER *evpCipher,const EVP_MD *evpDigest, unsigned char *evpKey, unsigned char *evpIv)
@@ -3193,7 +3203,7 @@ int evpKDF(char* dbPass, unsigned char* evpSalt, unsigned int saltLen,const EVP_
 	/*First generate the key*/
 	if (!PKCS5_PBKDF2_HMAC((char*)dbPass, strlen(dbPass),
 		evpSalt, saltLen,
-		strlen(dbPass) * RFC_2889_REC_ITERATIONS,
+		keyIterations,
 		evpDigest,EVP_CIPHER_key_length(evpCipher),
 		evpKey)) {
         fprintf(stderr, "PBKDF2 failed\n");
@@ -3204,7 +3214,7 @@ int evpKDF(char* dbPass, unsigned char* evpSalt, unsigned int saltLen,const EVP_
     if(EVP_CIPHER_iv_length(evpCipher) != 0) {
 		if (!PKCS5_PBKDF2_HMAC((char*)dbPass, strlen(dbPass),
 		    evpSalt, saltLen,
-            strlen(dbPass) * RFC_2889_REC_ITERATIONS,
+            keyIterations,
             evpDigest,EVP_CIPHER_iv_length(evpCipher),
             evpIv)) {
         fprintf(stderr, "PBKDF2 failed\n");
@@ -3347,7 +3357,7 @@ int printSyntax(char* arg)
 \n     \t-x 'database password' (the current database password to decrypt/with) \
 \n     \t-c 'first-cipher:second-cipher' - Update algorithms in cascade\
 \n     \t-H 'first-digest:second-digest' - Update digests used for cascaded algorithms' KDFs\
-\nVersion 2.2.2\
+\nVersion 2.3.1\
 \n\
 ",
         arg);

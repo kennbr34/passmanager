@@ -1,4 +1,3 @@
-m4trace:configure.ac:4: -1- AC_PREREQ([2.69])
 m4trace:configure.ac:5: -1- AC_INIT([passmanager], [2.2.2])
 m4trace:configure.ac:5: -1- m4_pattern_forbid([^_?A[CHUM]_])
 m4trace:configure.ac:5: -1- m4_pattern_forbid([_AC_])
@@ -151,9 +150,8 @@ m4trace:configure.ac:5: -1- AC_SUBST([target_alias])
 m4trace:configure.ac:5: -1- AC_SUBST_TRACE([target_alias])
 m4trace:configure.ac:5: -1- m4_pattern_allow([^target_alias$])
 m4trace:configure.ac:7: -1- AM_INIT_AUTOMAKE([subdir-objects foreign])
-m4trace:configure.ac:7: -1- AC_PREREQ([2.65])
 m4trace:configure.ac:7: -1- m4_pattern_allow([^AM_[A-Z]+FLAGS$])
-m4trace:configure.ac:7: -1- AM_AUTOMAKE_VERSION([1.15])
+m4trace:configure.ac:7: -1- AM_AUTOMAKE_VERSION([1.15.1])
 m4trace:configure.ac:7: -1- AC_REQUIRE_AUX_FILE([install-sh])
 m4trace:configure.ac:7: -1- AC_SUBST([INSTALL_PROGRAM])
 m4trace:configure.ac:7: -1- AC_SUBST_TRACE([INSTALL_PROGRAM])
@@ -254,7 +252,6 @@ m4trace:configure.ac:7: -1- _AM_SUBST_NOTMAKE([AM_BACKSLASH])
 m4trace:configure.ac:8: -1- AC_CONFIG_HEADERS([config.h])
 m4trace:configure.ac:9: -1- AM_MAINTAINER_MODE
 m4trace:configure.ac:9: -1- AM_CONDITIONAL([MAINTAINER_MODE], [test $USE_MAINTAINER_MODE = yes])
-m4trace:configure.ac:9: -1- AC_PREREQ([2.52])
 m4trace:configure.ac:9: -1- AC_SUBST([MAINTAINER_MODE_TRUE])
 m4trace:configure.ac:9: -1- AC_SUBST_TRACE([MAINTAINER_MODE_TRUE])
 m4trace:configure.ac:9: -1- m4_pattern_allow([^MAINTAINER_MODE_TRUE$])
@@ -266,7 +263,6 @@ m4trace:configure.ac:9: -1- _AM_SUBST_NOTMAKE([MAINTAINER_MODE_FALSE])
 m4trace:configure.ac:9: -1- AC_SUBST([MAINT])
 m4trace:configure.ac:9: -1- AC_SUBST_TRACE([MAINT])
 m4trace:configure.ac:9: -1- m4_pattern_allow([^MAINT$])
-m4trace:configure.ac:14: -1- AC_PROG_CC
 m4trace:configure.ac:14: -1- AC_SUBST([CC])
 m4trace:configure.ac:14: -1- AC_SUBST_TRACE([CC])
 m4trace:configure.ac:14: -1- m4_pattern_allow([^CC$])
@@ -314,7 +310,6 @@ m4trace:configure.ac:14: -1- AC_SUBST([am__quote])
 m4trace:configure.ac:14: -1- AC_SUBST_TRACE([am__quote])
 m4trace:configure.ac:14: -1- m4_pattern_allow([^am__quote$])
 m4trace:configure.ac:14: -1- AM_CONDITIONAL([AMDEP], [test "x$enable_dependency_tracking" != xno])
-m4trace:configure.ac:14: -1- AC_PREREQ([2.52])
 m4trace:configure.ac:14: -1- AC_SUBST([AMDEP_TRUE])
 m4trace:configure.ac:14: -1- AC_SUBST_TRACE([AMDEP_TRUE])
 m4trace:configure.ac:14: -1- m4_pattern_allow([^AMDEP_TRUE$])
@@ -337,7 +332,6 @@ m4trace:configure.ac:14: -1- m4_pattern_allow([^CCDEPMODE$])
 m4trace:configure.ac:14: -1- AM_CONDITIONAL([am__fastdepCC], [
   test "x$enable_dependency_tracking" != xno \
   && test "$am_cv_CC_dependencies_compiler_type" = gcc3])
-m4trace:configure.ac:14: -1- AC_PREREQ([2.52])
 m4trace:configure.ac:14: -1- AC_SUBST([am__fastdepCC_TRUE])
 m4trace:configure.ac:14: -1- AC_SUBST_TRACE([am__fastdepCC_TRUE])
 m4trace:configure.ac:14: -1- m4_pattern_allow([^am__fastdepCC_TRUE$])
@@ -354,7 +348,6 @@ m4trace:configure.ac:22: -1- AH_OUTPUT([HAVE_LIBCRYPTO], [/* Define to 1 if you 
 @%:@undef HAVE_LIBCRYPTO])
 m4trace:configure.ac:22: -1- AC_DEFINE_TRACE_LITERAL([HAVE_LIBCRYPTO])
 m4trace:configure.ac:22: -1- m4_pattern_allow([^HAVE_LIBCRYPTO$])
-m4trace:configure.ac:36: -1- AC_CHECK_HEADERS([limits.h stdlib.h string.h termios.h unistd.h])
 m4trace:configure.ac:36: -1- AH_OUTPUT([HAVE_LIMITS_H], [/* Define to 1 if you have the <limits.h> header file. */
 @%:@undef HAVE_LIMITS_H])
 m4trace:configure.ac:36: -1- AH_OUTPUT([HAVE_STDLIB_H], [/* Define to 1 if you have the <stdlib.h> header file. */
@@ -384,8 +377,6 @@ m4trace:configure.ac:36: -1- AC_DEFINE_TRACE_LITERAL([STDC_HEADERS])
 m4trace:configure.ac:36: -1- m4_pattern_allow([^STDC_HEADERS$])
 m4trace:configure.ac:36: -1- AH_OUTPUT([STDC_HEADERS], [/* Define to 1 if you have the ANSI C header files. */
 @%:@undef STDC_HEADERS])
-m4trace:configure.ac:36: -1- AC_CHECK_HEADERS([sys/types.h sys/stat.h stdlib.h string.h memory.h strings.h \
-		  inttypes.h stdint.h unistd.h], [], [], [$ac_includes_default])
 m4trace:configure.ac:36: -1- AH_OUTPUT([HAVE_SYS_TYPES_H], [/* Define to 1 if you have the <sys/types.h> header file. */
 @%:@undef HAVE_SYS_TYPES_H])
 m4trace:configure.ac:36: -1- AH_OUTPUT([HAVE_SYS_STAT_H], [/* Define to 1 if you have the <sys/stat.h> header file. */
@@ -409,12 +400,10 @@ m4trace:configure.ac:39: -1- AH_OUTPUT([inline], [/* Define to `__inline__\' or 
 #ifndef __cplusplus
 #undef inline
 #endif])
-m4trace:configure.ac:40: -1- AC_TYPE_SIZE_T
 m4trace:configure.ac:40: -1- AC_DEFINE_TRACE_LITERAL([size_t])
 m4trace:configure.ac:40: -1- m4_pattern_allow([^size_t$])
 m4trace:configure.ac:40: -1- AH_OUTPUT([size_t], [/* Define to `unsigned int\' if <sys/types.h> does not define. */
 @%:@undef size_t])
-m4trace:configure.ac:43: -1- AC_CHECK_HEADERS([stdlib.h])
 m4trace:configure.ac:43: -1- AH_OUTPUT([HAVE_STDLIB_H], [/* Define to 1 if you have the <stdlib.h> header file. */
 @%:@undef HAVE_STDLIB_H])
 m4trace:configure.ac:43: -1- AC_DEFINE_TRACE_LITERAL([HAVE_STDLIB_H])
@@ -434,7 +423,6 @@ m4trace:configure.ac:43: -1- AC_DEFINE_TRACE_LITERAL([malloc])
 m4trace:configure.ac:43: -1- m4_pattern_allow([^malloc$])
 m4trace:configure.ac:43: -1- AH_OUTPUT([malloc], [/* Define to rpl_malloc if the replacement function should be used. */
 @%:@undef malloc])
-m4trace:configure.ac:44: -1- AC_CHECK_HEADERS([stdlib.h])
 m4trace:configure.ac:44: -1- AH_OUTPUT([HAVE_STDLIB_H], [/* Define to 1 if you have the <stdlib.h> header file. */
 @%:@undef HAVE_STDLIB_H])
 m4trace:configure.ac:44: -1- AC_DEFINE_TRACE_LITERAL([HAVE_STDLIB_H])
@@ -454,7 +442,6 @@ m4trace:configure.ac:44: -1- AC_DEFINE_TRACE_LITERAL([realloc])
 m4trace:configure.ac:44: -1- m4_pattern_allow([^realloc$])
 m4trace:configure.ac:44: -1- AH_OUTPUT([realloc], [/* Define to rpl_realloc if the replacement function should be used. */
 @%:@undef realloc])
-m4trace:configure.ac:45: -1- AC_CHECK_FUNCS([getpass memset])
 m4trace:configure.ac:45: -1- AH_OUTPUT([HAVE_GETPASS], [/* Define to 1 if you have the `getpass\' function. */
 @%:@undef HAVE_GETPASS])
 m4trace:configure.ac:45: -1- AH_OUTPUT([HAVE_MEMSET], [/* Define to 1 if you have the `memset\' function. */
@@ -467,7 +454,6 @@ m4trace:configure.ac:49: -1- AC_SUBST([LTLIBOBJS], [$ac_ltlibobjs])
 m4trace:configure.ac:49: -1- AC_SUBST_TRACE([LTLIBOBJS])
 m4trace:configure.ac:49: -1- m4_pattern_allow([^LTLIBOBJS$])
 m4trace:configure.ac:49: -1- AM_CONDITIONAL([am__EXEEXT], [test -n "$EXEEXT"])
-m4trace:configure.ac:49: -1- AC_PREREQ([2.52])
 m4trace:configure.ac:49: -1- AC_SUBST([am__EXEEXT_TRUE])
 m4trace:configure.ac:49: -1- AC_SUBST_TRACE([am__EXEEXT_TRUE])
 m4trace:configure.ac:49: -1- m4_pattern_allow([^am__EXEEXT_TRUE$])
