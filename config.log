@@ -33,8 +33,6 @@ PATH: /usr/sbin
 PATH: /usr/bin
 PATH: /sbin
 PATH: /bin
-PATH: /usr/games
-PATH: /usr/local/games
 PATH: /snap/bin
 
 
@@ -145,7 +143,7 @@ configure:4006: $? = 0
 configure:4015: result: yes
 configure:4021: checking for SSL_library_init in -lssl
 configure:4046: gcc -o conftest -Wall -Wextra -pedantic -Wno-self-assign   conftest.c -lssl  -lcrypto -lcap  >&5
-/tmp/cc5In9PT.o: In function `main':
+/tmp/cciVWQAG.o: In function `main':
 conftest.c:(.text+0xa): undefined reference to `SSL_library_init'
 collect2: error: ld returned 1 exit status
 configure:4046: $? = 1

@@ -2380,94 +2380,84 @@ void mdLister()
 /*Will also enforce CFB, OFB or CTR modes*/
 int primeSSL()
 {
-    char modeTag[3];
-    int stringStart, modeLength;
     int i;
 
     /*If the user has specified a cipher to use*/
     if (toggle.encCipher == 1 || encCipher2[0] != 0) {
+		
+		if(!EVP_get_cipherbyname(encCipher1))
+		{
+			printf("Could not load cipher %s. Check that it is available with -c list\n", encCipher1);
+			return 1;
+		}
+		
+		if(!EVP_get_cipherbyname(encCipher2))
+		{
+			printf("Could not load cipher %s. Check that it is available with -c list\n", encCipher2);
+			return 1;
+		}
 
         /*Find start of mode*/
         for (i = strlen(encCipher1); i > 0; i--) {
             if (encCipher1[i] == '-') {
-                stringStart = i;
                 break;
             }
         }
 
-        /*If no hyphen present, append -ctr mode to encCipher to enforce CTR mode by default*/
-        if (i == 0) {
-            printf("Must specify key size in bits and mode like \'%s-bits-mode\'\n", encCipher1);
+        /*If no hyphen present, and encCipher is not a stream cipher*/
+        if (i == 0 && EVP_CIPHER_mode(EVP_get_cipherbyname(encCipher1)) != EVP_CIPH_STREAM_CIPHER) {
+            printf("Specify %s cipher with algorithm-bits-mode. Must be in OFB, CFB or CTR mode.\n", encCipher1);
             return 1;
-        } else { /*Otherwise copy the mode specified to modeTag*/
+        } 
 
-            modeLength = strlen(encCipher1) - stringStart;
-
-            /*Increment stringStart so it points to the first character of the mode string after the hyphen*/
-            stringStart++;
-
-            for (i = 0; i < modeLength; i++)
-                modeTag[i] = encCipher1[stringStart + i];
-        }
-
-        if (strcasecmp(modeTag, "ofb") == 0 || strcasecmp(modeTag, "cfb") >= 0 || strcasecmp(modeTag, "ctr") == 0) {
+        if (EVP_CIPHER_mode(EVP_get_cipherbyname(encCipher1)) == EVP_CIPH_STREAM_CIPHER || EVP_CIPHER_mode(EVP_get_cipherbyname(encCipher1)) == EVP_CIPH_CFB_MODE || EVP_CIPHER_mode(EVP_get_cipherbyname(encCipher1)) == EVP_CIPH_OFB_MODE || EVP_CIPHER_mode(EVP_get_cipherbyname(encCipher1)) == EVP_CIPH_CTR_MODE) {
             evpCipher1 = EVP_get_cipherbyname(encCipher1);
         } else {
-            printf("\n%s mode specified\nCipher should be in OFB, CFB or CTR mode\n", modeTag);
+            printf("\n%s specified\nCipher should be stream cipher or in OFB, CFB or CTR mode\n", encCipher1);
             return 1;
         }
 
         for (i = strlen(encCipher2); i > 0; i--) {
             if (encCipher2[i] == '-') {
-                stringStart = i;
                 break;
             }
         }
 
-        if (i == 0) {
-            printf("Must specify key size in bits and mode like \'%s-bits-mode\'\n", encCipher2);
+        if (i == 0 && EVP_CIPHER_mode(EVP_get_cipherbyname(encCipher2)) != EVP_CIPH_STREAM_CIPHER) {
+            printf("Specify %s cipher with algorithm-bits-mode. Must be in OFB, CFB or CTR mode.\n", encCipher2);
             return 1;
-        } else {
-
-            modeLength = strlen(encCipher2) - stringStart;
-
-            /*Increment stringStart so it points to the first character of the mode string after the hyphen*/
-            stringStart++;
-
-            for (i = 0; i < modeLength; i++)
-                modeTag[i] = encCipher2[stringStart + i];
         }
 
-        if (strcasecmp(modeTag, "ofb") == 0 || strcasecmp(modeTag, "cfb") >= 0 || strcasecmp(modeTag, "ctr") == 0) {
+        if (EVP_CIPHER_mode(EVP_get_cipherbyname(encCipher2)) == EVP_CIPH_STREAM_CIPHER || EVP_CIPHER_mode(EVP_get_cipherbyname(encCipher2)) == EVP_CIPH_CFB_MODE || EVP_CIPHER_mode(EVP_get_cipherbyname(encCipher2)) == EVP_CIPH_OFB_MODE || EVP_CIPHER_mode(EVP_get_cipherbyname(encCipher2)) == EVP_CIPH_CTR_MODE) {
             evpCipher2 = EVP_get_cipherbyname(encCipher2);
         } else {
-            printf("\n%s mode specified\nCipher should be in OFB, CFB or CTR mode\n", modeTag);
+            printf("\n%s specified\nCipher should be stream cipher or in OFB, CFB or CTR mode\n", encCipher2);
             return 1;
         }
 
         /*If the cipher doesn't exists or there was a problem loading it return with error status*/
         if (!evpCipher1) {
-            fprintf(stderr, "no such cipher\n");
+            fprintf(stderr, "Could not load cipher: %s\n", encCipher1);
             return 1;
         }
         evpCipher2 = EVP_get_cipherbyname(encCipher2);
         /*If the cipher doesn't exists or there was a problem loading it return with error status*/
         if (!evpCipher2) {
-            fprintf(stderr, "no such cipher\n");
+            fprintf(stderr, "Could not load cipher: %s\n", encCipher2);
             return 1;
         }
 
     } else { /*If not default to aes-256-ctr*/
         strcpy(encCipher2, "aes-256-ctr");
         evpCipher2 = EVP_get_cipherbyname(encCipher2);
-        if (!evpCipher2) { /*If that's not a valid cipher name*/
-            fprintf(stderr, "no such cipher\n");
+        if (!evpCipher2) {
+            fprintf(stderr, "Could not load cipher: %s\n", encCipher2);
             return 1;
         }
         strcpy(encCipher1, "camellia-256-ofb");
         evpCipher1 = EVP_get_cipherbyname(encCipher1);
-        if (!evpCipher1) { /*If that's not a valid cipher name*/
-            fprintf(stderr, "no such cipher\n");
+        if (!evpCipher1) {
+            fprintf(stderr, "Could not load cipher: %s\n", encCipher2);
             return 1;
         }
     }
@@ -2476,25 +2466,25 @@ int primeSSL()
     if (toggle.messageDigest == 1 || messageDigest2[0] != 0) {
         evpDigest1 = EVP_get_digestbyname(messageDigest1);
         if (!evpDigest1) {
-            fprintf(stderr, "no such digest\n");
+            fprintf(stderr, "Could not load digest: %s Check if available with -H list\n", messageDigest1);
             return 1;
         }
         evpDigest2 = EVP_get_digestbyname(messageDigest2);
         if (!evpDigest2) {
-            fprintf(stderr, "no such digest\n");
+            fprintf(stderr, "Could not load digest: %s Check if available with -H list\n", messageDigest2);
             return 1;
         }
     } else { /*If not default to sha512*/
         strcpy(messageDigest2, "sha512");
         evpDigest2 = EVP_get_digestbyname(messageDigest2);
-        if (!evpDigest2) { /*If that's not a valid digest name*/
-            fprintf(stderr, "no such digest\n");
+        if (!evpDigest2) {
+            fprintf(stderr, "Could not load digest: %s Check if available with -H list\n", messageDigest2);
             return 1;
         }
         strcpy(messageDigest1, "whirlpool");
         evpDigest1 = EVP_get_digestbyname(messageDigest1);
-        if (!evpDigest1) { /*If that's not a valid digest name*/
-            fprintf(stderr, "no such digest\n");
+        if (!evpDigest1) {
+            fprintf(stderr, "Could not load digest: %s Check if available with -H list\n", messageDigest1);
             return 1;
         }
     }
@@ -2724,25 +2714,25 @@ int openEnvelope()
     evpCipher1 = EVP_get_cipherbyname(encCipher1);
     /*If the cipher doesn't exists or there was a problem loading it return with error status*/
     if (!evpCipher1) {
-        fprintf(stderr, "Could not find valid cipher name in parsed header.\nIs %s a password file?\n", dbFileName);
+        fprintf(stderr, "Could not load cipher %s. Is it installed? Use -c list to list available ciphers\n", encCipher1);
         return 1;
     }
 
     evpDigest1 = EVP_get_digestbyname(messageDigest1);
     if (!evpDigest1) {
-        fprintf(stderr, "Could not find a valid digest name in parsed header.\nIs %s a password file?\n", dbFileName);
+        fprintf(stderr, "Could not load digest %s. Is it installed? Use -c list to list available ciphers\n", messageDigest1);
         return 1;
     }
 
     evpCipher2 = EVP_get_cipherbyname(encCipher2);
     if (!evpCipher2) {
-        fprintf(stderr, "Could not find valid cipher name in parsed header.\nIs %s a password file?\n", dbFileName);
+        fprintf(stderr, "Could not load cipher %s. Is it installed? Use -c list to list available ciphers\n", encCipher2);
         return 1;
     }
 
     evpDigest2 = EVP_get_digestbyname(messageDigest2);
     if (!evpDigest2) {
-        fprintf(stderr, "Could not find a valid digest name in parsed header.\nIs %s a password file?\n", dbFileName);
+        fprintf(stderr, "Could not load digest %s. Is it installed? Use -c list to list available ciphers\n", messageDigest2);
         return 1;
     }
 
@@ -3357,7 +3347,7 @@ int printSyntax(char* arg)
 \n     \t-x 'database password' (the current database password to decrypt/with) \
 \n     \t-c 'first-cipher:second-cipher' - Update algorithms in cascade\
 \n     \t-H 'first-digest:second-digest' - Update digests used for cascaded algorithms' KDFs\
-\nVersion 2.3.1\
+\nVersion 2.3.2\
 \n\
 ",
         arg);
