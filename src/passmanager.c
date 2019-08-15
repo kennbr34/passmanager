@@ -155,8 +155,8 @@ unsigned char *hmacKey, *hmacKeyNew, *hmacKeyOld;
 /*Misc crypto variables*/
 
 /*Salts*/
-unsigned char* evp2Salt; /*This stores the salt to use in EVPBytestoKey for the second/outer algorithm used*/
-unsigned char* evp1Salt; /*This stores the salt to use in EVPBytestoKey for the first/inner algorithm used*/
+unsigned char* evp2Salt; /*This stores the salt to use in PBKDF2 for the second/outer algorithm used*/
+unsigned char* evp1Salt; /*This stores the salt to use in PBKDF2 for the first/inner algorithm used*/
 /*Buffers and variables needed for HMAC*/
 unsigned char gMac[SHA512_DIGEST_LENGTH]; /*MAC generated from plain-text, thus gMac for generatedMac*/
 unsigned char fMac[SHA512_DIGEST_LENGTH]; /*MAC read from file to check against, thus fMac for fileMac*/
@@ -172,7 +172,7 @@ char* tmpFile3;
 
 /*Backup and database file names*/
 char dbFileName[NAME_MAX]; /*Password file name*/
-char backupFileName[NAME_MAX]; /*Buffer to hold the name of backup file for passwords file which will be the same with a .sav suffix*/
+char backupFileName[NAME_MAX]; /*Buffer to hold the name of backup file for passwords file which will be the same with a .autobak suffix*/
 
 /*Input buffers*/
 char* entryPass; /*Entry password*/
@@ -303,7 +303,7 @@ int main(int argc, char* argv[])
     /*EVP2EncryptedFile is the second EVP algorithms' cipher-text, which will also represent the final database file without its header*/
     /*EVP2DecryptedFile is the second EVP algorithms' plain-text, i.e. the first EVP algorithms' cipher-text*/
     /*EVP1DataFileTmp is the first EVP algorithms' cipher-text, which will be loaded into buffers for decryption and processing*/
-    /*dbFile will contain two salts and crypto information as a header, followed by the second EVP algorithms' cipher-text*/
+    /*dbFile will contain two salts and crypto information as a header, followed by the second EVP algorithms' cipher-text and finally the MAC*/
     FILE *EVP2EncryptedFile, *EVP2DecryptedFile, *EVP1DataFileTmp, *dbFile;
 
     /*This loads up all names of alogirithms for OpenSSL into an object structure so we can call them by name later*/
@@ -403,7 +403,7 @@ int main(int argc, char* argv[])
             toggle.entryGiven = 1;
             toggle.entrySearch = 1;
             break;
-        case 'H': /*Hashing digest for EVPKeytoBytes() to use*/
+        case 'H': /*Hashing digest for PBKDF2 to use*/
             if (optarg[0] == '-') {
                 printf("Option -H requires an operand\n");
                 errflg++; /*Set the error flag so program will halt after getopt() is done*/
@@ -753,7 +753,6 @@ int main(int argc, char* argv[])
         /*Derives a key for the first EVP algorithm*/
         /*The choosen EVP digest algorithm will be used*/
         /*The salt generated for the first EVP algorithm will also be used*/
-        /*The entire KDF will reiterate according to the password length multiplied by the reccomended amount in RFC 2889*/
         
 		if(evpKDF(dbPass, evp1Salt, EVP1_SALT_SIZE,evpCipher1,evpDigest1,evpKey1,evpIv1) != 0) {
 			return 1;
@@ -1199,7 +1198,12 @@ int printPasses(FILE* dbFile, char* searchString)
     }
 
     /*This will be the gMac, as in generated MAC*/
-    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, encryptedBuffer, fileSize, gMac, gMacLength);
+    unsigned int IvLength = EVP_CIPHER_iv_length(evpCipher1);
+    unsigned char hmacBuffer[fileSize + IvLength];
+    memcpy(hmacBuffer,evpIv1,IvLength);
+    memcpy(hmacBuffer + IvLength,encryptedBuffer,fileSize);
+    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, fileSize + IvLength, gMac, gMacLength);
+    
 
     /*Check if the MAC from the EVP2DecryptedFile matches MAC generated via HMAC*/
     /*Return error status before proceeding and clean up sensitive data*/
@@ -1335,7 +1339,11 @@ int updateEntry(FILE* dbFile, char* searchString)
     }
 
     /*This will be the gMac as in generated MAC*/
-    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, encryptedBuffer, fileSize, gMac, gMacLength);
+    unsigned int IvLength = EVP_CIPHER_iv_length(evpCipher1);
+	unsigned char hmacBuffer[fileSize + IvLength];
+	memcpy(hmacBuffer,evpIv1,IvLength);
+	memcpy(hmacBuffer + IvLength,encryptedBuffer,fileSize);
+    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, fileSize + IvLength, gMac, gMacLength);
 
     /*Check if the MAC from the EVP2DecryptedFile matches MAC generated via HMAC*/
 
@@ -1488,7 +1496,6 @@ int updateEntry(FILE* dbFile, char* searchString)
     }
 
     /*Clear out sensitive buffers ASAP*/
-    /*Maybe I can multi-thread this*/
     OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * BUFFER_SIZES);
     OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * BUFFER_SIZES);
     OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
@@ -1541,7 +1548,9 @@ int updateEntry(FILE* dbFile, char* searchString)
     OPENSSL_cleanse(fileBuffer, sizeof(unsigned char) * fileSize);
 
     /*Append this as the "generated" MAC later*/
-    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, encryptedBuffer, outlen, gMac, gMacLength);
+    memcpy(hmacBuffer,evpIv1,IvLength);
+    memcpy(hmacBuffer + IvLength,encryptedBuffer,outlen);
+    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, outlen + IvLength, gMac, gMacLength);
 
     /*Check if any entries were updated*/
     if (noEntryMatched == 1) {
@@ -1616,7 +1625,11 @@ int deletePass(FILE* dbFile, char* searchString)
     }
 
     /*This will be the gMac as in generated MAC*/
-    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, encryptedBuffer, fileSize, gMac, gMacLength);
+    unsigned int IvLength = EVP_CIPHER_iv_length(evpCipher1);
+	unsigned char hmacBuffer[fileSize + IvLength];
+	memcpy(hmacBuffer,evpIv1,IvLength);
+	memcpy(hmacBuffer + IvLength,encryptedBuffer,fileSize);
+    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, fileSize + IvLength, gMac, gMacLength);
 
     /*Check if the MAC from the EVP2DecryptedFile matches MAC generated via HMAC*/
 
@@ -1773,7 +1786,9 @@ int deletePass(FILE* dbFile, char* searchString)
     OPENSSL_cleanse(fileBuffer, sizeof(unsigned char) * fileSize - ((BUFFER_SIZES * 2) * entriesMatched));
 
     /*Append this as the "generated" MAC later*/
-    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, encryptedBuffer, fileSize - ((BUFFER_SIZES * 2) * entriesMatched), gMac, gMacLength);
+    memcpy(hmacBuffer,evpIv1,IvLength);
+    memcpy(hmacBuffer + IvLength,encryptedBuffer,fileSize - ((BUFFER_SIZES * 2) * entriesMatched) );
+    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, (fileSize - ((BUFFER_SIZES * 2) * entriesMatched)) + IvLength, gMac, gMacLength);
 
     /*Write the modified cipher-text to this temporary file for sealEnvelope()*/
     tmpFile = fopen(tmpFile3, "wb");
@@ -1841,7 +1856,11 @@ int updateEncPass(FILE* dbFile)
     }
 
     /*This will be the gMac as in generated MAC*/
-    HMAC(EVP_sha512(), hmacKeyOld, SHA512_DIGEST_LENGTH, encryptedBuffer, fileSize, gMac, gMacLength);
+    unsigned int IvLength = EVP_CIPHER_iv_length(evpCipher1Old);
+    unsigned char hmacBuffer[fileSize + IvLength];
+    memcpy(hmacBuffer,evpIv1Old,IvLength);
+    memcpy(hmacBuffer + IvLength,encryptedBuffer,fileSize);
+    HMAC(EVP_sha512(), hmacKeyOld, SHA512_DIGEST_LENGTH, hmacBuffer, fileSize + IvLength, gMac, gMacLength);
 
     /*Check if the MAC from the EVP2DecryptedFile matches MAC generated via HMAC)*/
 
@@ -1928,7 +1947,10 @@ int updateEncPass(FILE* dbFile)
     OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize);
 
     /*Append this as the "generated" MAC later*/
-    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, encryptedBuffer, fileSize, gMac, gMacLength);
+    IvLength = EVP_CIPHER_iv_length(evpCipher1);
+    memcpy(hmacBuffer,evpIv1,IvLength);
+    memcpy(hmacBuffer + IvLength,encryptedBuffer,fileSize);
+    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, fileSize + IvLength, gMac, gMacLength);
 
     tmpFile = fopen(tmpFile3, "wb"); /*Now open a temp file just to write the new evp1 data to, clean up in the calling function*/
     if (tmpFile == NULL) /*Make sure the file opens*/
@@ -1958,7 +1980,6 @@ int updateEncPass(FILE* dbFile)
 
 int writePass(FILE* dbFile)
 {
-    /*We need a set of incrementors to crawl through buffers*/
     int i;
     long fileSize;
 
@@ -1995,7 +2016,11 @@ int writePass(FILE* dbFile)
     if (toggle.firstRun != 1) {
 
         /*This will be the gMac as in generated MAC*/
-        HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, encryptedBuffer, fileSize, gMac, gMacLength);
+        unsigned int IvLength = EVP_CIPHER_iv_length(evpCipher1);
+		unsigned char hmacBuffer[fileSize + IvLength];
+		memcpy(hmacBuffer,evpIv1,IvLength);
+		memcpy(hmacBuffer + IvLength,encryptedBuffer,fileSize);
+        HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, fileSize + IvLength, gMac, gMacLength);
 
         /*Check if the MAC from the EVP2DecryptedFile matches MAC generated via HMAC*/
 
@@ -2094,7 +2119,11 @@ int writePass(FILE* dbFile)
 
         /*Hash the evp1 data with HMAC-SHA512*/
         /*Append this as the "generated" MAC later*/
-        HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, outbuf, outlen, gMac, gMacLength);
+        unsigned int IvLength = EVP_CIPHER_iv_length(evpCipher1);
+        unsigned char hmacBuffer[outlen + IvLength];
+        memcpy(hmacBuffer,evpIv1,IvLength);
+        memcpy(hmacBuffer + IvLength,outbuf,outlen);
+        HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, outlen + IvLength, gMac, gMacLength);
 
         /*Write the encrypted information to file*/
         returnVal = fwrite(outbuf, 1, sizeof(unsigned char) * outlen, dbFile);
@@ -2155,8 +2184,13 @@ int writePass(FILE* dbFile)
         EVP_CIPHER_CTX_cleanup(ctx);
 
         OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + (BUFFER_SIZES * 2) + EVP_MAX_BLOCK_LENGTH);
-
-        HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, encryptedBuffer, outlen, gMac, gMacLength);
+        
+        
+		unsigned int IvLength = EVP_CIPHER_iv_length(evpCipher1);
+        unsigned char hmacBuffer[outlen + IvLength];
+        memcpy(hmacBuffer,evpIv1,IvLength);
+        memcpy(hmacBuffer + IvLength,encryptedBuffer,outlen);
+        HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, outlen + IvLength, gMac, gMacLength);
 
         fclose(dbFile);
         wipeFile(tmpFile2);
@@ -2559,7 +2593,7 @@ int sealEnvelope(const char* tmpFileToUse)
 
     /*Write crypto information as a header*/
 
-    /*Write encCipher:messageDigest to cryptoBuffer*/
+    /*Write encCipher1:messageDigest1:encCipher2:messageDighest2 to cryptoBuffer*/
     sprintf(cryptoBuffer, "%s:%s:%s:%s", encCipher1, messageDigest1, encCipher2, messageDigest2);
 
     if (toggle.firstRun != 1) {
@@ -2844,7 +2878,6 @@ int openEnvelope()
     fclose(EVP1DataFileTmp);
 
     /*Erase data left behind in EVP2DecryptedFile*/
-    /*wipeFile() will overwrite the file 25 times with zeroes*/
     wipeFile(tmpFile1);
     remove(tmpFile1);
 
@@ -2974,11 +3007,22 @@ void allocateBuffers()
 void cleanUpBuffers()
 {
     OPENSSL_cleanse(entryPass, sizeof(char) * BUFFER_SIZES);
+    OPENSSL_cleanse(entryPassStore, sizeof(char) * BUFFER_SIZES);
     OPENSSL_cleanse(newEntryPass, sizeof(char) * BUFFER_SIZES);
+    OPENSSL_cleanse(newEntryPassStore, sizeof(char) * BUFFER_SIZES);
     OPENSSL_cleanse(dbPass, sizeof(unsigned char) * strlen(dbPass));
     OPENSSL_cleanse(dbPassOld, sizeof(unsigned char) * BUFFER_SIZES);
+    OPENSSL_cleanse(dbPassStore, sizeof(unsigned char) * BUFFER_SIZES);
     OPENSSL_cleanse(evpKey2, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
     OPENSSL_cleanse(evpIv2, sizeof(unsigned char) * EVP_MAX_IV_LENGTH);
+    OPENSSL_cleanse(evpKey1, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
+    OPENSSL_cleanse(evpIv1, sizeof(unsigned char) * EVP_MAX_IV_LENGTH);
+    OPENSSL_cleanse(evpKey1Old, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
+    OPENSSL_cleanse(evpIv1Old, sizeof(unsigned char) * EVP_MAX_IV_LENGTH);
+    OPENSSL_cleanse(hmacKey, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
+    OPENSSL_cleanse(hmacKeyOld, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
+    OPENSSL_cleanse(hmacKeyNew, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
+    
 }
 
 /*This function generates a random passsword if 'gen' is given as the entry's password*/
@@ -3347,7 +3391,7 @@ int printSyntax(char* arg)
 \n     \t-x 'database password' (the current database password to decrypt/with) \
 \n     \t-c 'first-cipher:second-cipher' - Update algorithms in cascade\
 \n     \t-H 'first-digest:second-digest' - Update digests used for cascaded algorithms' KDFs\
-\nVersion 2.3.2\
+\nVersion 2.4.0\
 \n\
 ",
         arg);

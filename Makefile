@@ -228,7 +228,7 @@ AUTOMAKE = ${SHELL} /home/ken/passmanager/missing automake-1.15
 AWK = gawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
-CFLAGS = -Wall -Wextra -pedantic -Wno-self-assign
+CFLAGS = -g -Wall -Wextra -pedantic -Wno-self-assign
 CPP = gcc -E
 CPPFLAGS = 
 CYGPATH_W = echo
