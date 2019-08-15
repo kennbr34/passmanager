@@ -415,12 +415,16 @@ int main(int argc, char* argv[])
             toggle.messageDigest = 1;
             token = strtok(optarg, ":");
             if (token == NULL) {
-                printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
+                printf("Could not parse digests from entered string. Be sure to format as first-digest:second-digest\n");
                 return 1;
             }
             strcpy(messageDigest1, token);
 
             token = strtok(NULL, ":");
+            if (token == NULL) {
+                printf("Could not parse digests from entered string. Be sure to format as first-digest:second-digest\n");
+                return 1;
+            }
 
             strcpy(messageDigest2, token);
 
@@ -443,12 +447,17 @@ int main(int argc, char* argv[])
 
             token = strtok(optarg, ":");
             if (token == NULL) {
-                printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
+                printf("Could not parse ciphers from entered string. Be sure to format as first-cipher:second-cipher\n");
                 return 1;
             }
             strcpy(encCipher1, token);
 
             token = strtok(NULL, ":");
+            
+			if (token == NULL) {
+                printf("Could not parse ciphers from entered string. Be sure to format as first-cipher:second-cipher\n");
+                return 1;
+            }
 
             strcpy(encCipher2, token);
 

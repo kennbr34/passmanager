@@ -5,6 +5,8 @@
 2019-8-14
 (+ver 2.4.0)
 	Fixed authenticated encryption to aunthenticate IV along with encrypted message
+	Fixed memory sanitation errors
+	Fixed errors parsing ciphres and digests from command line
 2019-7-26
 (+ver 2.3.2)
 	Changed primeSSL function to better test for and enforce use of stream ciphers or CTR, OFB or CFB modes for multiple-encryption safety
