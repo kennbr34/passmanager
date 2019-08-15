@@ -92,3 +92,4 @@ echo -e "\nNow imagine you started to update the database encryption, but didn't
 read
 echo passmanager -U -c foocipher:foocipher-f ./examplepasswords1.dat
 passmanager -U -c foocipher:foocipher -f ./examplepasswords1.dat
+echo -e "\nThis concludes the demonstration of basic program functions."

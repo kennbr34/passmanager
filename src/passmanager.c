@@ -836,6 +836,9 @@ int main(int argc, char* argv[])
             printPasses(EVP1DataFileTmp, NULL); /*Decrypt and print all passess*/
 
         fclose(EVP1DataFileTmp);
+        fclose(EVP2DecryptedFile);
+        fclose(EVP2EncryptedFile);
+        fclose(dbFile);
 
     } else if (toggle.Delete == 1) /*Delete a specified entry*/
     {
@@ -889,6 +892,8 @@ int main(int argc, char* argv[])
         int deletePassResult = deletePass(EVP1DataFileTmp, entryName);
 
         fclose(EVP1DataFileTmp);
+
+        
 
         if (deletePassResult == 0) {
 
@@ -1160,9 +1165,13 @@ int main(int argc, char* argv[])
         printSyntax("passmanager"); /*Just in case something else happens...*/
         return 1;
     }
-
+	
+	
     cleanUpBuffers();
     cleanUpFiles();
+    free(evp1Salt);
+	free(evp2Salt);
+
     return 0;
 }
 
@@ -1211,9 +1220,10 @@ int printPasses(FILE* dbFile, char* searchString)
         printMACErrMessage();
 
         free(entryBuffer);
-        free(passBuffer);
         free(encryptedBuffer);
         free(decryptedBuffer);
+        EVP_CIPHER_CTX_cleanup(ctx);
+        free(ctx);
         cleanUpFiles();
         cleanUpBuffers();
         return 1;
@@ -1226,7 +1236,6 @@ int printPasses(FILE* dbFile, char* searchString)
         EVP_CIPHER_CTX_cleanup(ctx);
         OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
         free(entryBuffer);
-        free(passBuffer);
         free(encryptedBuffer);
         free(decryptedBuffer);
         free(ctx);
@@ -1244,7 +1253,6 @@ int printPasses(FILE* dbFile, char* searchString)
         EVP_CIPHER_CTX_cleanup(ctx);
         OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
         free(entryBuffer);
-        free(passBuffer);
         free(encryptedBuffer);
         free(decryptedBuffer);
         free(ctx);
@@ -1498,6 +1506,7 @@ int updateEntry(FILE* dbFile, char* searchString)
     /*Clear out sensitive buffers ASAP*/
     OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * BUFFER_SIZES);
     OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * BUFFER_SIZES);
+    OPENSSL_cleanse(newEntryPass, sizeof(unsigned char) * BUFFER_SIZES);
     OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
     OPENSSL_cleanse(passWord, sizeof(char) * BUFFER_SIZES);
 
@@ -2028,7 +2037,9 @@ int writePass(FILE* dbFile)
         if (memcmp(fMac, gMac, SHA512_DIGEST_LENGTH) != 0) {
             printMACErrMessage();
             OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * BUFFER_SIZES * 2);
+            EVP_CIPHER_CTX_cleanup(ctx);
 
+			free(ctx);
             free(infoBuffer);
             free(decryptedBuffer);
             free(encryptedBuffer);
@@ -3021,8 +3032,7 @@ void cleanUpBuffers()
     OPENSSL_cleanse(evpIv1Old, sizeof(unsigned char) * EVP_MAX_IV_LENGTH);
     OPENSSL_cleanse(hmacKey, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
     OPENSSL_cleanse(hmacKeyOld, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
-    OPENSSL_cleanse(hmacKeyNew, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
-    
+    OPENSSL_cleanse(hmacKeyNew, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);    
 }
 
 /*This function generates a random passsword if 'gen' is given as the entry's password*/
@@ -3293,6 +3303,9 @@ char* getPass(const char* prompt, char* paddedPass)
         exit(1);
     }
     memcpy(paddedPass,paddedPassTmp,sizeof(char) * BUFFER_SIZES);
+    OPENSSL_cleanse(paddedPassTmp, sizeof(char) * BUFFER_SIZES);
+    free(paddedPassTmp);
+    
     
     int nread;
 
