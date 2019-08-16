@@ -370,7 +370,7 @@ int main(int argc, char* argv[])
                 printf("\nentry name too long\n");
                 return 1;
             }
-            strcpy(entryName, optarg);
+            strncpy(entryName, optarg, BUFFER_SIZES);
             toggle.entryGiven = 1;
             break;
         case 'r': /*Read password(s)*/
@@ -386,7 +386,7 @@ int main(int argc, char* argv[])
             }
             if (strcmp(optarg, "allpasses") == 0)
                 toggle.allPasses = 1;
-            strcpy(entryName, optarg);
+            strncpy(entryName, optarg, BUFFER_SIZES);
             toggle.entryGiven = 1;
             break;
         case 'd': /*Delete password*/
@@ -399,7 +399,7 @@ int main(int argc, char* argv[])
                 printf("\nentry name too long\n");
                 return 1;
             }
-            strcpy(entryName, optarg);
+            strncpy(entryName, optarg, BUFFER_SIZES);
             toggle.entryGiven = 1;
             toggle.entrySearch = 1;
             break;
@@ -418,7 +418,7 @@ int main(int argc, char* argv[])
                 printf("Could not parse digests from entered string. Be sure to format as first-digest:second-digest\n");
                 return 1;
             }
-            strcpy(messageDigest1, token);
+            strncpy(messageDigest1, token, NAME_MAX);
 
             token = strtok(NULL, ":");
             if (token == NULL) {
@@ -426,11 +426,11 @@ int main(int argc, char* argv[])
                 return 1;
             }
 
-            strcpy(messageDigest2, token);
+            strncpy(messageDigest2, token, NAME_MAX);
 
             /*Store command-line given parameters for use after messageDigest are read from file header*/
-            strcpy(messageDigestStore1, messageDigest1);
-            strcpy(messageDigestStore2, messageDigest2);
+            strncpy(messageDigestStore1, messageDigest1, NAME_MAX);
+            strncpy(messageDigestStore2, messageDigest2, NAME_MAX);
 
             toggle.messageDigest = 1;
             break;
@@ -450,7 +450,7 @@ int main(int argc, char* argv[])
                 printf("Could not parse ciphers from entered string. Be sure to format as first-cipher:second-cipher\n");
                 return 1;
             }
-            strcpy(encCipher1, token);
+            strncpy(encCipher1, token, NAME_MAX);
 
             token = strtok(NULL, ":");
             
@@ -459,11 +459,11 @@ int main(int argc, char* argv[])
                 return 1;
             }
 
-            strcpy(encCipher2, token);
+            strncpy(encCipher2, token, NAME_MAX);
 
             /*Store command-line given parameters for use after encCipher are read from file header*/
-            strcpy(encCipherStore1, encCipher1);
-            strcpy(encCipherStore2, encCipher2);
+            strncpy(encCipherStore1, encCipher1, NAME_MAX);
+            strncpy(encCipherStore2, encCipher2, NAME_MAX);
 
             toggle.encCipher = 1;
             break;
@@ -477,7 +477,7 @@ int main(int argc, char* argv[])
                 }
 
                 /*Grab passworld database filename off the command line*/
-                strcpy(dbFileName, optarg);
+                strncpy(dbFileName, optarg, NAME_MAX);
             }
             if (toggle.Read == 1) {
                 dbFile = fopen(optarg, "rb");
@@ -487,7 +487,7 @@ int main(int argc, char* argv[])
                     return errno;
                 }
 
-                strcpy(dbFileName, optarg);
+                strncpy(dbFileName, optarg, NAME_MAX);
             }
             if (toggle.Delete == 1) {
                 dbFile = fopen(optarg, "rb+");
@@ -496,7 +496,7 @@ int main(int argc, char* argv[])
                     perror(optarg);
                     return errno;
                 }
-                strcpy(dbFileName, optarg);
+                strncpy(dbFileName, optarg, NAME_MAX);
             }
             if (toggle.updateEncPass == 1) {
                 dbFile = fopen(optarg, "rb+");
@@ -505,7 +505,7 @@ int main(int argc, char* argv[])
                     perror(optarg);
                     return errno;
                 }
-                strcpy(dbFileName, optarg);
+                strncpy(dbFileName, optarg, NAME_MAX);
             }
             if (toggle.updateEntry == 1) {
                 dbFile = fopen(optarg, "rb+");
@@ -514,7 +514,7 @@ int main(int argc, char* argv[])
                     perror(optarg);
                     return errno;
                 }
-                strcpy(dbFileName, optarg);
+                strncpy(dbFileName, optarg, NAME_MAX);
             }
             toggle.fileGiven = 1;
             break;
@@ -528,7 +528,7 @@ int main(int argc, char* argv[])
                 printf("\nentry name too long\n");
                 return 1;
             }
-            strcpy(entryName, optarg);
+            strncpy(entryName, optarg, BUFFER_SIZES);
             toggle.entryGiven = 1;
             break;
         case 'u': /*Specifies an entry by name*/
@@ -543,7 +543,7 @@ int main(int argc, char* argv[])
             }
             if (strcmp(optarg, "allpasses") == 0)
                 toggle.allPasses = 1;
-            strcpy(entryNameToSearch, optarg);
+            strncpy(entryNameToSearch, optarg, BUFFER_SIZES);
             break;
         case 'p': /*If passing entry password from command line*/
             toggle.entryPassArg = 1;
@@ -559,7 +559,7 @@ int main(int argc, char* argv[])
                 toggle.generateEntryPass = 1;
             if (strcmp(optarg, "genalpha") == 0)
                 toggle.generateEntryPassAlpha = 1;
-            strcpy(entryPass, optarg);
+            strncpy(entryPass, optarg, BUFFER_SIZES);
             OPENSSL_cleanse(optarg, strlen(optarg));
             break;
         case 'x': /*If passing database password from command line*/
@@ -568,7 +568,7 @@ int main(int argc, char* argv[])
                 errflg++; /*Set error flag*/
                 printf("Option -x requires an operand\n");
             }
-            strcpy(dbPass, optarg);
+            strncpy(dbPass, optarg, BUFFER_SIZES);
             OPENSSL_cleanse(optarg, strlen(optarg));
             break;
         case ':':
@@ -619,8 +619,8 @@ int main(int argc, char* argv[])
 
     /*Before anything else, back up the password database*/
     if (returnFileSize(dbFileName) != 0 && toggle.Read != 1) {
-        strcpy(backupFileName, dbFileName);
-        strcat(backupFileName, ".autobak");
+        strncpy(backupFileName, dbFileName, NAME_MAX);
+        strncat(backupFileName, ".autobak", NAME_MAX);
         FILE* backUpFile = fopen(backupFileName, "w");
         if (backUpFile == NULL) {
             printf("Couldn't make a backup file. Be careful...\n");
@@ -922,10 +922,10 @@ int main(int argc, char* argv[])
 
         /*Get new entry*/
         if (toggle.entryGiven == 1) {
-            strcpy(newEntry, entryName);
+            strncpy(newEntry, entryName, BUFFER_SIZES);
         } else {
             /*If no new entry was specified then just update the password*/
-            strcpy(newEntry, entryNameToSearch);
+            strncpy(newEntry, entryNameToSearch, BUFFER_SIZES);
             toggle.updateEntryPass = 1;
         }
 
@@ -941,20 +941,20 @@ int main(int argc, char* argv[])
                     toggle.generateEntryPass = 1;
                     genPassWord(entryPassLength);
                     /*Have to copy over passWord to newEntryPass since genPassWord() operates on entryPass buffer*/
-                    strcpy(newEntryPass, entryPass);
+                    strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                 } else {
                     genPassWord(DEFAULT_GENPASS_LENGTH);
-                    strcpy(newEntryPass, entryPass);
+                    strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                 }
             } else if (strcmp(entryPass, "genalpha") == 0) {
                 toggle.generateEntryPassAlpha = 1;
                 if (toggle.entryPassLengthGiven == 1) {
                     genPassWord(entryPassLength);
                     /*Have to copy over passWord to newEntryPass since genPassWord() operates on entryPass buffer*/
-                    strcpy(newEntryPass, entryPass);
+                    strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                 } else {
                     genPassWord(DEFAULT_GENPASS_LENGTH);
-                    strcpy(newEntryPass, entryPass);
+                    strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                 }
             } else if (toggle.entryPassArg != 1) /*entryPass was not supplied via command line*/
             {
@@ -968,10 +968,10 @@ int main(int argc, char* argv[])
                     if (toggle.entryPassLengthGiven == 1) {
                         genPassWord(entryPassLength);
                         /*Have to copy over entryPass to newEntryPass since genPassWord() operates on entryPass buffer*/
-                        strcpy(newEntryPass, entryPass);
+                        strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                     } else {
                         genPassWord(DEFAULT_GENPASS_LENGTH);
-                        strcpy(newEntryPass, entryPass);
+                        strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                     }
                 } else if (strcmp(newEntryPass, "genalpha") == 0) {
                     toggle.generateEntryPassAlpha = 1;
@@ -979,10 +979,10 @@ int main(int argc, char* argv[])
                     if (toggle.entryPassLengthGiven == 1) {
                         genPassWord(entryPassLength);
                         /*Have to copy over entryPass to newEntryPass since genPassWord() operates on entryPass buffer*/
-                        strcpy(newEntryPass, entryPass);
+                        strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                     } else {
                         genPassWord(DEFAULT_GENPASS_LENGTH);
-                        strcpy(newEntryPass, entryPass);
+                        strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                     }
                 } else {
                     /*If retrieved password was not gen/genalpha verify it was not mistyped*/
@@ -995,7 +995,7 @@ int main(int argc, char* argv[])
                 }
             } else if (toggle.entryPassArg == 1) /*This condition is true if the user DID supply a password but it isn't 'gen'*/
             {
-                strcpy(newEntryPass, entryPass);
+                strncpy(newEntryPass, entryPass, BUFFER_SIZES);
             }
         }
 
@@ -1053,7 +1053,7 @@ int main(int argc, char* argv[])
             getPass("Enter current database password: ", dbPass);
         }
 
-        if (openEnvelope(encCipher2, messageDigest2, dbPass) != 0) {
+        if (openEnvelope() != 0) {
             cleanUpBuffers();
             cleanUpFiles();
             return 1;
@@ -1070,7 +1070,7 @@ int main(int argc, char* argv[])
         chmod(tmpFile2, S_IRUSR | S_IWUSR);
 
         /*Must store old evp1 key data to decrypt database before new key material is generated*/
-        strcpy(dbPassOld, dbPass);
+        strncpy(dbPassOld, dbPass, BUFFER_SIZES);
         memcpy(hmacKeyOld, hmacKey, sizeof(char) * SHA512_DIGEST_LENGTH);
 
         /*If -U was given but neither -c or -H*/
@@ -1082,7 +1082,7 @@ int main(int argc, char* argv[])
             if (strcmp(dbPass, dbPassStore) != 0) {
                 printf("Passwords don't match, not changing.\n");
                 /*If not changing, replace old dbPass back into dbPass*/
-                strcpy(dbPass, dbPassOld);
+                strncpy(dbPass, dbPassOld, BUFFER_SIZES);
                 cleanUpBuffers();
                 cleanUpFiles();
                 return 1;
@@ -1094,26 +1094,26 @@ int main(int argc, char* argv[])
 
             /*Change cipher and digest if specified*/
             if (toggle.encCipher == 1) {
-                strcpy(encCipher1, encCipherStore1);
-                strcpy(encCipher2, encCipherStore2);
+                strncpy(encCipher1, encCipherStore1, NAME_MAX);
+                strncpy(encCipher2, encCipherStore2, NAME_MAX);
                 printf("Changing cipher to %s:%s\n", encCipherStore1, encCipherStore2);
             }
             if (toggle.messageDigest == 1) {
-                strcpy(messageDigest1, messageDigestStore2);
-                strcpy(messageDigest2, messageDigestStore2);
+                strncpy(messageDigest1, messageDigestStore2, NAME_MAX);
+                strncpy(messageDigest2, messageDigestStore2, NAME_MAX);
                 printf("Changing digest to %s\n", messageDigestStore2);
             }
         }
         /*-U was given but not -P and -c and/or -H might be there*/
         else if (toggle.updateEncPass == 1 && toggle.updateEntryPass != 1) {
             if (toggle.encCipher == 1) {
-                strcpy(encCipher1, encCipherStore1);
-                strcpy(encCipher2, encCipherStore2);
+                strncpy(encCipher1, encCipherStore1, NAME_MAX);
+                strncpy(encCipher2, encCipherStore2, NAME_MAX);
                 printf("Changing cipher to %s:%s\n", encCipherStore1, encCipherStore2);
             }
             if (toggle.messageDigest == 1) {
-                strcpy(messageDigest1, messageDigestStore1);
-                strcpy(messageDigest2, messageDigestStore2);
+                strncpy(messageDigest1, messageDigestStore1, NAME_MAX);
+                strncpy(messageDigest2, messageDigestStore2, NAME_MAX);
                 printf("Changing digest to %s:%s\n", messageDigestStore1, messageDigestStore2);
             }
             memcpy(hmacKeyNew, hmacKey, sizeof(char) * SHA512_DIGEST_LENGTH);
@@ -1126,7 +1126,7 @@ int main(int argc, char* argv[])
             getPass("Verify password:", dbPassStore);
             if (strcmp(dbPass, dbPassStore) != 0) {
                 printf("Passwords don't match, not changing.\n");
-                strcpy(dbPass, dbPassOld);
+                strncpy(dbPass, dbPassOld, BUFFER_SIZES);
                 cleanUpBuffers();
                 cleanUpFiles();
                 return 1;
@@ -1138,13 +1138,13 @@ int main(int argc, char* argv[])
 
             /*Change crypto settings*/
             if (toggle.encCipher == 1) {
-                strcpy(encCipher1, encCipherStore1);
-                strcpy(encCipher2, encCipherStore2);
+                strncpy(encCipher1, encCipherStore1, NAME_MAX);
+                strncpy(encCipher2, encCipherStore2, NAME_MAX);
                 printf("Changing cipher to %s:%s\n", encCipherStore1, encCipherStore2);
             }
             if (toggle.messageDigest == 1) {
-                strcpy(messageDigest1, messageDigestStore1);
-                strcpy(messageDigest2, messageDigestStore2);
+                strncpy(messageDigest1, messageDigestStore1, NAME_MAX);
+                strncpy(messageDigest2, messageDigestStore2, NAME_MAX);
                 printf("Changing digest to %s:%s\n", messageDigestStore1, messageDigestStore2);
             }
         }
@@ -1470,20 +1470,20 @@ int updateEntry(FILE* dbFile, char* searchString)
                 if (toggle.entryPassLengthGiven == 1) {
                     genPassWord(entryPassLength);
                     /*Have to copy over entryPass to newEntryPass since genPassWord() operates on entryPass buffer*/
-                    strcpy(newEntryPass, entryPass);
+                    strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                 } else {
                     genPassWord(DEFAULT_GENPASS_LENGTH);
-                    strcpy(newEntryPass, entryPass);
+                    strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                 }
                 memcpy(passBuffer, newEntryPass, BUFFER_SIZES);
                 /*Do the same as above but if an alphanumeric pass was specified*/
             } else if (toggle.updateEntryPass == 1 && (toggle.generateEntryPassAlpha == 1 || toggle.allPasses == 1)) {
                 if (toggle.entryPassLengthGiven == 1) {
                     genPassWord(entryPassLength);
-                    strcpy(newEntryPass, entryPass);
+                    strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                 } else {
                     genPassWord(DEFAULT_GENPASS_LENGTH);
-                    strcpy(newEntryPass, entryPass);
+                    strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                 }
                 memcpy(passBuffer, newEntryPass, BUFFER_SIZES);
             }
@@ -2614,7 +2614,7 @@ int sealEnvelope(const char* tmpFileToUse)
     /*Write crypto information as a header*/
 
     /*Write encCipher1:messageDigest1:encCipher2:messageDighest2 to cryptoBuffer*/
-    sprintf(cryptoBuffer, "%s:%s:%s:%s", encCipher1, messageDigest1, encCipher2, messageDigest2);
+    snprintf(cryptoBuffer, BUFFER_SIZES, "%s:%s:%s:%s", encCipher1, messageDigest1, encCipher2, messageDigest2);
 
     if (toggle.firstRun != 1) {
         /*Generates a random EVP*_SALT_SIZE byte string into buffer pointed to by saltBuff*/
@@ -2737,7 +2737,7 @@ int openEnvelope()
         printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
         return 1;
     }
-    strcpy(encCipher1, token);
+    strncpy(encCipher1, token, NAME_MAX);
 
     token = strtok(NULL, ":");
     if (token == NULL) {
@@ -2747,7 +2747,7 @@ int openEnvelope()
     }
 
     /*Then the message digest*/
-    strcpy(messageDigest1, token);
+    strncpy(messageDigest1, token, NAME_MAX);
 
     token = strtok(NULL, ":");
     if (token == NULL) {
@@ -2757,12 +2757,12 @@ int openEnvelope()
     }
 
     /*Now the 2nd cipher*/
-    strcpy(encCipher2, token);
+    strncpy(encCipher2, token, NAME_MAX);
 
     token = strtok(NULL, ":");
 
     /*Then the 2nd message digest*/
-    strcpy(messageDigest2, token);
+    strncpy(messageDigest2, token, NAME_MAX);
 
     /*Check the strings recieved are valid cipher and digest names*/
     evpCipher1 = EVP_get_cipherbyname(encCipher1);
@@ -3081,7 +3081,7 @@ void genPassWord(int stringLength)
     /*Insert a null byte at the end of the randome bytes*/
     /*Then send that to entryPass*/
     tempPassString[stringLength] = '\0';
-    strcpy(entryPass, tempPassString);
+    strncpy(entryPass, tempPassString, BUFFER_SIZES);
 }
 
 char* genFileName()
@@ -3109,7 +3109,7 @@ char* genFileName()
     fileNameBuffer[b % (NAME_MAX - strlen(P_tmpdir))] = '\0';
 
     /*Preced the sprintf string below with a . to make tmp files write to ./tmp/ for use in testing temp-file attacks*/
-    sprintf(fileName, "%s/%s", P_tmpdir, fileNameBuffer);
+    snprintf(fileName, NAME_MAX, "%s/%s", P_tmpdir, fileNameBuffer);
 
     free(fileNameBuffer);
 
@@ -3413,7 +3413,7 @@ int printSyntax(char* arg)
 \n     \t-x 'database password' (the current database password to decrypt/with) \
 \n     \t-c 'first-cipher:second-cipher' - Update algorithms in cascade\
 \n     \t-H 'first-digest:second-digest' - Update digests used for cascaded algorithms' KDFs\
-\nVersion 2.4.0\
+\nVersion 2.4.1\
 \n\
 ",
         arg);
