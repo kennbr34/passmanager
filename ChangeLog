@@ -2,6 +2,9 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+2019-8-17
+(+ver 2.4.2)
+	Fixed primeSSL function where initialization of database with -c option gave a false error that the cipher could not be loaded
 2019-8-16
 (+ver 2.4.1)
 	Fixed use of boundless input functions to avoid buffer overflow (strcpy to strncpy, sprint to snprint, etc.)

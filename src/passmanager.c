@@ -2444,12 +2444,16 @@ int primeSSL()
 			printf("Could not load cipher %s. Check that it is available with -c list\n", encCipher1);
 			return 1;
 		}
+		else
+			evpCipher1 = EVP_get_cipherbyname(encCipher1);
 		
 		if(!EVP_get_cipherbyname(encCipher2))
 		{
 			printf("Could not load cipher %s. Check that it is available with -c list\n", encCipher2);
 			return 1;
 		}
+		else
+			evpCipher2 = EVP_get_cipherbyname(encCipher2);
 
         /*Find start of mode*/
         for (i = strlen(encCipher1); i > 0; i--) {
@@ -3413,7 +3417,7 @@ int printSyntax(char* arg)
 \n     \t-x 'database password' (the current database password to decrypt/with) \
 \n     \t-c 'first-cipher:second-cipher' - Update algorithms in cascade\
 \n     \t-H 'first-digest:second-digest' - Update digests used for cascaded algorithms' KDFs\
-\nVersion 2.4.1\
+\nVersion 2.4.2\
 \n\
 ",
         arg);
