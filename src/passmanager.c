@@ -2328,7 +2328,7 @@ int primeSSL()
         }
 
     } else { /*If not default to aes-256-ctr*/
-        strcpy(encCipher, "aes-256-cbc");
+        strcpy(encCipher, "aes-256-ctr");
         evpCipher = EVP_get_cipherbyname(encCipher);
         if (!evpCipher) {
             fprintf(stderr, "Could not load cipher: %s\n", encCipher);
