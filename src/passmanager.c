@@ -2293,6 +2293,8 @@ int primeSSL()
 			printf("Could not load cipher %s. Check that it is available with -c list\n", encCipher);
 			return 1;
 		}
+		else
+			evpCipher = EVP_get_cipherbyname(encCipher);
 
         /*Find start of mode*/
         for (i = strlen(encCipher); i > 0; i--) {
