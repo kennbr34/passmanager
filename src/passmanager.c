@@ -1538,8 +1538,8 @@ int updateEntry(FILE* dbFile, char* searchString)
     chmod(tmpFile3, S_IRUSR | S_IWUSR);
 
     /*Write the encryptedBuffer out and check for errors*/
-    returnVal = fwrite(encryptedBuffer, fileSize, sizeof(unsigned char), tmpFile);
-    if (returnVal != fileSize / sizeof(unsigned char))
+    returnVal = fwrite(encryptedBuffer, outlen, sizeof(unsigned char), tmpFile);
+    if (returnVal != outlen / sizeof(unsigned char))
     {
         if (ferror(tmpFile)) {
             perror("updateEntry fwrite encryptedBuffer");
@@ -1690,7 +1690,8 @@ int deletePass(FILE* dbFile, char* searchString)
                     memcpy(fileBuffer, fileBufferOld, sizeof(unsigned char) * outlen - ((BUFFER_SIZES * 2) * entriesMatched));
                     OPENSSL_cleanse(fileBufferOld, sizeof(unsigned char) * outlen - ((BUFFER_SIZES * 2) * entriesMatched));
                     free(fileBufferOld);
-                }
+                    
+                    }
             }
             printf("Matched \"%s\" to \"%s\" (Deleting)...\n", searchString, entryBuffer);
             entriesMatched++;
@@ -1704,6 +1705,9 @@ int deletePass(FILE* dbFile, char* searchString)
             iii += BUFFER_SIZES * 2;
         }
     }
+    
+    if(entriesMatched > 1)
+		outlen = outlen - ((BUFFER_SIZES * 2) * entriesMatched);
 
     /*Clear out sensitive information ASAP*/
     OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * BUFFER_SIZES);
@@ -1714,6 +1718,7 @@ int deletePass(FILE* dbFile, char* searchString)
     encryptedBuffer = calloc(sizeof(unsigned char), (outlen + EVP_MAX_BLOCK_LENGTH));
     
     fileSize = outlen;
+    
 
     EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
     if (!EVP_EncryptUpdate(ctx, encryptedBuffer, &outlen, fileBuffer, outlen)) {
@@ -1757,8 +1762,8 @@ int deletePass(FILE* dbFile, char* searchString)
 
     /*Append this as the "generated" MAC later*/
     memcpy(hmacBuffer,evpIv,IvLength);
-    memcpy(hmacBuffer + IvLength,encryptedBuffer,fileSize - ((BUFFER_SIZES * 2) * entriesMatched) );
-    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, (fileSize - ((BUFFER_SIZES * 2) * entriesMatched)) + IvLength, gMac, gMacLength);
+    memcpy(hmacBuffer + IvLength,encryptedBuffer,outlen );
+    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, outlen + IvLength, gMac, gMacLength);
 
 
     /*Write the modified cipher-text to this temporary file for sealEnvelope()*/
@@ -1782,7 +1787,7 @@ int deletePass(FILE* dbFile, char* searchString)
         }
     } else {
         printf("If you deleted more than you intended to, restore from %s.autobak\n", dbFileName);
-        returnVal = fwrite(encryptedBuffer, outlen - ((BUFFER_SIZES * 2) * entriesMatched), sizeof(unsigned char), tmpFile);
+        returnVal = fwrite(encryptedBuffer, outlen, sizeof(unsigned char), tmpFile);
         if (returnVal != outlen / sizeof(unsigned char))
         {
             if (ferror(tmpFile)) {
@@ -2293,6 +2298,8 @@ int primeSSL()
 			printf("Could not load cipher %s. Check that it is available with -c list\n", encCipher);
 			return 1;
 		}
+		else
+			evpCipher = EVP_get_cipherbyname(encCipher);
 
         /*Find start of mode*/
         for (i = strlen(encCipher); i > 0; i--) {
@@ -2321,7 +2328,7 @@ int primeSSL()
         }
 
     } else { /*If not default to aes-256-ctr*/
-        strcpy(encCipher, "aes-256-ctr");
+        strcpy(encCipher, "aes-256-cbc");
         evpCipher = EVP_get_cipherbyname(encCipher);
         if (!evpCipher) {
             fprintf(stderr, "Could not load cipher: %s\n", encCipher);
@@ -2364,7 +2371,7 @@ int sealEnvelope(const char* tmpFileToUse)
     free(cryptoBufferPadding);
     
     FILE *EVPDecryptedFile, *EVPDataFileTmp, *dbFile;
-
+    
     /*Generate MAC from EVP data written to temp file*/
     EVPDataFileTmp = fopen(tmpFileToUse, "rb");
     if (EVPDataFileTmp == NULL) {
@@ -3120,7 +3127,7 @@ int printSyntax(char* arg)
 \n     \t-x 'database password' (the current database password to decrypt/with) \
 \n     \t-c 'cipher' - Update encryption algorithm  \
 \n     \t-H 'digest' - Update digest used for algorithms' KDFs \
-\nVersion 2.4.1 (single encryption)\
+\nVersion 3.0\
 \n\
 ",
         arg);
