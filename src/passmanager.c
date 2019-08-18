@@ -50,11 +50,10 @@
 #define BUFFER_SIZES 512
 
 //*Define sizes of salts*/
-#define EVP2_SALT_SIZE 16
-#define EVP1_SALT_SIZE 16
-#define HMAC_SALT_SIZE EVP1_SALT_SIZE
+#define EVP_SALT_SIZE 16
+#define HMAC_SALT_SIZE EVP_SALT_SIZE
 
-/*Define block sizes for dbDecrypt and dbEncrypt to use*/
+/*Define block size for EVP ciphers to use*/
 #define EVP_BLOCK_SIZE 1024
 
 /*Default size of password if generation is chosen*/
@@ -93,21 +92,18 @@ struct toggleStruct toggle;
 /*OpenSSL related functions*/
 int primeSSL(); /*Loads EVP cipher and digest objects via name after user species them or parsed from file header*/
 int openEnvelope(); /*Opens EVP encrypted envelope file and checks MAC attached*/
-void genEvp2Salt(); /*Generates an 8byte random salt to be used by EVP*/
-int dbDecrypt(FILE* in, FILE* out); /*OpenSSSL EVP decryption routine*/
-int dbEncrypt(FILE* in, FILE* out); /*OpenSSL EVP encryption routine*/
 int sealEnvelope(const char* tmpFileToUse); /*Writes Message data to EVP ecncrypted envelope and attaches MAC*/
 void mdList(const OBJ_NAME* obj, void* arg); /*Sets up structure objects needed to list message digests available to OpenSSL*/
 void mdLister(); /*Lists the message digests available to OpenSSL*/
 void encList(const OBJ_NAME* obj, void* arg); /*Same as mdList but for encryption ciphers*/
 void encLister(); /*Same as mdLIster but for encryption ciphers*/
-void genEvp1Salt(); /*Generates EVP1 salt*/
+void genEvpSalt(); /*Generates EVP salt*/
 void hmacKDF(); /*Derive key for HMAC*/
-int evpKDF(char* dbPass, unsigned char* evpSalt, unsigned int saltLen,const EVP_CIPHER *evpCipher,const EVP_MD *evpDigest, unsigned char *evpKey, unsigned char *evpIv); /*Derive key for EVP ciphers*/
+int evpKDF(char* dbPass, unsigned char* evpSalt, unsigned int saltLen,const EVP_CIPHER *evpCipher,const EVP_MD *evpDigest, unsigned char *evpKey, unsigned char *evpIv); /*Derive key for EVP cipher*/
 /*Password management functions*/
-int writePass(FILE* dbFile); /*Uses EVP1 cipher to write passes to a file*/
-int printPasses(FILE* dbFile, char* searchString); /*Uses EVP1 cipher to read passes from file*/
-int deletePass(FILE* dbFile, char* searchString); /*Uses EVP1 cipher to delete passes from a file*/
+int writePass(FILE* dbFile); /*Uses EVP cipher to write passes to a file*/
+int printPasses(FILE* dbFile, char* searchString); /*Uses EVP cipher to read passes from file*/
+int deletePass(FILE* dbFile, char* searchString); /*Uses EVP cipher to delete passes from a file*/
 int updateEntry(FILE* dbFile, char* searchString); /*Updates entryName or entryName AND passWord*/
 int updateEncPass(FILE* dbFile); /*Update database encryption password*/
 /*Password input functions*/
@@ -131,12 +127,10 @@ int printMACErrMessage(void); /*Print MAC error information*/
 /*OpenSSL variables*/
 
 /*These are needed for OpenSSL key ring material*/
-/*evpCipher1 will be the first/inner algorithm choosen*/
-/*evpCipher2 will be the second/outer algorithm choosen*/
-const EVP_CIPHER *evpCipher1, *evpCipher1Old, *evpCipher2;
-unsigned char evpKey1[EVP_MAX_KEY_LENGTH], evpKey1Old[EVP_MAX_KEY_LENGTH], evpKey2[EVP_MAX_KEY_LENGTH];
-unsigned char evpIv1[EVP_MAX_IV_LENGTH], evpIv1Old[EVP_MAX_KEY_LENGTH], evpIv2[EVP_MAX_IV_LENGTH];
-const EVP_MD *evpDigest1 = NULL, *evpDigest2 = NULL;
+const EVP_CIPHER *evpCipher, *evpCipherOld;
+unsigned char evpKey[EVP_MAX_KEY_LENGTH], evpKeyOld[EVP_MAX_KEY_LENGTH];
+unsigned char evpIv[EVP_MAX_IV_LENGTH], evpIvOld[EVP_MAX_KEY_LENGTH];
+const EVP_MD *evpDigest = NULL;
 
 /*These hold the user-supplied password for the database encryption*/
 char* dbPass; /*Will hold the user-supplied database password*/
@@ -144,19 +138,18 @@ char* dbPassStore; /*This stores the dbPass entered by the user to verify it was
 char* dbPassOld; /*Store old dbPassword for updateEncPass()*/
 
 /*EVP cipher and MD name character arrays*/
-char messageDigest1[NAME_MAX], messageDigest2[NAME_MAX]; /*Message digest name to send to EVP functions*/
-char messageDigestStore1[NAME_MAX], messageDigestStore2[NAME_MAX]; /*Stores messageDigest given on commandline*/
-char encCipher1[NAME_MAX], encCipher2[NAME_MAX]; /*Cipher name to send to EVP functions*/
-char encCipherStore1[NAME_MAX], encCipherStore2[NAME_MAX]; /*Stores the encCipher given on commandline*/
+char messageDigest[NAME_MAX]; /*Message digest name to send to EVP functions*/
+char messageDigestStore[NAME_MAX]; /*Stores messageDigest given on commandline*/
+char encCipher[NAME_MAX]; /*Cipher name to send to EVP functions*/
+char encCipherStore[NAME_MAX]; /*Stores the encCipher given on commandline*/
 
 /*Holds a 64 byte key derived in hmacKDF to be used in HMAC function*/
 unsigned char *hmacKey, *hmacKeyNew, *hmacKeyOld;
 
 /*Misc crypto variables*/
 
-/*Salts*/
-unsigned char* evp2Salt; /*This stores the salt to use in EVPBytestoKey for the second/outer algorithm used*/
-unsigned char* evp1Salt; /*This stores the salt to use in EVPBytestoKey for the first/inner algorithm used*/
+/*Salt*/
+unsigned char* evpSalt; /*This stores the salt to use in EVPBytestoKey for the first/inner algorithm used*/
 /*Buffers and variables needed for HMAC*/
 unsigned char gMac[SHA512_DIGEST_LENGTH]; /*MAC generated from plain-text, thus gMac for generatedMac*/
 unsigned char fMac[SHA512_DIGEST_LENGTH]; /*MAC read from file to check against, thus fMac for fileMac*/
@@ -172,7 +165,7 @@ char* tmpFile3;
 
 /*Backup and database file names*/
 char dbFileName[NAME_MAX]; /*Password file name*/
-char backupFileName[NAME_MAX]; /*Buffer to hold the name of backup file for passwords file which will be the same with a .sav suffix*/
+char backupFileName[NAME_MAX]; /*Buffer to hold the name of backup file for passwords file which will be the same with a .autobak suffix*/
 
 /*Input buffers*/
 char* entryPass; /*Entry password*/
@@ -300,11 +293,11 @@ int main(int argc, char* argv[])
     tmpFile3 = genFileName();
 
     /*These file handles refer to temporary and final files in the openEnvelope/sealEnvelope process*/
-    /*EVP2EncryptedFile is the second EVP algorithms' cipher-text, which will also represent the final database file without its header*/
-    /*EVP2DecryptedFile is the second EVP algorithms' plain-text, i.e. the first EVP algorithms' cipher-text*/
-    /*EVP1DataFileTmp is the first EVP algorithms' cipher-text, which will be loaded into buffers for decryption and processing*/
-    /*dbFile will contain two salts and crypto information as a header, followed by the second EVP algorithms' cipher-text*/
-    FILE *EVP2EncryptedFile, *EVP2DecryptedFile, *EVP1DataFileTmp, *dbFile;
+    /*EVPEncryptedFile is the EVP algorithm's cipher-text, which will also represent the final database file without its header*/
+    /*EVPDecryptedFile is the EVP algorithm's plain-text*/
+    /*EVPDataFileTmp is the EVP algorithm's cipher-text, which will be loaded into buffers for decryption and processing*/
+    /*dbFile will contain salt and crypto information as a header, followed by the EVP algorithm's cipher-text, and MAC at end*/
+    FILE *EVPEncryptedFile, *EVPDecryptedFile, *EVPDataFileTmp, *dbFile;
 
     /*This loads up all names of alogirithms for OpenSSL into an object structure so we can call them by name later*/
     /*It is also needed for the mdLIster() and encLister() functions to work*/
@@ -314,8 +307,6 @@ int main(int argc, char* argv[])
     int errflg = 0; /*Toggle this flag on and off so we can check for errors and act accordingly*/
 
     int i;
-
-    char* token;
 
     /*Process through arguments*/
     while ((opt = getopt(argc, argv, "i:s:l:f:u:n:d:a:r:p:x:H:c:hUPC")) != -1) {
@@ -370,7 +361,7 @@ int main(int argc, char* argv[])
                 printf("\nentry name too long\n");
                 return 1;
             }
-            strcpy(entryName, optarg);
+            strncpy(entryName, optarg, BUFFER_SIZES);
             toggle.entryGiven = 1;
             break;
         case 'r': /*Read password(s)*/
@@ -386,7 +377,7 @@ int main(int argc, char* argv[])
             }
             if (strcmp(optarg, "allpasses") == 0)
                 toggle.allPasses = 1;
-            strcpy(entryName, optarg);
+            strncpy(entryName, optarg, BUFFER_SIZES);
             toggle.entryGiven = 1;
             break;
         case 'd': /*Delete password*/
@@ -399,11 +390,11 @@ int main(int argc, char* argv[])
                 printf("\nentry name too long\n");
                 return 1;
             }
-            strcpy(entryName, optarg);
+            strncpy(entryName, optarg, BUFFER_SIZES);
             toggle.entryGiven = 1;
             toggle.entrySearch = 1;
             break;
-        case 'H': /*Hashing digest for EVPKeytoBytes() to use*/
+        case 'H': /*Hashing digest for PBKDF2 to use*/
             if (optarg[0] == '-') {
                 printf("Option -H requires an operand\n");
                 errflg++; /*Set the error flag so program will halt after getopt() is done*/
@@ -413,20 +404,11 @@ int main(int argc, char* argv[])
                 return 0;
             }
             toggle.messageDigest = 1;
-            token = strtok(optarg, ":");
-            if (token == NULL) {
-                printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
-                return 1;
-            }
-            strcpy(messageDigest1, token);
 
-            token = strtok(NULL, ":");
-
-            strcpy(messageDigest2, token);
+            strncpy(messageDigest, optarg, NAME_MAX);
 
             /*Store command-line given parameters for use after messageDigest are read from file header*/
-            strcpy(messageDigestStore1, messageDigest1);
-            strcpy(messageDigestStore2, messageDigest2);
+            strncpy(messageDigestStore, messageDigest, NAME_MAX);
 
             toggle.messageDigest = 1;
             break;
@@ -441,20 +423,10 @@ int main(int argc, char* argv[])
             }
             toggle.encCipher = 1;
 
-            token = strtok(optarg, ":");
-            if (token == NULL) {
-                printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
-                return 1;
-            }
-            strcpy(encCipher1, token);
-
-            token = strtok(NULL, ":");
-
-            strcpy(encCipher2, token);
+            strncpy(encCipher, optarg, NAME_MAX);
 
             /*Store command-line given parameters for use after encCipher are read from file header*/
-            strcpy(encCipherStore1, encCipher1);
-            strcpy(encCipherStore2, encCipher2);
+            strncpy(encCipherStore, encCipher, NAME_MAX);
 
             toggle.encCipher = 1;
             break;
@@ -468,7 +440,7 @@ int main(int argc, char* argv[])
                 }
 
                 /*Grab passworld database filename off the command line*/
-                strcpy(dbFileName, optarg);
+                strncpy(dbFileName, optarg, NAME_MAX);
             }
             if (toggle.Read == 1) {
                 dbFile = fopen(optarg, "rb");
@@ -478,7 +450,7 @@ int main(int argc, char* argv[])
                     return errno;
                 }
 
-                strcpy(dbFileName, optarg);
+                strncpy(dbFileName, optarg, NAME_MAX);
             }
             if (toggle.Delete == 1) {
                 dbFile = fopen(optarg, "rb+");
@@ -487,7 +459,7 @@ int main(int argc, char* argv[])
                     perror(optarg);
                     return errno;
                 }
-                strcpy(dbFileName, optarg);
+                strncpy(dbFileName, optarg, NAME_MAX);
             }
             if (toggle.updateEncPass == 1) {
                 dbFile = fopen(optarg, "rb+");
@@ -496,7 +468,7 @@ int main(int argc, char* argv[])
                     perror(optarg);
                     return errno;
                 }
-                strcpy(dbFileName, optarg);
+                strncpy(dbFileName, optarg, NAME_MAX);
             }
             if (toggle.updateEntry == 1) {
                 dbFile = fopen(optarg, "rb+");
@@ -505,7 +477,7 @@ int main(int argc, char* argv[])
                     perror(optarg);
                     return errno;
                 }
-                strcpy(dbFileName, optarg);
+                strncpy(dbFileName, optarg, NAME_MAX);
             }
             toggle.fileGiven = 1;
             break;
@@ -519,7 +491,7 @@ int main(int argc, char* argv[])
                 printf("\nentry name too long\n");
                 return 1;
             }
-            strcpy(entryName, optarg);
+            strncpy(entryName, optarg, BUFFER_SIZES);
             toggle.entryGiven = 1;
             break;
         case 'u': /*Specifies an entry by name*/
@@ -534,7 +506,7 @@ int main(int argc, char* argv[])
             }
             if (strcmp(optarg, "allpasses") == 0)
                 toggle.allPasses = 1;
-            strcpy(entryNameToSearch, optarg);
+            strncpy(entryNameToSearch, optarg, BUFFER_SIZES);
             break;
         case 'p': /*If passing entry password from command line*/
             toggle.entryPassArg = 1;
@@ -550,7 +522,7 @@ int main(int argc, char* argv[])
                 toggle.generateEntryPass = 1;
             if (strcmp(optarg, "genalpha") == 0)
                 toggle.generateEntryPassAlpha = 1;
-            strcpy(entryPass, optarg);
+            strncpy(entryPass, optarg, BUFFER_SIZES);
             OPENSSL_cleanse(optarg, strlen(optarg));
             break;
         case 'x': /*If passing database password from command line*/
@@ -559,7 +531,7 @@ int main(int argc, char* argv[])
                 errflg++; /*Set error flag*/
                 printf("Option -x requires an operand\n");
             }
-            strcpy(dbPass, optarg);
+            strncpy(dbPass, optarg, BUFFER_SIZES);
             OPENSSL_cleanse(optarg, strlen(optarg));
             break;
         case ':':
@@ -610,8 +582,8 @@ int main(int argc, char* argv[])
 
     /*Before anything else, back up the password database*/
     if (returnFileSize(dbFileName) != 0 && toggle.Read != 1) {
-        strcpy(backupFileName, dbFileName);
-        strcat(backupFileName, ".autobak");
+        strncpy(backupFileName, dbFileName, NAME_MAX);
+        strncat(backupFileName, ".autobak", NAME_MAX);
         FILE* backUpFile = fopen(backupFileName, "w");
         if (backUpFile == NULL) {
             printf("Couldn't make a backup file. Be careful...\n");
@@ -730,18 +702,17 @@ int main(int argc, char* argv[])
             }
         } else {
             /*Otherwise run these functions to initialize a database*/
-            genEvp1Salt();
-            genEvp2Salt();
+            genEvpSalt();
             hmacKDF();
             toggle.firstRun = 1;
         }
 
-        /*openEnvelope has decrypted the second EVP algorithm, and placed its plain-text into a tempfile whose randomly-generated name is in a buffer pointed to by tmpFile2*/
+        /*openEnvelope has decrypted the EVP algorithm, and placed its plain-text into a tempfile whose randomly-generated name is in a buffer pointed to by tmpFile2*/
 
-        /*Open first EVP algorithms' cipher-text for decryption and processing*/
+        /*Open EVP algorithm's cipher-text for decryption and processing*/
         /*In this case, appending a new entry to it*/
-        EVP1DataFileTmp = fopen(tmpFile2, "a+");
-        if (EVP1DataFileTmp == NULL) /*Make sure the file opens*/
+        EVPDataFileTmp = fopen(tmpFile2, "a+");
+        if (EVPDataFileTmp == NULL) /*Make sure the file opens*/
         {
             perror(argv[0]);
             cleanUpBuffers();
@@ -750,17 +721,16 @@ int main(int argc, char* argv[])
         }
         chmod(tmpFile2, S_IRUSR | S_IWUSR);
 
-        /*Derives a key for the first EVP algorithm*/
+        /*Derives a key for the EVP algorithm*/
         /*The choosen EVP digest algorithm will be used*/
-        /*The salt generated for the first EVP algorithm will also be used*/
-        /*The entire KDF will reiterate according to the password length multiplied by the reccomended amount in RFC 2889*/
+        /*The salt generated for the EVP algorithm will also be used*/
         
-		if(evpKDF(dbPass, evp1Salt, EVP1_SALT_SIZE,evpCipher1,evpDigest1,evpKey1,evpIv1) != 0) {
+		if(evpKDF(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKey,evpIv) != 0) {
 			return 1;
 		}
 		
-        /*writePass() appends a new entry to EVP1DataFileTmp encrypted with the first EVP algorithm chosen*/
-        int writePassResult = writePass(EVP1DataFileTmp);
+        /*writePass() appends a new entry to EVPDataFileTmp encrypted with the EVP algorithm chosen*/
+        int writePassResult = writePass(EVPDataFileTmp);
 
         if (writePassResult == 0) {
             printf("Added \"%s\" to database.\n", entryName);
@@ -786,16 +756,16 @@ int main(int argc, char* argv[])
             getPass("Enter database password: ", dbPass);
         }
 
-        EVP2EncryptedFile = fopen(dbFileName, "rb");
-        if (EVP2EncryptedFile == NULL) /*Make sure the file opens*/
+        EVPEncryptedFile = fopen(dbFileName, "rb");
+        if (EVPEncryptedFile == NULL) /*Make sure the file opens*/
         {
             perror(argv[0]);
             cleanUpBuffers();
             return errno;
         }
 
-        EVP2DecryptedFile = fopen(tmpFile1, "wb");
-        if (EVP2DecryptedFile == NULL) /*Make sure the file opens*/
+        EVPDecryptedFile = fopen(tmpFile1, "wb");
+        if (EVPDecryptedFile == NULL) /*Make sure the file opens*/
         {
             perror(argv[0]);
             cleanUpBuffers();
@@ -811,9 +781,9 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        /*the file whose name is pointed to by tmpFile2 now contains EVP1 data with no MAC and can be passed to printPasses()*/
-        EVP1DataFileTmp = fopen(tmpFile2, "rb");
-        if (EVP1DataFileTmp == NULL) {
+        /*the file whose name is pointed to by tmpFile2 now contains EVP data with no MAC and can be passed to printPasses()*/
+        EVPDataFileTmp = fopen(tmpFile2, "rb");
+        if (EVPDataFileTmp == NULL) {
             perror(argv[0]);
             cleanUpBuffers();
             cleanUpFiles();
@@ -823,20 +793,23 @@ int main(int argc, char* argv[])
         chmod(tmpFile2, S_IRUSR | S_IWUSR);
 
 		
-		if(evpKDF(dbPass, evp1Salt, EVP1_SALT_SIZE,evpCipher1,evpDigest1,evpKey1,evpIv1) != 0) {
+		if(evpKDF(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKey,evpIv) != 0) {
 			return 1;
 		}
 
         if (toggle.entrySearch == 1 && strcmp(entryName, "allpasses") != 0) /*Find a specific entry to print*/
         {
-            printPasses(EVP1DataFileTmp, entryName); /*Decrypt and print pass specified by entryName*/
+            printPasses(EVPDataFileTmp, entryName); /*Decrypt and print pass specified by entryName*/
             if (toggle.sendToClipboard == 1) {
                 printf("Sent password to clipboard. Paste with middle-click.\n");
             }
         } else if (toggle.entrySearch == 1 && strcmp(entryName, "allpasses") == 0)
-            printPasses(EVP1DataFileTmp, NULL); /*Decrypt and print all passess*/
+            printPasses(EVPDataFileTmp, NULL); /*Decrypt and print all passess*/
 
-        fclose(EVP1DataFileTmp);
+        fclose(EVPDataFileTmp);
+        fclose(EVPDecryptedFile);
+        fclose(EVPEncryptedFile);
+        fclose(dbFile);
 
     } else if (toggle.Delete == 1) /*Delete a specified entry*/
     {
@@ -871,8 +844,8 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        EVP1DataFileTmp = fopen(tmpFile2, "rb+");
-        if (EVP1DataFileTmp == NULL) {
+        EVPDataFileTmp = fopen(tmpFile2, "rb+");
+        if (EVPDataFileTmp == NULL) {
             perror(argv[0]);
             cleanUpBuffers();
             cleanUpFiles();
@@ -881,19 +854,19 @@ int main(int argc, char* argv[])
         chmod(tmpFile2, S_IRUSR | S_IWUSR);
 
 		
-		if(evpKDF(dbPass, evp1Salt, EVP1_SALT_SIZE,evpCipher1,evpDigest1,evpKey1,evpIv1) != 0) {
+		if(evpKDF(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKey,evpIv) != 0) {
 			return 1;
 		}
 
         /*Delete pass actually works by exclusion*/
         /*It writes all password entries except the one specified to a new temporary file*/
-        int deletePassResult = deletePass(EVP1DataFileTmp, entryName);
+        int deletePassResult = deletePass(EVPDataFileTmp, entryName);
 
-        fclose(EVP1DataFileTmp);
+        fclose(EVPDataFileTmp);
 
         if (deletePassResult == 0) {
 
-            /*After the password entry was deleted the rest of the passwords were written to a 3rd temporary file which is encrypted by sealEnvelope*/
+            /*After the password entry was deleted the rest of the passwords were written to a 3rd temporary file which is finalized into the password database file by sealEnvelope*/
             if (sealEnvelope(tmpFile3) != 0) {
                 cleanUpBuffers();
                 cleanUpFiles();
@@ -909,10 +882,10 @@ int main(int argc, char* argv[])
 
         /*Get new entry*/
         if (toggle.entryGiven == 1) {
-            strcpy(newEntry, entryName);
+            strncpy(newEntry, entryName, BUFFER_SIZES);
         } else {
             /*If no new entry was specified then just update the password*/
-            strcpy(newEntry, entryNameToSearch);
+            strncpy(newEntry, entryNameToSearch, BUFFER_SIZES);
             toggle.updateEntryPass = 1;
         }
 
@@ -928,20 +901,20 @@ int main(int argc, char* argv[])
                     toggle.generateEntryPass = 1;
                     genPassWord(entryPassLength);
                     /*Have to copy over passWord to newEntryPass since genPassWord() operates on entryPass buffer*/
-                    strcpy(newEntryPass, entryPass);
+                    strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                 } else {
                     genPassWord(DEFAULT_GENPASS_LENGTH);
-                    strcpy(newEntryPass, entryPass);
+                    strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                 }
             } else if (strcmp(entryPass, "genalpha") == 0) {
                 toggle.generateEntryPassAlpha = 1;
                 if (toggle.entryPassLengthGiven == 1) {
                     genPassWord(entryPassLength);
                     /*Have to copy over passWord to newEntryPass since genPassWord() operates on entryPass buffer*/
-                    strcpy(newEntryPass, entryPass);
+                    strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                 } else {
                     genPassWord(DEFAULT_GENPASS_LENGTH);
-                    strcpy(newEntryPass, entryPass);
+                    strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                 }
             } else if (toggle.entryPassArg != 1) /*entryPass was not supplied via command line*/
             {
@@ -955,10 +928,10 @@ int main(int argc, char* argv[])
                     if (toggle.entryPassLengthGiven == 1) {
                         genPassWord(entryPassLength);
                         /*Have to copy over entryPass to newEntryPass since genPassWord() operates on entryPass buffer*/
-                        strcpy(newEntryPass, entryPass);
+                        strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                     } else {
                         genPassWord(DEFAULT_GENPASS_LENGTH);
-                        strcpy(newEntryPass, entryPass);
+                        strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                     }
                 } else if (strcmp(newEntryPass, "genalpha") == 0) {
                     toggle.generateEntryPassAlpha = 1;
@@ -966,10 +939,10 @@ int main(int argc, char* argv[])
                     if (toggle.entryPassLengthGiven == 1) {
                         genPassWord(entryPassLength);
                         /*Have to copy over entryPass to newEntryPass since genPassWord() operates on entryPass buffer*/
-                        strcpy(newEntryPass, entryPass);
+                        strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                     } else {
                         genPassWord(DEFAULT_GENPASS_LENGTH);
-                        strcpy(newEntryPass, entryPass);
+                        strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                     }
                 } else {
                     /*If retrieved password was not gen/genalpha verify it was not mistyped*/
@@ -982,7 +955,7 @@ int main(int argc, char* argv[])
                 }
             } else if (toggle.entryPassArg == 1) /*This condition is true if the user DID supply a password but it isn't 'gen'*/
             {
-                strcpy(newEntryPass, entryPass);
+                strncpy(newEntryPass, entryPass, BUFFER_SIZES);
             }
         }
 
@@ -1001,8 +974,8 @@ int main(int argc, char* argv[])
             return 1;
         }
 
-        EVP1DataFileTmp = fopen(tmpFile2, "rb+");
-        if (EVP1DataFileTmp == NULL) {
+        EVPDataFileTmp = fopen(tmpFile2, "rb+");
+        if (EVPDataFileTmp == NULL) {
             perror(argv[0]);
             cleanUpBuffers();
             cleanUpFiles();
@@ -1011,14 +984,14 @@ int main(int argc, char* argv[])
         }
         chmod(tmpFile2, S_IRUSR | S_IWUSR);
 		
-		if(evpKDF(dbPass, evp1Salt, EVP1_SALT_SIZE,evpCipher1,evpDigest1,evpKey1,evpIv1) != 0) {
+		if(evpKDF(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKey,evpIv) != 0) {
 			return 1;
 		}
 
         /*Works like deletePass() but instead of excluding matched entry, modfies its buffer values and then outputs to 3rd temp file*/
-        int updateEntryResult = updateEntry(EVP1DataFileTmp, entryNameToSearch);
+        int updateEntryResult = updateEntry(EVPDataFileTmp, entryNameToSearch);
 
-        fclose(EVP1DataFileTmp);
+        fclose(EVPDataFileTmp);
 
         if (updateEntryResult == 0) {
             if (toggle.sendToClipboard == 1) {
@@ -1040,14 +1013,14 @@ int main(int argc, char* argv[])
             getPass("Enter current database password: ", dbPass);
         }
 
-        if (openEnvelope(encCipher2, messageDigest2, dbPass) != 0) {
+        if (openEnvelope() != 0) {
             cleanUpBuffers();
             cleanUpFiles();
             return 1;
         }
 
-        EVP1DataFileTmp = fopen(tmpFile2, "rb+");
-        if (EVP1DataFileTmp == NULL) {
+        EVPDataFileTmp = fopen(tmpFile2, "rb+");
+        if (EVPDataFileTmp == NULL) {
             perror(argv[0]);
             cleanUpBuffers();
             cleanUpFiles();
@@ -1056,8 +1029,8 @@ int main(int argc, char* argv[])
         }
         chmod(tmpFile2, S_IRUSR | S_IWUSR);
 
-        /*Must store old evp1 key data to decrypt database before new key material is generated*/
-        strcpy(dbPassOld, dbPass);
+        /*Must store old EVP key data to decrypt database before new key material is generated*/
+        strncpy(dbPassOld, dbPass, BUFFER_SIZES);
         memcpy(hmacKeyOld, hmacKey, sizeof(char) * SHA512_DIGEST_LENGTH);
 
         /*If -U was given but neither -c or -H*/
@@ -1069,7 +1042,7 @@ int main(int argc, char* argv[])
             if (strcmp(dbPass, dbPassStore) != 0) {
                 printf("Passwords don't match, not changing.\n");
                 /*If not changing, replace old dbPass back into dbPass*/
-                strcpy(dbPass, dbPassOld);
+                strncpy(dbPass, dbPassOld, BUFFER_SIZES);
                 cleanUpBuffers();
                 cleanUpFiles();
                 return 1;
@@ -1081,27 +1054,23 @@ int main(int argc, char* argv[])
 
             /*Change cipher and digest if specified*/
             if (toggle.encCipher == 1) {
-                strcpy(encCipher1, encCipherStore1);
-                strcpy(encCipher2, encCipherStore2);
-                printf("Changing cipher to %s:%s\n", encCipherStore1, encCipherStore2);
+                strncpy(encCipher, encCipherStore, NAME_MAX);
+                printf("Changing cipher to %s\n", encCipherStore);
             }
             if (toggle.messageDigest == 1) {
-                strcpy(messageDigest1, messageDigestStore2);
-                strcpy(messageDigest2, messageDigestStore2);
-                printf("Changing digest to %s\n", messageDigestStore2);
+                strncpy(messageDigest, messageDigestStore, NAME_MAX);
+                printf("Changing digest to %s\n", messageDigestStore);
             }
         }
         /*-U was given but not -P and -c and/or -H might be there*/
         else if (toggle.updateEncPass == 1 && toggle.updateEntryPass != 1) {
             if (toggle.encCipher == 1) {
-                strcpy(encCipher1, encCipherStore1);
-                strcpy(encCipher2, encCipherStore2);
-                printf("Changing cipher to %s:%s\n", encCipherStore1, encCipherStore2);
+                strncpy(encCipher, encCipherStore, NAME_MAX);
+                printf("Changing cipher to %s\n", encCipherStore);
             }
             if (toggle.messageDigest == 1) {
-                strcpy(messageDigest1, messageDigestStore1);
-                strcpy(messageDigest2, messageDigestStore2);
-                printf("Changing digest to %s:%s\n", messageDigestStore1, messageDigestStore2);
+                strncpy(messageDigest, messageDigestStore, NAME_MAX);
+                printf("Changing digest to %s\n", messageDigestStore);
             }
             memcpy(hmacKeyNew, hmacKey, sizeof(char) * SHA512_DIGEST_LENGTH);
         }
@@ -1113,7 +1082,7 @@ int main(int argc, char* argv[])
             getPass("Verify password:", dbPassStore);
             if (strcmp(dbPass, dbPassStore) != 0) {
                 printf("Passwords don't match, not changing.\n");
-                strcpy(dbPass, dbPassOld);
+                strncpy(dbPass, dbPassOld, BUFFER_SIZES);
                 cleanUpBuffers();
                 cleanUpFiles();
                 return 1;
@@ -1125,14 +1094,12 @@ int main(int argc, char* argv[])
 
             /*Change crypto settings*/
             if (toggle.encCipher == 1) {
-                strcpy(encCipher1, encCipherStore1);
-                strcpy(encCipher2, encCipherStore2);
-                printf("Changing cipher to %s:%s\n", encCipherStore1, encCipherStore2);
+                strncpy(encCipher, encCipherStore, NAME_MAX);
+                printf("Changing cipher to %s\n", encCipherStore);
             }
             if (toggle.messageDigest == 1) {
-                strcpy(messageDigest1, messageDigestStore1);
-                strcpy(messageDigest2, messageDigestStore2);
-                printf("Changing digest to %s:%s\n", messageDigestStore1, messageDigestStore2);
+                strncpy(messageDigest, messageDigestStore, NAME_MAX);
+                printf("Changing digest to %s\n", messageDigestStore);
             }
         }
 
@@ -1145,9 +1112,9 @@ int main(int argc, char* argv[])
         }
 
         /*The updateEncPass function simply decrypts with the old key and cipher settings and re-encrypts with new key and/or cipher settings*/
-        int updateEncPassResult = updateEncPass(EVP1DataFileTmp);
+        int updateEncPassResult = updateEncPass(EVPDataFileTmp);
 
-        fclose(EVP1DataFileTmp);
+        fclose(EVPDataFileTmp);
 
         if (updateEncPassResult == 0) {
             if (sealEnvelope(tmpFile3) != 0) {
@@ -1164,6 +1131,7 @@ int main(int argc, char* argv[])
 
     cleanUpBuffers();
     cleanUpFiles();
+    free(evpSalt);
     return 0;
 }
 
@@ -1186,7 +1154,7 @@ int printPasses(FILE* dbFile, char* searchString)
 
     unsigned char* entryBuffer = calloc(sizeof(char), BUFFER_SIZES);
     unsigned char* passBuffer = calloc(sizeof(char), BUFFER_SIZES);
-    unsigned char* encryptedBuffer = calloc(sizeof(char), fileSize);
+    unsigned char* encryptedBuffer = calloc(sizeof(char), fileSize + EVP_MAX_BLOCK_LENGTH);
     unsigned char* decryptedBuffer = calloc(sizeof(char), fileSize + EVP_MAX_BLOCK_LENGTH);
 
     /*Read the file into a buffer and check for error*/
@@ -1199,9 +1167,13 @@ int printPasses(FILE* dbFile, char* searchString)
     }
 
     /*This will be the gMac, as in generated MAC*/
-    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, encryptedBuffer, fileSize, gMac, gMacLength);
+    unsigned int IvLength = EVP_CIPHER_iv_length(evpCipher);
+    unsigned char hmacBuffer[fileSize + IvLength];
+    memcpy(hmacBuffer,evpIv,IvLength);
+    memcpy(hmacBuffer + IvLength,encryptedBuffer,fileSize);
+    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, fileSize + IvLength, gMac, gMacLength);
 
-    /*Check if the MAC from the EVP2DecryptedFile matches MAC generated via HMAC*/
+    /*Check if the MAC from the EVPDecryptedFile matches MAC generated via HMAC*/
     /*Return error status before proceeding and clean up sensitive data*/
     if (memcmp(fMac, gMac, SHA512_DIGEST_LENGTH) != 0) {
         printMACErrMessage();
@@ -1215,10 +1187,11 @@ int printPasses(FILE* dbFile, char* searchString)
         return 1;
     }
 
-    EVP_DecryptInit(ctx, evpCipher1, evpKey1, evpIv1);
+    EVP_DecryptInit(ctx, evpCipher, evpKey, evpIv);
 
     if (!EVP_DecryptUpdate(ctx, decryptedBuffer, &outlen, encryptedBuffer, fileSize)) {
         /* Error */
+        printf("EVP_DecryptUpdate failed\n");
         EVP_CIPHER_CTX_cleanup(ctx);
         OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
         free(entryBuffer);
@@ -1237,6 +1210,7 @@ int printPasses(FILE* dbFile, char* searchString)
 
     if (!EVP_DecryptFinal_ex(ctx, decryptedBuffer + outlen, &tmplen)) {
         /* Error */
+        printf("EVP_DecryptFinal_ex failed \n");
         EVP_CIPHER_CTX_cleanup(ctx);
         OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
         free(entryBuffer);
@@ -1335,9 +1309,13 @@ int updateEntry(FILE* dbFile, char* searchString)
     }
 
     /*This will be the gMac as in generated MAC*/
-    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, encryptedBuffer, fileSize, gMac, gMacLength);
+    unsigned int IvLength = EVP_CIPHER_iv_length(evpCipher);
+	unsigned char hmacBuffer[fileSize + IvLength];
+	memcpy(hmacBuffer,evpIv,IvLength);
+	memcpy(hmacBuffer + IvLength,encryptedBuffer,fileSize);
+    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, fileSize + IvLength, gMac, gMacLength);
 
-    /*Check if the MAC from the EVP2DecryptedFile matches MAC generated via HMAC*/
+    /*Check if the MAC from the EVPDecryptedFile matches MAC generated via HMAC*/
 
     /*Return error status before proceeding and clean up sensitive data*/
     if (memcmp(fMac, gMac, SHA512_DIGEST_LENGTH) != 0) {
@@ -1358,7 +1336,7 @@ int updateEntry(FILE* dbFile, char* searchString)
 
     fileBuffer = calloc(sizeof(unsigned char), fileSize);
 
-    EVP_DecryptInit(ctx, evpCipher1, evpKey1, evpIv1);
+    EVP_DecryptInit(ctx, evpCipher, evpKey, evpIv);
 
     /*Decrypt file and store into decryptedBuffer*/
     if (!EVP_DecryptUpdate(ctx, decryptedBuffer, &outlen, encryptedBuffer, fileSize)) {
@@ -1445,20 +1423,20 @@ int updateEntry(FILE* dbFile, char* searchString)
                 if (toggle.entryPassLengthGiven == 1) {
                     genPassWord(entryPassLength);
                     /*Have to copy over entryPass to newEntryPass since genPassWord() operates on entryPass buffer*/
-                    strcpy(newEntryPass, entryPass);
+                    strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                 } else {
                     genPassWord(DEFAULT_GENPASS_LENGTH);
-                    strcpy(newEntryPass, entryPass);
+                    strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                 }
                 memcpy(passBuffer, newEntryPass, BUFFER_SIZES);
                 /*Do the same as above but if an alphanumeric pass was specified*/
             } else if (toggle.updateEntryPass == 1 && (toggle.generateEntryPassAlpha == 1 || toggle.allPasses == 1)) {
                 if (toggle.entryPassLengthGiven == 1) {
                     genPassWord(entryPassLength);
-                    strcpy(newEntryPass, entryPass);
+                    strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                 } else {
                     genPassWord(DEFAULT_GENPASS_LENGTH);
-                    strcpy(newEntryPass, entryPass);
+                    strncpy(newEntryPass, entryPass, BUFFER_SIZES);
                 }
                 memcpy(passBuffer, newEntryPass, BUFFER_SIZES);
             }
@@ -1488,19 +1466,19 @@ int updateEntry(FILE* dbFile, char* searchString)
     }
 
     /*Clear out sensitive buffers ASAP*/
-    /*Maybe I can multi-thread this*/
     OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * BUFFER_SIZES);
     OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * BUFFER_SIZES);
+    OPENSSL_cleanse(newEntryPass, sizeof(unsigned char) * BUFFER_SIZES);
     OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
     OPENSSL_cleanse(passWord, sizeof(char) * BUFFER_SIZES);
 
     /*Clear the old encrypted information out to use encryptedBuffer to store cipher-text of modifications*/
     free(encryptedBuffer);
-    encryptedBuffer = calloc(sizeof(unsigned char), outlen);
+    encryptedBuffer = calloc(sizeof(unsigned char), outlen + EVP_MAX_BLOCK_LENGTH);
 
     fileSize = outlen;
 
-    EVP_EncryptInit_ex(ctx, evpCipher1, NULL, evpKey1, evpIv1);
+    EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
     if (!EVP_EncryptUpdate(ctx, encryptedBuffer, &outlen, fileBuffer, fileSize)) {
         /* Error */
         EVP_CIPHER_CTX_cleanup(ctx);
@@ -1541,7 +1519,9 @@ int updateEntry(FILE* dbFile, char* searchString)
     OPENSSL_cleanse(fileBuffer, sizeof(unsigned char) * fileSize);
 
     /*Append this as the "generated" MAC later*/
-    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, encryptedBuffer, outlen, gMac, gMacLength);
+    memcpy(hmacBuffer,evpIv,IvLength);
+    memcpy(hmacBuffer + IvLength,encryptedBuffer,outlen);
+    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, outlen + IvLength, gMac, gMacLength);
 
     /*Check if any entries were updated*/
     if (noEntryMatched == 1) {
@@ -1616,9 +1596,13 @@ int deletePass(FILE* dbFile, char* searchString)
     }
 
     /*This will be the gMac as in generated MAC*/
-    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, encryptedBuffer, fileSize, gMac, gMacLength);
+    unsigned int IvLength = EVP_CIPHER_iv_length(evpCipher);
+	unsigned char hmacBuffer[fileSize + IvLength];
+	memcpy(hmacBuffer,evpIv,IvLength);
+	memcpy(hmacBuffer + IvLength,encryptedBuffer,fileSize);
+    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, fileSize + IvLength, gMac, gMacLength);
 
-    /*Check if the MAC from the EVP2DecryptedFile matches MAC generated via HMAC*/
+    /*Check if the MAC from the EVPDecryptedFile matches MAC generated via HMAC*/
 
     /*Return error status before proceeding and clean up sensitive data*/
     if (memcmp(fMac, gMac, SHA512_DIGEST_LENGTH) != 0) {
@@ -1639,7 +1623,7 @@ int deletePass(FILE* dbFile, char* searchString)
     /*Now make a buffer for the file.  Reallocate later if we find a match to delete*/
     fileBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
 
-    EVP_DecryptInit(ctx, evpCipher1, evpKey1, evpIv1);
+    EVP_DecryptInit(ctx, evpCipher, evpKey, evpIv);
 
     /*Decrypt file and store into temp buffer*/
     if (!EVP_DecryptUpdate(ctx, decryptedBuffer, &outlen, encryptedBuffer, fileSize)) {
@@ -1681,7 +1665,6 @@ int deletePass(FILE* dbFile, char* searchString)
 
     for (ii = 0; ii < outlen; ii += (BUFFER_SIZES * 2)) {
 
-        /*Copy the encrypted information into the evp1Buffer*/
         for (i = 0; i < BUFFER_SIZES; i++) {
             entryBuffer[i] = decryptedBuffer[i + ii];
             passBuffer[i] = decryptedBuffer[i + ii + BUFFER_SIZES];
@@ -1692,7 +1675,7 @@ int deletePass(FILE* dbFile, char* searchString)
         /*Use strcmp to match the exact entry here*/
         if ((lastCheck = strncmp(searchString, entryName, strlen(searchString))) == 0) /*Now we're going to find the specific entry to delete it*/
         {
-            if (ii == (fileSize - (BUFFER_SIZES * 2))) /*If ii is one entry short of fileSize*/
+            if (ii == (outlen - (BUFFER_SIZES * 2))) /*If ii is one entry short of fileSize*/
             {
                 if (entriesMatched < 1) /*If entry was matched we need to shrink the file buffer*/
                 {
@@ -1725,15 +1708,15 @@ int deletePass(FILE* dbFile, char* searchString)
     /*Clear out sensitive information ASAP*/
     OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * BUFFER_SIZES);
     OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * BUFFER_SIZES);
-    OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize);
+    OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * outlen);
 
     free(encryptedBuffer);
-    encryptedBuffer = calloc(sizeof(unsigned char), outlen - ((BUFFER_SIZES * 2) * entriesMatched));
-
+    encryptedBuffer = calloc(sizeof(unsigned char), (outlen + EVP_MAX_BLOCK_LENGTH));
+    
     fileSize = outlen;
 
-    EVP_EncryptInit_ex(ctx, evpCipher1, NULL, evpKey1, evpIv1);
-    if (!EVP_EncryptUpdate(ctx, encryptedBuffer, &outlen, fileBuffer, fileSize - ((BUFFER_SIZES * 2) * entriesMatched))) {
+    EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
+    if (!EVP_EncryptUpdate(ctx, encryptedBuffer, &outlen, fileBuffer, outlen)) {
         /* Error */
         EVP_CIPHER_CTX_cleanup(ctx);
         OPENSSL_cleanse(fileBuffer, sizeof(unsigned char) * (fileSize - ((BUFFER_SIZES * 2) * entriesMatched)));
@@ -1773,7 +1756,10 @@ int deletePass(FILE* dbFile, char* searchString)
     OPENSSL_cleanse(fileBuffer, sizeof(unsigned char) * fileSize - ((BUFFER_SIZES * 2) * entriesMatched));
 
     /*Append this as the "generated" MAC later*/
-    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, encryptedBuffer, fileSize - ((BUFFER_SIZES * 2) * entriesMatched), gMac, gMacLength);
+    memcpy(hmacBuffer,evpIv,IvLength);
+    memcpy(hmacBuffer + IvLength,encryptedBuffer,fileSize - ((BUFFER_SIZES * 2) * entriesMatched) );
+    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, (fileSize - ((BUFFER_SIZES * 2) * entriesMatched)) + IvLength, gMac, gMacLength);
+
 
     /*Write the modified cipher-text to this temporary file for sealEnvelope()*/
     tmpFile = fopen(tmpFile3, "wb");
@@ -1786,8 +1772,8 @@ int deletePass(FILE* dbFile, char* searchString)
 
     if (entriesMatched < 1) {
         printf("Nothing matched that exactly.\n");
-        returnVal = fwrite(encryptedBuffer, fileSize, sizeof(unsigned char), tmpFile);
-        if (returnVal != fileSize / sizeof(unsigned char))
+        returnVal = fwrite(encryptedBuffer, outlen, sizeof(unsigned char), tmpFile);
+        if (returnVal != outlen / sizeof(unsigned char))
         {
             if (ferror(tmpFile)) {
                 perror("deletePass fwrite encryptedBuffer");
@@ -1796,8 +1782,8 @@ int deletePass(FILE* dbFile, char* searchString)
         }
     } else {
         printf("If you deleted more than you intended to, restore from %s.autobak\n", dbFileName);
-        returnVal = fwrite(encryptedBuffer, fileSize - ((BUFFER_SIZES * 2) * entriesMatched), sizeof(unsigned char), tmpFile);
-        if (returnVal != fileSize - ((BUFFER_SIZES * 2) * entriesMatched) / sizeof(unsigned char))
+        returnVal = fwrite(encryptedBuffer, outlen - ((BUFFER_SIZES * 2) * entriesMatched), sizeof(unsigned char), tmpFile);
+        if (returnVal != outlen / sizeof(unsigned char))
         {
             if (ferror(tmpFile)) {
                 perror("deletePass fwrite encryptedBuffer");
@@ -1841,9 +1827,13 @@ int updateEncPass(FILE* dbFile)
     }
 
     /*This will be the gMac as in generated MAC*/
-    HMAC(EVP_sha512(), hmacKeyOld, SHA512_DIGEST_LENGTH, encryptedBuffer, fileSize, gMac, gMacLength);
+    unsigned int IvLength = EVP_CIPHER_iv_length(evpCipherOld);
+    unsigned char hmacBuffer[fileSize + IvLength];
+    memcpy(hmacBuffer,evpIvOld,IvLength);
+    memcpy(hmacBuffer + IvLength,encryptedBuffer,fileSize);
+    HMAC(EVP_sha512(), hmacKeyOld, SHA512_DIGEST_LENGTH, hmacBuffer, fileSize + IvLength, gMac, gMacLength);
 
-    /*Check if the MAC from the EVP2DecryptedFile matches MAC generated via HMAC)*/
+    /*Check if the MAC from the EVPDecryptedFile matches MAC generated via HMAC)*/
 
     /*Return error status before proceeding and clean up sensitive data*/
     if (memcmp(fMac, gMac, SHA512_DIGEST_LENGTH) != 0) {
@@ -1862,7 +1852,7 @@ int updateEncPass(FILE* dbFile)
 
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     EVP_CIPHER_CTX_init(ctx);
-    EVP_DecryptInit(ctx, evpCipher1Old, evpKey1Old, evpIv1Old);
+    EVP_DecryptInit(ctx, evpCipherOld, evpKeyOld, evpIvOld);
 
     /*Decrypted the data into decryptedBuffer*/
 
@@ -1891,7 +1881,7 @@ int updateEncPass(FILE* dbFile)
     outlen += tmplen;
     EVP_CIPHER_CTX_cleanup(ctx);
 		
-	if(evpKDF(dbPass, evp1Salt, EVP1_SALT_SIZE,evpCipher1,evpDigest1,evpKey1,evpIv1) != 0) {
+	if(evpKDF(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKey,evpIv) != 0) {
 			return 1;
 	}
 
@@ -1899,7 +1889,7 @@ int updateEncPass(FILE* dbFile)
 
     fileSize = outlen;
 
-    EVP_EncryptInit_ex(ctx, evpCipher1, NULL, evpKey1, evpIv1);
+    EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
     if (!EVP_EncryptUpdate(ctx, encryptedBuffer, &outlen, decryptedBuffer, fileSize)) {
         /* Error */
         EVP_CIPHER_CTX_cleanup(ctx);
@@ -1928,9 +1918,12 @@ int updateEncPass(FILE* dbFile)
     OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize);
 
     /*Append this as the "generated" MAC later*/
-    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, encryptedBuffer, fileSize, gMac, gMacLength);
+    IvLength = EVP_CIPHER_iv_length(evpCipher);
+    memcpy(hmacBuffer,evpIv,IvLength);
+    memcpy(hmacBuffer + IvLength,encryptedBuffer,fileSize);
+    HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, fileSize + IvLength, gMac, gMacLength);
 
-    tmpFile = fopen(tmpFile3, "wb"); /*Now open a temp file just to write the new evp1 data to, clean up in the calling function*/
+    tmpFile = fopen(tmpFile3, "wb"); /*Now open a temp file just to write the new evp data to, clean up in the calling function*/
     if (tmpFile == NULL) /*Make sure the file opens*/
     {
         perror("updateEncPass tmpFile3");
@@ -1958,7 +1951,6 @@ int updateEncPass(FILE* dbFile)
 
 int writePass(FILE* dbFile)
 {
-    /*We need a set of incrementors to crawl through buffers*/
     int i;
     long fileSize;
 
@@ -1995,9 +1987,13 @@ int writePass(FILE* dbFile)
     if (toggle.firstRun != 1) {
 
         /*This will be the gMac as in generated MAC*/
-        HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, encryptedBuffer, fileSize, gMac, gMacLength);
+        unsigned int IvLength = EVP_CIPHER_iv_length(evpCipher);
+		unsigned char hmacBuffer[fileSize + IvLength];
+		memcpy(hmacBuffer,evpIv,IvLength);
+		memcpy(hmacBuffer + IvLength,encryptedBuffer,fileSize);
+        HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, fileSize + IvLength, gMac, gMacLength);
 
-        /*Check if the MAC from the EVP2DecryptedFile matches MAC generated via HMAC*/
+        /*Check if the MAC from the EVPDecryptedFile matches MAC generated via HMAC*/
 
         /*Return error status before proceeding and clean up sensitive data*/
         if (memcmp(fMac, gMac, SHA512_DIGEST_LENGTH) != 0) {
@@ -2012,9 +2008,9 @@ int writePass(FILE* dbFile)
             return 1;
         }
 
-        EVP_DecryptInit(ctx, evpCipher1, evpKey1, evpIv1);
+        EVP_DecryptInit(ctx, evpCipher, evpKey, evpIv);
 
-        /*Decrypt file and store into temp buffer*/
+        /*Decrypt file and store into decryptedBuffer*/
         if (!EVP_DecryptUpdate(ctx, decryptedBuffer, &outlen, encryptedBuffer, fileSize)) {
             /* Error */
             EVP_CIPHER_CTX_cleanup(ctx);
@@ -2052,7 +2048,7 @@ int writePass(FILE* dbFile)
     }
 
     if (toggle.firstRun == 1) {
-        EVP_EncryptInit_ex(ctx, evpCipher1, NULL, evpKey1, evpIv1);
+        EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
 
         /*This looping operation is different than the one in printPasses, because it encrypts and writes the whole buffer to file*/
 
@@ -2092,9 +2088,12 @@ int writePass(FILE* dbFile)
         /*Clear out sensitive information in infoBuffer ASAP*/
         OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * BUFFER_SIZES * 2);
 
-        /*Hash the evp1 data with HMAC-SHA512*/
         /*Append this as the "generated" MAC later*/
-        HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, outbuf, outlen, gMac, gMacLength);
+        unsigned int IvLength = EVP_CIPHER_iv_length(evpCipher);
+        unsigned char hmacBuffer[outlen + IvLength];
+        memcpy(hmacBuffer,evpIv,IvLength);
+        memcpy(hmacBuffer + IvLength,outbuf,outlen);
+        HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, outlen + IvLength, gMac, gMacLength);;
 
         /*Write the encrypted information to file*/
         returnVal = fwrite(outbuf, 1, sizeof(unsigned char) * outlen, dbFile);
@@ -2108,7 +2107,7 @@ int writePass(FILE* dbFile)
 
     } else {
 
-        EVP_EncryptInit_ex(ctx, evpCipher1, NULL, evpKey1, evpIv1);
+        EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
 
         OPENSSL_cleanse(encryptedBuffer, sizeof(unsigned char) * fileSize);
         free(encryptedBuffer);
@@ -2156,7 +2155,11 @@ int writePass(FILE* dbFile)
 
         OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + (BUFFER_SIZES * 2) + EVP_MAX_BLOCK_LENGTH);
 
-        HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, encryptedBuffer, outlen, gMac, gMacLength);
+		unsigned int IvLength = EVP_CIPHER_iv_length(evpCipher);
+        unsigned char hmacBuffer[outlen + IvLength];
+        memcpy(hmacBuffer,evpIv,IvLength);
+        memcpy(hmacBuffer + IvLength,encryptedBuffer,outlen);
+        HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, outlen + IvLength, gMac, gMacLength);
 
         fclose(dbFile);
         wipeFile(tmpFile2);
@@ -2234,106 +2237,6 @@ int returnFileSize(const char* filename)
     return st.st_size;
 }
 
-/*OpenSSL EVP routines to encrypt in sealEnvelope()*/
-/*Would be great to get these to work on memory buffers instead of files*/
-/*Whenever I do however, EVP_EncryptFinal_ex only outputs 16 bytes of nonsense*/
-/*Code was gleamed from OpenSSL man pages for EVP_EncryptInit*/
-int dbEncrypt(FILE* in, FILE* out)
-{
-	int returnValLocal;
-	
-    /* Allow enough space in output buffer for additional block */
-    unsigned char inbuf[EVP_BLOCK_SIZE], outbuf[EVP_BLOCK_SIZE + EVP_MAX_BLOCK_LENGTH];
-    int inlen, outlen;
-    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-    EVP_CIPHER_CTX_init(ctx);
-    EVP_EncryptInit_ex(ctx, evpCipher2, NULL, evpKey2, evpIv2);
-
-    for (;;) {
-        inlen = fread(inbuf, 1, EVP_BLOCK_SIZE, in);
-        if (inlen <= 0)
-            break;
-        if (!EVP_EncryptUpdate(ctx, outbuf, &outlen, inbuf, inlen)) {
-            /* Error */
-            EVP_CIPHER_CTX_cleanup(ctx);
-            return 1;
-        }
-        returnValLocal = fwrite(outbuf, 1, outlen, out);
-        if (returnValLocal != outlen)
-        {
-            if (ferror(out)) {
-                perror("dbEncrypt fwrite outbuf");
-                return errno;
-            }
-        }
-    }
-    if (!EVP_EncryptFinal_ex(ctx, outbuf, &outlen)) {
-        /* Error */
-        EVP_CIPHER_CTX_cleanup(ctx);
-        return 1;
-    }
-    returnValLocal = fwrite(outbuf, 1, outlen, out);
-    if (returnValLocal != outlen)
-    {
-        if (ferror(out)) {
-            perror("dbEncrypt fwrite outbuf");
-            return errno;
-        }
-    }
-    EVP_CIPHER_CTX_cleanup(ctx);
-    free(ctx);
-    return 0;
-}
-
-/*OpenSSL EVP routines to decrypt*/
-/*Basically the same operation but to be used in openEnvelope()*/
-int dbDecrypt(FILE* in, FILE* out)
-{
-	int returnValLocal;
-	
-    /* Allow enough space in output buffer for additional block */
-    unsigned char inbuf[EVP_BLOCK_SIZE], outbuf[EVP_BLOCK_SIZE + EVP_MAX_BLOCK_LENGTH];
-    int inlen, outlen;
-    EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
-    EVP_CIPHER_CTX_init(ctx);
-    EVP_DecryptInit(ctx, evpCipher2, evpKey2, evpIv2);
-
-    for (;;) {
-        inlen = fread(inbuf, 1, EVP_BLOCK_SIZE, in);
-        if (inlen <= 0)
-            break;
-        if (!EVP_DecryptUpdate(ctx, outbuf, &outlen, inbuf, inlen)) {
-            /* Error */
-            EVP_CIPHER_CTX_cleanup(ctx);
-            return 1;
-        }
-        returnValLocal = fwrite(outbuf, 1, outlen, out);
-        if (returnValLocal != outlen)
-        {
-            if (ferror(out)) {
-                perror("dbDecrypt fwrite outbuf");
-                return errno;
-            }
-        }
-    }
-    if (!EVP_DecryptFinal_ex(ctx, outbuf, &outlen)) {
-        /* Error */
-        EVP_CIPHER_CTX_cleanup(ctx);
-        return 1;
-    }
-    returnValLocal = fwrite(outbuf, 1, outlen, out);
-    if (returnValLocal != outlen)
-    {
-        if (ferror(out)) {
-            perror("dbDecrypt fwrite outbuf");
-            return errno;
-        }
-    }
-    EVP_CIPHER_CTX_cleanup(ctx);
-    free(ctx);
-    return 0;
-}
-
 /*To be honest I'm not really sure how this works*/
 /*Borrowed from StackOverflow*/
 /*https://stackoverflow.com/questions/47476427/get-a-list-of-all-supported-digest-algorithms*/
@@ -2380,121 +2283,64 @@ void mdLister()
 /*Will also enforce CFB, OFB or CTR modes*/
 int primeSSL()
 {
-    char modeTag[3];
-    int stringStart, modeLength;
     int i;
 
     /*If the user has specified a cipher to use*/
-    if (toggle.encCipher == 1 || encCipher2[0] != 0) {
+    if (toggle.encCipher == 1) {
+		
+		if(!EVP_get_cipherbyname(encCipher))
+		{
+			printf("Could not load cipher %s. Check that it is available with -c list\n", encCipher);
+			return 1;
+		}
 
         /*Find start of mode*/
-        for (i = strlen(encCipher1); i > 0; i--) {
-            if (encCipher1[i] == '-') {
-                stringStart = i;
+        for (i = strlen(encCipher); i > 0; i--) {
+            if (encCipher[i] == '-') {
                 break;
             }
         }
 
-        /*If no hyphen present, append -ctr mode to encCipher to enforce CTR mode by default*/
-        if (i == 0) {
-            printf("Must specify key size in bits and mode like \'%s-bits-mode\'\n", encCipher1);
+        /*If no hyphen present, and encCipher is not a stream cipher*/
+        if (i == 0 && EVP_CIPHER_mode(EVP_get_cipherbyname(encCipher)) != EVP_CIPH_STREAM_CIPHER) {
+            printf("Specify %s cipher with algorithm-bits-mode. Must be in OFB, CFB or CTR mode.\n", encCipher);
             return 1;
-        } else { /*Otherwise copy the mode specified to modeTag*/
+        } 
 
-            modeLength = strlen(encCipher1) - stringStart;
-
-            /*Increment stringStart so it points to the first character of the mode string after the hyphen*/
-            stringStart++;
-
-            for (i = 0; i < modeLength; i++)
-                modeTag[i] = encCipher1[stringStart + i];
-        }
-
-        if (strcasecmp(modeTag, "ofb") == 0 || strcasecmp(modeTag, "cfb") >= 0 || strcasecmp(modeTag, "ctr") == 0) {
-            evpCipher1 = EVP_get_cipherbyname(encCipher1);
+        if (EVP_CIPHER_mode(EVP_get_cipherbyname(encCipher)) == EVP_CIPH_STREAM_CIPHER || EVP_CIPHER_mode(EVP_get_cipherbyname(encCipher)) == EVP_CIPH_CFB_MODE || EVP_CIPHER_mode(EVP_get_cipherbyname(encCipher)) == EVP_CIPH_OFB_MODE || EVP_CIPHER_mode(EVP_get_cipherbyname(encCipher)) == EVP_CIPH_CTR_MODE) {
+            evpCipher = EVP_get_cipherbyname(encCipher);
         } else {
-            printf("\n%s mode specified\nCipher should be in OFB, CFB or CTR mode\n", modeTag);
-            return 1;
-        }
-
-        for (i = strlen(encCipher2); i > 0; i--) {
-            if (encCipher2[i] == '-') {
-                stringStart = i;
-                break;
-            }
-        }
-
-        if (i == 0) {
-            printf("Must specify key size in bits and mode like \'%s-bits-mode\'\n", encCipher2);
-            return 1;
-        } else {
-
-            modeLength = strlen(encCipher2) - stringStart;
-
-            /*Increment stringStart so it points to the first character of the mode string after the hyphen*/
-            stringStart++;
-
-            for (i = 0; i < modeLength; i++)
-                modeTag[i] = encCipher2[stringStart + i];
-        }
-
-        if (strcasecmp(modeTag, "ofb") == 0 || strcasecmp(modeTag, "cfb") >= 0 || strcasecmp(modeTag, "ctr") == 0) {
-            evpCipher2 = EVP_get_cipherbyname(encCipher2);
-        } else {
-            printf("\n%s mode specified\nCipher should be in OFB, CFB or CTR mode\n", modeTag);
+            printf("\n%s specified\nCipher should be stream cipher or in OFB, CFB or CTR mode\n", encCipher);
             return 1;
         }
 
         /*If the cipher doesn't exists or there was a problem loading it return with error status*/
-        if (!evpCipher1) {
-            fprintf(stderr, "no such cipher\n");
-            return 1;
-        }
-        evpCipher2 = EVP_get_cipherbyname(encCipher2);
-        /*If the cipher doesn't exists or there was a problem loading it return with error status*/
-        if (!evpCipher2) {
-            fprintf(stderr, "no such cipher\n");
+        if (!evpCipher) {
+            fprintf(stderr, "Could not load cipher: %s\n", encCipher);
             return 1;
         }
 
     } else { /*If not default to aes-256-ctr*/
-        strcpy(encCipher2, "aes-256-ctr");
-        evpCipher2 = EVP_get_cipherbyname(encCipher2);
-        if (!evpCipher2) { /*If that's not a valid cipher name*/
-            fprintf(stderr, "no such cipher\n");
-            return 1;
-        }
-        strcpy(encCipher1, "camellia-256-ofb");
-        evpCipher1 = EVP_get_cipherbyname(encCipher1);
-        if (!evpCipher1) { /*If that's not a valid cipher name*/
-            fprintf(stderr, "no such cipher\n");
+        strcpy(encCipher, "aes-256-ctr");
+        evpCipher = EVP_get_cipherbyname(encCipher);
+        if (!evpCipher) {
+            fprintf(stderr, "Could not load cipher: %s\n", encCipher);
             return 1;
         }
     }
 
     /*If the user has specified a digest to use*/
-    if (toggle.messageDigest == 1 || messageDigest2[0] != 0) {
-        evpDigest1 = EVP_get_digestbyname(messageDigest1);
-        if (!evpDigest1) {
-            fprintf(stderr, "no such digest\n");
-            return 1;
-        }
-        evpDigest2 = EVP_get_digestbyname(messageDigest2);
-        if (!evpDigest2) {
-            fprintf(stderr, "no such digest\n");
+    if (toggle.messageDigest == 1) {
+        evpDigest = EVP_get_digestbyname(messageDigest);
+        if (!evpDigest) {
+            fprintf(stderr, "Could not load digest: %s Check if available with -H list\n", messageDigest);
             return 1;
         }
     } else { /*If not default to sha512*/
-        strcpy(messageDigest2, "sha512");
-        evpDigest2 = EVP_get_digestbyname(messageDigest2);
-        if (!evpDigest2) { /*If that's not a valid digest name*/
-            fprintf(stderr, "no such digest\n");
-            return 1;
-        }
-        strcpy(messageDigest1, "whirlpool");
-        evpDigest1 = EVP_get_digestbyname(messageDigest1);
-        if (!evpDigest1) { /*If that's not a valid digest name*/
-            fprintf(stderr, "no such digest\n");
+        strcpy(messageDigest, "sha512");
+        evpDigest = EVP_get_digestbyname(messageDigest);
+        if (!evpDigest) {
+            fprintf(stderr, "Could not load digest: %s Check if available with -H list\n", messageDigest);
             return 1;
         }
     }
@@ -2506,6 +2352,7 @@ int sealEnvelope(const char* tmpFileToUse)
 {
     char cryptoBuffer[BUFFER_SIZES];
     unsigned char *cryptoBufferPadding = calloc(sizeof(unsigned char),BUFFER_SIZES);
+    int i;
     
     if (!RAND_bytes(cryptoBufferPadding, BUFFER_SIZES)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
@@ -2516,22 +2363,22 @@ int sealEnvelope(const char* tmpFileToUse)
     memcpy(cryptoBuffer,cryptoBufferPadding,sizeof(char) * BUFFER_SIZES);
     free(cryptoBufferPadding);
     
-    FILE *EVP2DecryptedFile, *EVP1DataFileTmp, *dbFile;
+    FILE *EVPDecryptedFile, *EVPDataFileTmp, *dbFile;
 
-    /*Generate MAC from EVP1Data written to temp file*/
-    EVP1DataFileTmp = fopen(tmpFileToUse, "rb");
-    if (EVP1DataFileTmp == NULL) {
+    /*Generate MAC from EVP data written to temp file*/
+    EVPDataFileTmp = fopen(tmpFileToUse, "rb");
+    if (EVPDataFileTmp == NULL) {
         perror("sealEnvelope fopen tmpFileToUse");
         printf("Couldn't open file: %s\n", tmpFileToUse);
         return errno;
     }
     chmod(tmpFileToUse, S_IRUSR | S_IWUSR);
 
-    fclose(EVP1DataFileTmp);
+    fclose(EVPDataFileTmp);
 
-    /*Now append new generated MAC to end of the EVP1 data*/
-    EVP1DataFileTmp = fopen(tmpFileToUse, "ab");
-    if (EVP1DataFileTmp == NULL) /*Make sure the file opens*/
+    /*Now append new generated MAC to end of the EVP data*/
+    EVPDataFileTmp = fopen(tmpFileToUse, "ab");
+    if (EVPDataFileTmp == NULL) /*Make sure the file opens*/
     {
         perror("sealEnvelope fopen tmpFileToUse");
         printf("Couldn't open file: %s\n", tmpFileToUse);
@@ -2540,26 +2387,25 @@ int sealEnvelope(const char* tmpFileToUse)
     chmod(tmpFileToUse, S_IRUSR | S_IWUSR);
 
     /*Append the MAC and close the file*/
-    returnVal = fwrite(gMac, sizeof(unsigned char), SHA512_DIGEST_LENGTH, EVP1DataFileTmp);
+    returnVal = fwrite(gMac, sizeof(unsigned char), SHA512_DIGEST_LENGTH, EVPDataFileTmp);
     if (returnVal != SHA512_DIGEST_LENGTH / sizeof(unsigned char))
     {
-        if (ferror(EVP1DataFileTmp)) {
+        if (ferror(EVPDataFileTmp)) {
             perror("sealEnvelope: fwrite gMac");
             return errno;
         }
     }
-    fclose(EVP1DataFileTmp);
+    fclose(EVPDataFileTmp);
 
-    /*Open EVP1 file for reading, so we can use OpenSSL to encrypt it into the final password database file*/
-    EVP2DecryptedFile = fopen(tmpFileToUse, "rb");
-    if (EVP2DecryptedFile == NULL) {
+    EVPDecryptedFile = fopen(tmpFileToUse, "rb");
+    if (EVPDecryptedFile == NULL) {
         perror("sealEnvelope fopen tmpFileToUse");
         printf("Couldn't open file: %s\n", tmpFileToUse);
         return errno;
     }
     chmod(tmpFileToUse, S_IRUSR | S_IWUSR);
 
-    /*This will now be an EVP2EncryptedFile but calling it dbFile to clarify it is the final step*/
+    /*This will now be an EVPEncryptedFile but calling it dbFile to clarify it is the final step*/
     dbFile = fopen(dbFileName, "wb");
     if (dbFile == NULL) {
         perror("sealEnvelope fopen dbFileName");
@@ -2570,29 +2416,14 @@ int sealEnvelope(const char* tmpFileToUse)
     /*Write crypto information as a header*/
 
     /*Write encCipher:messageDigest to cryptoBuffer*/
-    sprintf(cryptoBuffer, "%s:%s:%s:%s", encCipher1, messageDigest1, encCipher2, messageDigest2);
+    snprintf(cryptoBuffer, BUFFER_SIZES, "%s:%s", encCipher, messageDigest);
 
-    if (toggle.firstRun != 1) {
-        /*Generates a random EVP*_SALT_SIZE byte string into buffer pointed to by saltBuff*/
-        genEvp2Salt();
-    }
-
-    /*Write the first algorithm's salt*/
-    returnVal = fwrite(evp2Salt, sizeof(unsigned char), EVP2_SALT_SIZE, dbFile);
-    if (returnVal != EVP2_SALT_SIZE / sizeof(unsigned char))
+    /*Write the salt*/
+    returnVal = fwrite(evpSalt, sizeof(unsigned char), EVP_SALT_SIZE, dbFile);
+    if (returnVal != EVP_SALT_SIZE / sizeof(unsigned char))
     {
         if (ferror(dbFile)) {
-            perror("sealEnvelope fwrite evp2Salt");
-            return errno;
-        }
-    }
-
-    /*Write the second algorithm's salt*/
-    returnVal = fwrite(evp1Salt, sizeof(unsigned char), EVP1_SALT_SIZE, dbFile);
-    if (returnVal != EVP1_SALT_SIZE / sizeof(unsigned char))
-    {
-        if (ferror(dbFile)) {
-            perror("sealEnvelope fwrite evp1Salt");
+            perror("sealEnvelope fwrite evpSalt");
             return errno;
         }
     }
@@ -2606,22 +2437,12 @@ int sealEnvelope(const char* tmpFileToUse)
             return errno;
         }
     }
-
-    /*This function generates a key and possibly iv needed for encryption algorithims*/
-
-	if(evpKDF(dbPass, evp2Salt, EVP2_SALT_SIZE,evpCipher2,evpDigest2,evpKey2,evpIv2) != 0) {
-			return 1;
-	}
-
-    /*Do the OpenSSL encryption*/
-    if (dbEncrypt(EVP2DecryptedFile, dbFile) != 0) {
-        printf("\\nWrong key used.\n");
-        printf("\nFilename: %s", tmpFile1);
-        return 1;
-    }
+	
+	for(i = 0; i < returnFileSize(tmpFileToUse); i++)
+		fputc(fgetc(EVPDecryptedFile), dbFile);
 
     /*Close the files*/
-    fclose(EVP2DecryptedFile);
+    fclose(EVPDecryptedFile);
     fclose(dbFile);
 
     /*Cleanup temp files*/
@@ -2634,17 +2455,17 @@ int openEnvelope()
 {
     char cryptoHeader[BUFFER_SIZES];
     char* token;
-    //int i;
+    int i;
 
     /*a temporary buffer to store the contents of the password file between read and writes to temporary files*/
     char* tmpBuffer;
 
     /*file handles to be used  for envelope and temporary files*/
-    FILE *EVP2EncryptedFile, *EVP2DecryptedFile, *EVP1DataFileTmp;
+    FILE *EVPEncryptedFile, *EVPDecryptedFile, *EVPDataFileTmp;
 
-    /*Open the OpenSSL encrypted envelope containing EVP1 Cipher Text +MAC data*/
-    EVP2EncryptedFile = fopen(dbFileName, "rb");
-    if (EVP2EncryptedFile == NULL) /*Make sure the file opens*/
+    /*Open the OpenSSL encrypted envelope containing EVP Cipher Text + MAC data*/
+    EVPEncryptedFile = fopen(dbFileName, "rb");
+    if (EVPEncryptedFile == NULL) /*Make sure the file opens*/
     {
         perror("openEnvelope fopen dbFileName");
         printf("Couldn't open file: %s\n", dbFileName);
@@ -2652,23 +2473,15 @@ int openEnvelope()
     }
 
     /*Grab the crypto information from header*/
-    /*This will first contain the EVP2_SALT_SIZE sized salt for evp2Salt*/
-    /*Then an EVP1_SALT_SIZE byte salt for evp1Salt*/
+    /*Then an EVP_SALT_SIZE byte salt for evpSalt*/
     /*Then will be the cipher and the message digest names delimited with ':'*/
 
     /*fread overwrites the randomly generated salt with the one read from file*/
-    returnVal = fread(evp2Salt, sizeof(char), EVP2_SALT_SIZE, EVP2EncryptedFile);
-    if (returnVal != EVP2_SALT_SIZE / sizeof(char)) {
-        if (ferror(EVP2EncryptedFile)) {
-            perror("openEnvelope fread evp2Salt");
-            return errno;
-        }
-    }
 
-    returnVal = fread(evp1Salt, sizeof(char), EVP1_SALT_SIZE, EVP2EncryptedFile);
-    if (returnVal != EVP1_SALT_SIZE / sizeof(char)) {
-        if (ferror(EVP2EncryptedFile)) {
-            perror("openEnvelope fread evp1Salt");
+    returnVal = fread(evpSalt, sizeof(char), EVP_SALT_SIZE, EVPEncryptedFile);
+    if (returnVal != EVP_SALT_SIZE / sizeof(char)) {
+        if (ferror(EVPEncryptedFile)) {
+            perror("openEnvelope fread evpSalt");
             return errno;
         }
     }
@@ -2677,9 +2490,9 @@ int openEnvelope()
     hmacKDF();
 
     /*Read the cipher and message digest information in*/
-    returnVal = fread(cryptoHeader, sizeof(char), BUFFER_SIZES, EVP2EncryptedFile);
+    returnVal = fread(cryptoHeader, sizeof(char), BUFFER_SIZES, EVPEncryptedFile);
     if (returnVal != BUFFER_SIZES / sizeof(char)) {
-        if (ferror(EVP2EncryptedFile)) {
+        if (ferror(EVPEncryptedFile)) {
             perror("openEnvelope fread cryptoBuffer");
             return errno;;
         }
@@ -2693,7 +2506,7 @@ int openEnvelope()
         printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
         return 1;
     }
-    strcpy(encCipher1, token);
+    strncpy(encCipher, token, NAME_MAX);
 
     token = strtok(NULL, ":");
     if (token == NULL) {
@@ -2703,93 +2516,53 @@ int openEnvelope()
     }
 
     /*Then the message digest*/
-    strcpy(messageDigest1, token);
-
-    token = strtok(NULL, ":");
-    if (token == NULL) {
-        printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
-        cleanUpFiles();
-        exit(1);
-    }
-
-    /*Now the 2nd cipher*/
-    strcpy(encCipher2, token);
-
-    token = strtok(NULL, ":");
-
-    /*Then the 2nd message digest*/
-    strcpy(messageDigest2, token);
+    strncpy(messageDigest, token, NAME_MAX);
 
     /*Check the strings recieved are valid cipher and digest names*/
-    evpCipher1 = EVP_get_cipherbyname(encCipher1);
+    evpCipher = EVP_get_cipherbyname(encCipher);
     /*If the cipher doesn't exists or there was a problem loading it return with error status*/
-    if (!evpCipher1) {
-        fprintf(stderr, "Could not find valid cipher name in parsed header.\nIs %s a password file?\n", dbFileName);
+    if (!evpCipher) {
+        fprintf(stderr, "Could not load cipher %s. Is it installed? Use -c list to list available ciphers\n", encCipher);
         return 1;
     }
 
-    evpDigest1 = EVP_get_digestbyname(messageDigest1);
-    if (!evpDigest1) {
-        fprintf(stderr, "Could not find a valid digest name in parsed header.\nIs %s a password file?\n", dbFileName);
+    evpDigest = EVP_get_digestbyname(messageDigest);
+    if (!evpDigest) {
+        fprintf(stderr, "Could not load digest %s. Is it installed? Use -c list to list available ciphers\n", messageDigest);
         return 1;
     }
-
-    evpCipher2 = EVP_get_cipherbyname(encCipher2);
-    if (!evpCipher2) {
-        fprintf(stderr, "Could not find valid cipher name in parsed header.\nIs %s a password file?\n", dbFileName);
-        return 1;
-    }
-
-    evpDigest2 = EVP_get_digestbyname(messageDigest2);
-    if (!evpDigest2) {
-        fprintf(stderr, "Could not find a valid digest name in parsed header.\nIs %s a password file?\n", dbFileName);
-        return 1;
-    }
-
-    /*This function generates a key and possibly iv needed for encryption algorithims*/
-	
-	if(evpKDF(dbPass, evp2Salt, EVP2_SALT_SIZE,evpCipher2,evpDigest2,evpKey2,evpIv2) != 0) {
-			return 1;
-	}
 
     if (toggle.updateEncPass) {
-        /*Copy old evpCipher1 to evpCipher1Old and generate evpKey1Old based on this*/
+        /*Copy old evpCipher to evpCipherOld and generate evpKeyOld based on this*/
         /*This needs to be done in openEnvelope() before cipher and digest parameters are changed later on */
-        evpCipher1Old = evpCipher1;
+        evpCipherOld = evpCipher;
 		
-		if(evpKDF(dbPass, evp1Salt, EVP1_SALT_SIZE,evpCipher1,evpDigest1,evpKey1Old,evpIv1Old) != 0) {
+		if(evpKDF(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKeyOld,evpIvOld) != 0) {
 			return 1;
 		}
     }
 
     /*Now open a temporary file with a randomly generated file name pointed to by tmpFile1*/
-    /*This file will contain the 2nd algorithm's decrypted plain-text, i.e. the 1st algorithm's cipher-text, plus the MAC*/
-    EVP1DataFileTmp = fopen(tmpFile1, "wb");
-    if (EVP1DataFileTmp == NULL) /*Make sure the file opens*/
+    /*This file will contain the algorithm's decrypted plain-text, plus the MAC*/
+    EVPDataFileTmp = fopen(tmpFile1, "wb");
+    if (EVPDataFileTmp == NULL) /*Make sure the file opens*/
     {
         perror("openEnvelope fopen tmpFile1");
         printf("Couldn't open file: %s\n", tmpFile1);
         return errno;
     }
     chmod(tmpFile1, S_IRUSR | S_IWUSR);
-
-    /*Decrypt the OpenSSL envelope file into the aforementioned temp file*/
-    if (dbDecrypt(EVP2EncryptedFile, EVP1DataFileTmp) != 0) {
-        printf("\nWrong key used.\n");
-        fclose(EVP2EncryptedFile);
-        fclose(EVP1DataFileTmp);
-        wipeFile(tmpFile1);
-        remove(tmpFile1);
-        return 1;
-    }
+		
+	for(i = 0; i < returnFileSize(dbFileName) - (BUFFER_SIZES + EVP_SALT_SIZE); i++)
+		fputc(fgetc(EVPEncryptedFile), EVPDataFileTmp);
 
     /*Now close the encrypted envelope and temp file*/
-    fclose(EVP2EncryptedFile);
-    fclose(EVP1DataFileTmp);
+    fclose(EVPEncryptedFile);
+    fclose(EVPDataFileTmp);
 
-    /*Open 1st algorithm's cipher-text + MAC from the temporary file*/
-    EVP2DecryptedFile = fopen(tmpFile1, "rb");
-    if (EVP2DecryptedFile == NULL) /*Make sure the file opens*/
+    /*Open EVP algorithm's cipher-text + MAC from the temporary file*/
+    EVPDecryptedFile = fopen(tmpFile1, "rb");
+    if (EVPDecryptedFile == NULL) /*Make sure the file opens*/
     {
         perror("openEnvelope fopen tmpFile1");
         printf("Couldn't open file: %s\n", tmpFile1);
@@ -2798,8 +2571,8 @@ int openEnvelope()
     chmod(tmpFile1, S_IRUSR | S_IWUSR);
 
     /*Open a file to write the cipher-text into once we've stripped the MAC off*/
-    EVP1DataFileTmp = fopen(tmpFile2, "wb");
-    if (EVP1DataFileTmp == NULL) /*Make sure the file opens*/
+    EVPDataFileTmp = fopen(tmpFile2, "wb");
+    if (EVPDataFileTmp == NULL) /*Make sure the file opens*/
     {
         perror("openEnvelope fopen tmpFile2");
         printf("Couldn't open file: %s\n", tmpFile2);
@@ -2807,53 +2580,53 @@ int openEnvelope()
     }
     chmod(tmpFile2, S_IRUSR | S_IWUSR);
 
-    /*Set EVP2DecryptedFile file position to the beginning of the SHA512_DIGEST_LENGTH sized MAC*/
+    /*Set EVPDecryptedFile file position to the beginning of the SHA512_DIGEST_LENGTH sized MAC*/
 
     /*Need to get the size of the file, then fseek to that value minus the length SHA512_DIGEST_LENGTH sized MAC*/
     long fileSize;
-    fseek(EVP2DecryptedFile, 0L, SEEK_END);
-    fileSize = ftell(EVP2DecryptedFile);
-    fseek(EVP2DecryptedFile, fileSize - SHA512_DIGEST_LENGTH, SEEK_SET);
+    fseek(EVPDecryptedFile, 0L, SEEK_END);
+    fileSize = ftell(EVPDecryptedFile);
+    fseek(EVPDecryptedFile, fileSize - SHA512_DIGEST_LENGTH, SEEK_SET);
 
-    /*Read the MAC from EVP2DecryptedFile into buffer pointed to by fMac*/
+    /*Read the MAC from EVPDecryptedFile into buffer pointed to by fMac*/
     /*fMac for file MAC. Will compare this one against the one generated for gMac*/
-    returnVal = fread(fMac, sizeof(char), SHA512_DIGEST_LENGTH, EVP2DecryptedFile);
+    returnVal = fread(fMac, sizeof(char), SHA512_DIGEST_LENGTH, EVPDecryptedFile);
     if (returnVal != SHA512_DIGEST_LENGTH / sizeof(char)) {
-        if (ferror(EVP2DecryptedFile)) {
+        if (ferror(EVPDecryptedFile)) {
             perror("openEnvelope fread fMac");
             return errno;
         }
     }
 
-    /*Reset to beginning of the EVP2DecryptedFile file to get ready to copy it to tmpFile2*/
-    fseek(EVP2DecryptedFile, 0L, SEEK_SET);
+    /*Reset to beginning of the EVPDecryptedFile file to get ready to copy it to tmpFile2*/
+    fseek(EVPDecryptedFile, 0L, SEEK_SET);
 
-    /*Allocate a buffer big enough for the EVP2DecryptedFile file minus the MAC*/
+    /*Allocate a buffer big enough for the EVPDecryptedFile file minus the MAC*/
     tmpBuffer = calloc(sizeof(char), (fileSize - SHA512_DIGEST_LENGTH));
 
     /*Read the cipher-text data into the temp buffer, then write it out to tmpFile2*/
-    returnVal = fread(tmpBuffer, sizeof(char), fileSize - SHA512_DIGEST_LENGTH, EVP2DecryptedFile);
+    returnVal = fread(tmpBuffer, sizeof(char), fileSize - SHA512_DIGEST_LENGTH, EVPDecryptedFile);
     if (returnVal != fileSize - SHA512_DIGEST_LENGTH / sizeof(char)) {
-        if (ferror(EVP2DecryptedFile)) {
+        if (ferror(EVPDecryptedFile)) {
             perror("openEnvelope fread tmpBuffer");
             return errno;
         }
     }
 
-    returnVal = fwrite(tmpBuffer, sizeof(char), fileSize - SHA512_DIGEST_LENGTH, EVP1DataFileTmp);
+    returnVal = fwrite(tmpBuffer, sizeof(char), fileSize - SHA512_DIGEST_LENGTH, EVPDataFileTmp);
     if (returnVal != fileSize - SHA512_DIGEST_LENGTH / sizeof(char))
     {
-        if (ferror(EVP1DataFileTmp)) {
+        if (ferror(EVPDataFileTmp)) {
             perror("openEnvelope fwrite tmpBuffer");
             return errno;
         }
     }
 
     /*Close the temporary files used*/
-    fclose(EVP2DecryptedFile);
-    fclose(EVP1DataFileTmp);
+    fclose(EVPDecryptedFile);
+    fclose(EVPDataFileTmp);
 
-    /*Erase data left behind in EVP2DecryptedFile*/
+    /*Erase data left behind in EVPDecryptedFile*/
     /*wipeFile() will overwrite the file 25 times with zeroes*/
     wipeFile(tmpFile1);
     remove(tmpFile1);
@@ -2974,8 +2747,7 @@ void allocateBuffers()
         exit(1);
     }
 
-    evp1Salt = calloc(sizeof(unsigned char), EVP1_SALT_SIZE);
-    evp2Salt = calloc(sizeof(unsigned char), EVP2_SALT_SIZE);
+    evpSalt = calloc(sizeof(unsigned char), EVP_SALT_SIZE);
     
     free(tmpBuffer);
 }
@@ -2984,11 +2756,20 @@ void allocateBuffers()
 void cleanUpBuffers()
 {
     OPENSSL_cleanse(entryPass, sizeof(char) * BUFFER_SIZES);
+    OPENSSL_cleanse(entryPassStore, sizeof(char) * BUFFER_SIZES);
     OPENSSL_cleanse(newEntryPass, sizeof(char) * BUFFER_SIZES);
+    OPENSSL_cleanse(newEntryPassStore, sizeof(char) * BUFFER_SIZES);
     OPENSSL_cleanse(dbPass, sizeof(unsigned char) * strlen(dbPass));
     OPENSSL_cleanse(dbPassOld, sizeof(unsigned char) * BUFFER_SIZES);
-    OPENSSL_cleanse(evpKey2, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
-    OPENSSL_cleanse(evpIv2, sizeof(unsigned char) * EVP_MAX_IV_LENGTH);
+    OPENSSL_cleanse(dbPassStore, sizeof(unsigned char) * BUFFER_SIZES);
+    OPENSSL_cleanse(evpKey, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
+    OPENSSL_cleanse(evpIv, sizeof(unsigned char) * EVP_MAX_IV_LENGTH);
+    OPENSSL_cleanse(evpKeyOld, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
+    OPENSSL_cleanse(evpIvOld, sizeof(unsigned char) * EVP_MAX_IV_LENGTH);
+    OPENSSL_cleanse(hmacKey, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
+    OPENSSL_cleanse(hmacKeyOld, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
+    OPENSSL_cleanse(hmacKeyNew, sizeof(unsigned char) * SHA512_DIGEST_LENGTH); 
+
 }
 
 /*This function generates a random passsword if 'gen' is given as the entry's password*/
@@ -3028,7 +2809,7 @@ void genPassWord(int stringLength)
     /*Insert a null byte at the end of the randome bytes*/
     /*Then send that to entryPass*/
     tempPassString[stringLength] = '\0';
-    strcpy(entryPass, tempPassString);
+    strncpy(entryPass, tempPassString, BUFFER_SIZES);
 }
 
 char* genFileName()
@@ -3056,47 +2837,27 @@ char* genFileName()
     fileNameBuffer[b % (NAME_MAX - strlen(P_tmpdir))] = '\0';
 
     /*Preced the sprintf string below with a . to make tmp files write to ./tmp/ for use in testing temp-file attacks*/
-    sprintf(fileName, "%s/%s", P_tmpdir, fileNameBuffer);
+    snprintf(fileName, NAME_MAX, "%s/%s", P_tmpdir, fileNameBuffer);
 
     free(fileNameBuffer);
 
     return fileName;
 }
 
-/*Generates a random EVP2_SALT_SIZE sized byte salt for evpKDF()*/
-void genEvp2Salt()
+void genEvpSalt()
 {
 
     unsigned char b; /*Random byte*/
     int i = 0;
 
-    while (i < EVP2_SALT_SIZE) {
-        if (!RAND_bytes(&b, 1)) {
-            printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-            cleanUpBuffers();
-            cleanUpFiles();
-            exit(1);
-            ;
-        }
-        evp2Salt[i] = b;
-        i++;
-    }
-}
-
-void genEvp1Salt()
-{
-
-    unsigned char b; /*Random byte*/
-    int i = 0;
-
-    while (i < EVP1_SALT_SIZE) {
+    while (i < EVP_SALT_SIZE) {
         if (!RAND_bytes(&b, 1)) {
             printf("Failure: CSPRNG bytes could not be made unpredictable\n");
             cleanUpBuffers();
             cleanUpFiles();
             exit(1);
         }
-        evp1Salt[i] = b;
+        evpSalt[i] = b;
         i++;
     }
 }
@@ -3189,10 +2950,10 @@ void hmacKDF()
     int i;
     unsigned char hmacSalt[HMAC_SALT_SIZE];
 
-    /*Derive a larger salt for HMAC from evp1Salt*/
+    /*Derive a larger salt for HMAC from evpSalt*/
     /*Use a counter of 3 so this XOR doesn't undo last xor'd bytes*/
     for (i = 0; i < HMAC_SALT_SIZE; i++)
-        hmacSalt[i] = evp1Salt[i] ^ (i + 3);
+        hmacSalt[i] = evpSalt[i] ^ (i + 3);
 
     /*Generate a separate key to use for HMAC*/
     PKCS5_PBKDF2_HMAC(dbPass, -1, hmacSalt, HMAC_SALT_SIZE, keyIterations, EVP_get_digestbyname("sha512"), SHA512_DIGEST_LENGTH, hmacKey);
@@ -3259,6 +3020,8 @@ char* getPass(const char* prompt, char* paddedPass)
         exit(1);
     }
     memcpy(paddedPass,paddedPassTmp,sizeof(char) * BUFFER_SIZES);
+    OPENSSL_cleanse(paddedPassTmp, sizeof(char) * BUFFER_SIZES);
+    free(paddedPassTmp);
     
     int nread;
 
@@ -3316,14 +3079,14 @@ int printSyntax(char* arg)
 {
     printf("\
 \nReccomend Syntax: \
-\n\n%s [-a entry name | -r entry name | -d entry name | -u entry name [-n new name ] | -U ] [-p new entry password] [-l random password length] [-x database password] [-c first-cipher:second-cipher ] [-H first-digest:second-digest] [ -P ] -f database file [ -C ] [ -s seconds ]\
+\n\n%s [-a entry name | -r entry name | -d entry name | -u entry name [-n new name ] | -U ] [-p new entry password] [-l random password length] [-x database password] [-c cipher ] [-H digest ] [ -P ] -f database file [ -C ] [ -s seconds ]\
 \nOptions: \
 \n-n new name - entry name up to 512 characters (can contain white space or special characters) \
 \n-p new entry password - entry password up to 512 characters (don't call to be prompted instead) ('gen' will generate a random password, 'genalpha' will generate a random password with no symbols)\
 \n-l random password length - makes 'gen' or 'genalpha' generate a password random password length digits long (defaults to 16 without this option) \
 \n-x database password - To supply database password as command-line argument (not reccomended) \
-\n-c first-cipher:second-cipher - Specify 'list' for a list of methods available to OpenSSL. Default: camellia-256-ofb:aes-256-ctr. \
-\n-H first-digest:second-digest - Specify 'list' for a list of methods available to OpenSSL. Default: whirlpool:sha512. \
+\n-c cipher - Specify 'list' for a list of methods available to OpenSSL. Default: aes-256-ctr. \
+\n-H digest - Specify 'list' for a list of methods available to OpenSSL. Default: sha512. \
 \n-P - In Update entry or Update database mode (-u and -U respectively) this option enables updating the entry password or database password via prompt instead of as command line argument \
 \n-f - database file ( must be specified ) \
 \n-C - end entry password directly to clipboard. Clipboard is cleared 30 seconds afterward. (needs xclip) \
@@ -3334,8 +3097,8 @@ int printSyntax(char* arg)
 \n     \t-p 'password'\
 \n     \t-l 'password length'\
 \n     \t-x 'database password'\
-\n     \t-c 'first-cipher:second-cipher' - Initializes a password database with cascaded encryption of 'first-cipher' into 'second-cipher'\
-\n     \t-H 'first-digest:second-digest' - Derives keys for ciphers with digests 'first-digest' for 'first-cipher' and 'second-digest' for 'second-cipher'.\
+\n     \t-c 'cipher' - Initializes a password database with encryption of 'cipher' \
+\n     \t-H 'digest' - Derives keys for 'cipher' with digest 'digest'.\
 \n     \t-C send new entry's password to clipboard (useful if randomly generated)\
 \n     \t-s seconds - clear clipboard seconds after instead of default 30\
 \n-r - Read mode \
@@ -3355,9 +3118,9 @@ int printSyntax(char* arg)
 \n-U - Update database mode \
 \n     \t-P  updates database password. Read via prompt. Cannot be supplied via commandline. \
 \n     \t-x 'database password' (the current database password to decrypt/with) \
-\n     \t-c 'first-cipher:second-cipher' - Update algorithms in cascade\
-\n     \t-H 'first-digest:second-digest' - Update digests used for cascaded algorithms' KDFs\
-\nVersion 2.3.1\
+\n     \t-c 'cipher' - Update encryption algorithm  \
+\n     \t-H 'digest' - Update digest used for algorithms' KDFs \
+\nVersion 2.4.1 (single encryption)\
 \n\
 ",
         arg);

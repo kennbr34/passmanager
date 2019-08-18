@@ -2,7 +2,10 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
-2018-7-16
+2019-7-26
+(+ver 2.3.2)
+	Changed primeSSL function to better test for and enforce use of stream ciphers or CTR, OFB or CFB modes for multiple-encryption safety
+2019-7-16
 (+ver 2.3.1)
 	Changed KDF iteration amount to default to 200k and be user configurable
 

@@ -31,15 +31,15 @@ echo -e "\nNow read the database with the password you just changed to"
 echo passmanager -r allpasses -f ./examplepasswords1.dat
 passmanager -r allpasses -f ./examplepasswords1.dat
 echo -e "\nNow try changing the encryption to bf-ofb:bf-ofb and whirlpool:sha512"
-echo passmanager -U -c bf-ofb:bf-ofb -H whirlpool:sha512 -f ./examplepasswords1.dat
-passmanager -U -c bf-ofb:bf-ofb -H whirlpool:sha512 -f ./examplepasswords1.dat
+echo passmanager -U -c bf-ofb -H whirlpool -f ./examplepasswords1.dat
+passmanager -U -c bf-ofb -H whirlpool -f ./examplepasswords1.dat
 echo -e "\nRead the password database to confirm change... (Press enter)"
 read
 echo passmanager -r allpasses -f ./examplepasswords1.dat
 passmanager -r allpasses -f ./examplepasswords1.dat
 echo -e "\nNow change the password back to 'password' when prompted"
-echo passmanager -U -c camellia-256-ofb:aes-256-ctr -H whirlpool:sha512 -P -f ./examplepasswords1.dat
-passmanager -U -c camellia-256-ofb:aes-256-ctr -H whirlpool:sha512 -P -f ./examplepasswords1.dat
+echo passmanager -U -c aes-256-ctr -H sha512 -P -f ./examplepasswords1.dat
+passmanager -U -c aes-256-ctr -H sha512 -P -f ./examplepasswords1.dat
 echo -e "\nNow read the database to confirm... (Press enter)"
 read
 echo passmanager -r allpasses -f ./examplepasswords1.dat -x password
@@ -86,9 +86,9 @@ echo passmanager -u allpasses -p gen -f ./examplepasswords1.dat -x password1
 passmanager -u allpasses -p gen -f ./examplepasswords1.dat -x password1
 echo passmanager -d name -f ./examplepasswords1.dat -x password1
 passmanager -d name -f ./examplepasswords1.dat -x password1
-echo passmanager -U -c bf-ofb:bf-ofb -f ./examplepasswords1.dat -x password1
-passmanager -U -c bf-ofb:bf-ofb -f ./examplepasswords1.dat -x password1
+echo passmanager -U -c bf-ofb -f ./examplepasswords1.dat -x password1
+passmanager -U -c bf-ofb -f ./examplepasswords1.dat -x password1
 echo -e "\nNow imagine you started to update the database encryption, but didn't like the options you entered press Ctrl=C when prompted for the password... (Press enter)"
 read
-echo passmanager -U -c foocipher:foocipher-f ./examplepasswords1.dat
-passmanager -U -c foocipher:foocipher -f ./examplepasswords1.dat
+echo passmanager -U -c foocipher-f ./examplepasswords1.dat
+passmanager -U -c foocipher -f ./examplepasswords1.dat
