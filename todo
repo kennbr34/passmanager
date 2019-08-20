@@ -1,0 +1,4 @@
+Authenticate cryptoBuffer for AEAD
+Fix contatenation of cryptoBuffer/IV/cipher-text
+Write PBKDF2 iteration amount as 32-bit to file as part of cryptoBuffer 
+
