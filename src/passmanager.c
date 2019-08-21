@@ -3163,7 +3163,7 @@ int printSyntax(char* arg)
 \n     \t-x 'database password' (the current database password to decrypt/with) \
 \n     \t-c 'cipher' - Update encryption algorithm  \
 \n     \t-H 'digest' - Update digest used for algorithms' KDFs \
-\nVersion 3.1.1\
+\nVersion 3.1.2\
 \n\
 ",
         arg);
