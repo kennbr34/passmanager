@@ -2,6 +2,10 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+209-8-21
+(+ver 3.1.2)
+	Made key iteration amount used for KDF able to be updated and read from file without -i
+	Fixed but with deletePass mode that left a blank entry
 2019-8-19
 (+ver 3.1.1)
 	Changed slat size to 256 bits

@@ -99,7 +99,7 @@ void encList(const OBJ_NAME* obj, void* arg); /*Same as mdList but for encryptio
 void encLister(); /*Same as mdLIster but for encryption ciphers*/
 void genEvpSalt(); /*Generates EVP salt*/
 void hmacKDF(); /*Derive key for HMAC*/
-int evpKDF(char* dbPass, unsigned char* evpSalt, unsigned int saltLen,const EVP_CIPHER *evpCipher,const EVP_MD *evpDigest, unsigned char *evpKey, unsigned char *evpIv); /*Derive key for EVP cipher*/
+int evpKDF(char* dbPass, unsigned char* evpSalt, unsigned int saltLen,const EVP_CIPHER *evpCipher,const EVP_MD *evpDigest, unsigned char *evpKey, unsigned char *evpIv, int keyIterations); /*Derive key for EVP cipher*/
 /*Password management functions*/
 int writePass(FILE* dbFile); /*Uses EVP cipher to write passes to a file*/
 int printPasses(FILE* dbFile, char* searchString); /*Uses EVP cipher to read passes from file*/
@@ -158,6 +158,8 @@ unsigned int* gMacLength; /*HMAC() needs an int pointer to put the length of the
 
 /*KDF*/
 int keyIterations = 200000; /*Default iterations to use for KDF*/
+int keyIterationsStore;
+int keyIterationsOld;
 
 /*Character arrays to hold temp file random names*/
 char* tmpFile1;
@@ -330,6 +332,7 @@ int main(int argc, char* argv[])
                 errflg++; /*Set the error flag so program will halt after getopt() is done*/
             }
             keyIterations = atoi(optarg);
+            keyIterationsStore = keyIterations;
             toggle.keyIterations = 1;
             break;
         case 'l':
@@ -726,7 +729,7 @@ int main(int argc, char* argv[])
         /*The choosen EVP digest algorithm will be used*/
         /*The salt generated for the EVP algorithm will also be used*/
         
-		if(evpKDF(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKey,evpIv) != 0) {
+		if(evpKDF(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKey,evpIv,keyIterations) != 0) {
 			return 1;
 		}
 		
@@ -794,7 +797,7 @@ int main(int argc, char* argv[])
         chmod(tmpFile2, S_IRUSR | S_IWUSR);
 
 		
-		if(evpKDF(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKey,evpIv) != 0) {
+		if(evpKDF(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKey,evpIv,keyIterations) != 0) {
 			return 1;
 		}
 
@@ -855,7 +858,7 @@ int main(int argc, char* argv[])
         chmod(tmpFile2, S_IRUSR | S_IWUSR);
 
 		
-		if(evpKDF(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKey,evpIv) != 0) {
+		if(evpKDF(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKey,evpIv,keyIterations) != 0) {
 			return 1;
 		}
 
@@ -985,7 +988,7 @@ int main(int argc, char* argv[])
         }
         chmod(tmpFile2, S_IRUSR | S_IWUSR);
 		
-		if(evpKDF(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKey,evpIv) != 0) {
+		if(evpKDF(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKey,evpIv,keyIterations) != 0) {
 			return 1;
 		}
 
@@ -1034,8 +1037,14 @@ int main(int argc, char* argv[])
         strncpy(dbPassOld, dbPass, BUFFER_SIZES);
         memcpy(hmacKeyOld, hmacKey, sizeof(char) * SHA512_DIGEST_LENGTH);
 
-        /*If -U was given but neither -c or -H*/
-        if (toggle.updateEncPass == 1 && (toggle.encCipher != 1 && toggle.messageDigest != 1)) {
+        /*If -i was given along with nothing else*/
+        if (toggle.keyIterations == 1 && (toggle.updateEntryPass != 1 && toggle.encCipher != 1 && toggle.messageDigest != 1))
+        {
+			keyIterations = keyIterationsStore;
+			printf("PBKDF2 iterations changed to %i\n", keyIterations);
+		}
+		/*If -U was given but neither -c or -H*/
+        else if (toggle.updateEncPass == 1 && (toggle.encCipher != 1 && toggle.messageDigest != 1)) {
             /*Get new encryption password from user*/
             getPass("Enter new database password: ", dbPass);
 
@@ -1103,6 +1112,12 @@ int main(int argc, char* argv[])
                 printf("Changing digest to %s\n", messageDigestStore);
             }
         }
+        
+        if(toggle.keyIterations == 1)
+        {
+			keyIterations = keyIterationsStore;
+			printf("PBKDF2 iterations changed to %i\n", keyIterations);
+		}
 
         /*Do OpenSSL priming operations*/
         /*This will change to the cipher just specified*/
@@ -1174,7 +1189,7 @@ int printPasses(FILE* dbFile, char* searchString)
     memcpy(hmacBuffer + EVP_SALT_SIZE,evpIv,IvLength);
     memcpy(hmacBuffer + EVP_SALT_SIZE + IvLength,encryptedBuffer,fileSize);
     HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, fileSize + IvLength + EVP_SALT_SIZE, gMac, gMacLength);
-
+    
     /*Check if the MAC from the EVPDecryptedFile matches MAC generated via HMAC*/
     /*Return error status before proceeding and clean up sensitive data*/
     if (memcmp(fMac, gMac, SHA512_DIGEST_LENGTH) != 0) {
@@ -1711,7 +1726,7 @@ int deletePass(FILE* dbFile, char* searchString)
         }
     }
     
-    if(entriesMatched > 1)
+    if(entriesMatched >= 1)
 		outlen = outlen - ((BUFFER_SIZES * 2) * entriesMatched);
 
     /*Clear out sensitive information ASAP*/
@@ -1892,8 +1907,8 @@ int updateEncPass(FILE* dbFile)
     }
     outlen += tmplen;
     EVP_CIPHER_CTX_cleanup(ctx);
-		
-	if(evpKDF(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKey,evpIv) != 0) {
+	
+	if(evpKDF(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKey,evpIv,keyIterations) != 0) {
 			return 1;
 	}
 
@@ -1928,6 +1943,10 @@ int updateEncPass(FILE* dbFile)
 
     /*Clear sensitive data from decryptedBuffer ASAP*/
     OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize);
+    
+    /*Must generate new key for HMAC in case keyIterations was updated*/
+    /*Not going to test conditional if keyIterations were updated since it doesn't effect other parameters to update it anyway*/
+    hmacKDF();
 
     /*Append this as the "generated" MAC later*/
     IvLength = EVP_CIPHER_iv_length(evpCipher);
@@ -2109,8 +2128,8 @@ int writePass(FILE* dbFile)
         memcpy(hmacBuffer,evpSalt,EVP_SALT_SIZE);
         memcpy(hmacBuffer + EVP_SALT_SIZE,evpIv,IvLength);
         memcpy(hmacBuffer + EVP_SALT_SIZE + IvLength,outbuf,outlen);
-        HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, outlen + IvLength + EVP_SALT_SIZE, gMac, gMacLength);;
-
+        HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, outlen + IvLength + EVP_SALT_SIZE, gMac, gMacLength);
+        
         /*Write the encrypted information to file*/
         returnVal = fwrite(outbuf, 1, sizeof(unsigned char) * outlen, dbFile);
         if (returnVal != outlen * sizeof(unsigned char))
@@ -2177,7 +2196,7 @@ int writePass(FILE* dbFile)
         memcpy(hmacBuffer + EVP_SALT_SIZE,evpIv,IvLength);
         memcpy(hmacBuffer + EVP_SALT_SIZE + IvLength,encryptedBuffer,outlen);
         HMAC(EVP_sha512(), hmacKey, SHA512_DIGEST_LENGTH, hmacBuffer, outlen + IvLength + EVP_SALT_SIZE, gMac, gMacLength);
-
+        
         fclose(dbFile);
         wipeFile(tmpFile2);
         dbFile = fopen(tmpFile2, "wb");
@@ -2435,7 +2454,10 @@ int sealEnvelope(const char* tmpFileToUse)
 
     /*Write encCipher:messageDigest to cryptoHeader*/
     snprintf(cryptoHeader, BUFFER_SIZES, "%s:%s", encCipher, messageDigest);
-
+    
+    /*Append keyIterations to end of cryptoHeader*/
+    memcpy(cryptoHeader + (strlen(cryptoHeader) + 1), &keyIterations, sizeof(keyIterations));
+	
     /*Write the salt*/
     returnVal = fwrite(evpSalt, sizeof(unsigned char), EVP_SALT_SIZE, dbFile);
     if (returnVal != EVP_SALT_SIZE / sizeof(unsigned char))
@@ -2503,9 +2525,6 @@ int openEnvelope()
         }
     }
 
-    /*Generate a separate salt and key for HMAC authentication*/
-    hmacKDF();
-
     /*Read the cipher and message digest information in*/
     returnVal = fread(cryptoHeader, sizeof(char), BUFFER_SIZES, EVPEncryptedFile);
     if (returnVal != BUFFER_SIZES / sizeof(char)) {
@@ -2514,6 +2533,12 @@ int openEnvelope()
             return errno;;
         }
     }
+    
+    /*Read keyIterations from end of cryptoHeader*/
+    memcpy(&keyIterations, cryptoHeader + (strlen(cryptoHeader) + 1), sizeof(int));
+    
+     /*Generate a separate salt and key for HMAC authentication*/
+    hmacKDF();
 
     /*Use strtok to parse the strings delimited by ':'*/
 
@@ -2553,8 +2578,9 @@ int openEnvelope()
         /*Copy old evpCipher to evpCipherOld and generate evpKeyOld based on this*/
         /*This needs to be done in openEnvelope() before cipher and digest parameters are changed later on */
         evpCipherOld = evpCipher;
+        keyIterationsOld = keyIterations;
 		
-		if(evpKDF(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKeyOld,evpIvOld) != 0) {
+		if(evpKDF(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKeyOld,evpIvOld,keyIterationsOld) != 0) {
 			return 1;
 		}
     }
@@ -2976,7 +3002,7 @@ void hmacKDF()
     PKCS5_PBKDF2_HMAC(dbPass, -1, hmacSalt, HMAC_SALT_SIZE, keyIterations, EVP_get_digestbyname("sha512"), SHA512_DIGEST_LENGTH, hmacKey);
 }
 
-int evpKDF(char* dbPass, unsigned char* evpSalt, unsigned int saltLen,const EVP_CIPHER *evpCipher,const EVP_MD *evpDigest, unsigned char *evpKey, unsigned char *evpIv)
+int evpKDF(char* dbPass, unsigned char* evpSalt, unsigned int saltLen,const EVP_CIPHER *evpCipher,const EVP_MD *evpDigest, unsigned char *evpKey, unsigned char *evpIv, int keyIterations)
 {
 	/*First generate the key*/
 	if (!PKCS5_PBKDF2_HMAC((char*)dbPass, strlen(dbPass),
