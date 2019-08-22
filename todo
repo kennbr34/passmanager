@@ -1,3 +1,0 @@
-Authenticate cryptoBuffer for AEAD
-Fix contatenation of cryptoBuffer/IV/cipher-text
-

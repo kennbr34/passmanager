@@ -2,7 +2,12 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
-209-8-21
+2019-8-22
+(+ver 3.2.1)
+	Added authentication on database file as well as temporary files so that all Associated Data is authenticated
+	Changed default PBKDF2 iterations to 1mil
+	Added OPENSSL_cleanse routine to clear hmacBuffer after authentication routines since it will now contain the IV
+2019-8-21
 (+ver 3.1.2)
 	Made key iteration amount used for KDF able to be updated and read from file without -i
 	Fixed but with deletePass mode that left a blank entry
