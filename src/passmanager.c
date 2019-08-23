@@ -271,12 +271,16 @@ int main(int argc, char* argv[])
 		}
 		
 		/*Drop root*/
-		if(geteuid() != 0) { /*If executable was not started as root, but given root privelge through SETUID/SETGID bit*/
-			if(setuid(geteuid()) == -1) { /*Drop back to the privelges of the user who executed the binary*/
+		if(geteuid() == 0 && getuid() != 0) { /*If executable was not started as root, but given root privelge through SETUID/SETGID bit*/
+			if(seteuid(getuid())) { /*Drop EUID back to the user who executed the binary*/
 			perror("setuid");
 			exit(1);
 			}
-			if(getuid() == 0) { /*Fail if we could not drop root priveleges*/
+			if(setuid(getuid())) { /*Drop UID back to the privelges of the user who executed the binary*/
+			perror("setuid");
+			exit(1);
+			}
+			if(getuid() == 0 || geteuid() == 0) { /*Fail if we could not drop root priveleges*/
 				printf("Could not drop root\n");
 				exit(1);
 			}

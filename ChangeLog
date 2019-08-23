@@ -2,6 +2,9 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+2019-8-23
+(+ver 3.2.2)
+	Fix error where root privelges are not being dropped
 2019-8-22
 (+ver 3.2.1)
 	Added authentication on database file as well as temporary files so that all Associated Data is authenticated
