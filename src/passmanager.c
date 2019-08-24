@@ -1119,7 +1119,7 @@ int main(int argc, char* argv[])
             }
         }
         
-        if(toggle.keyIterations == 1)
+        if(toggle.keyIterations == 1 && (toggle.updateEntryPass == 1 || toggle.encCipher == 1 || toggle.messageDigest == 1))
         {
 			keyIterations = keyIterationsStore;
 			printf("PBKDF2 iterations changed to %i\n", keyIterations);
@@ -3247,7 +3247,7 @@ int printSyntax(char* arg)
 \n     \t-x 'database password' (the current database password to decrypt/with) \
 \n     \t-c 'cipher' - Update encryption algorithm  \
 \n     \t-H 'digest' - Update digest used for algorithms' KDFs \
-\nVersion 3.2.1\
+\nVersion 3.2.2\
 \n\
 ",
         arg);
