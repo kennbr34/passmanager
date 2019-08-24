@@ -2,6 +2,14 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+2019-8-23
+(+ver 2.5.1)
+	Changed salt sizes to 256 bit
+	Added ability to update PBKDF2 iteration amount
+	Changed default PBKDF2 iteration amount to 500000
+2019-8-23
+(+ver 2.4.3)
+	Fixed error in dropping root priveleges
 2019-8-17
 (+ver 2.4.2)
 	Fixed primeSSL function where initialization of database with -c option gave a false error that the cipher could not be loaded

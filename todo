@@ -1,0 +1,6 @@
+Truncate SHA512_DIGEST_LENGTH to SHA512_DIGEST_LENGTH/2 for MAC to avoid length extension attacks
+Authenticate cryptoBuffer for AEAD
+Fix contatenation of cryptoBuffer/IV/cipher-text
+Write PBKDF2 iteration amount as 32-bit to file as part of cryptoBuffer 
+Change salt size to 256-bit from 128-bit
+
