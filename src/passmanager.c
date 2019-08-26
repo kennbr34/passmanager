@@ -3206,18 +3206,19 @@ int printSyntax(char* arg)
 {
     printf("\
 \nReccomend Syntax: \
-\n\n%s [-a entry name | -r entry name | -d entry name | -u entry name [-n new name ] | -U ] [-p new entry password] [-l random password length] [-x database password] [-c cipher ] [-H digest ] [ -P ] -f database file [ -C ] [ -s seconds ]\
+\n\n%s passmanager  -a entry name | -r entry name | -d entry name | -u entry name | -U  [-n new name ] [-p new entry password] [-l random password length] [-c cipher] [-H digest] [-i iterations ] [ -P ] [-x database password] [ -C ] [ -s seconds ] -f database file\
 \nOptions: \
 \n-n new name - entry name up to 512 characters (can contain white space or special characters) \
 \n-p new entry password - entry password up to 512 characters (don't call to be prompted instead) ('gen' will generate a random password, 'genalpha' will generate a random password with no symbols)\
 \n-l random password length - makes 'gen' or 'genalpha' generate a password random password length digits long (defaults to 16 without this option) \
-\n-x database password - To supply database password as command-line argument (not reccomended) \
 \n-c cipher - Specify 'list' for a list of methods available to OpenSSL. Default: aes-256-ctr. \
 \n-H digest - Specify 'list' for a list of methods available to OpenSSL. Default: sha512. \
+\n-i iterations - Specify amount of PBKDF2 to be iterations. Default: 500000\
 \n-P - In Update entry or Update database mode (-u and -U respectively) this option enables updating the entry password or database password via prompt instead of as command line argument \
-\n-f - database file ( must be specified ) \
 \n-C - end entry password directly to clipboard. Clipboard is cleared 30 seconds afterward. (needs xclip) \
 \n-s seconds - clear clipboard seconds after instead of default 30 \
+\n-x database password - To supply database password as command-line argument (not reccomended) \
+\n-f - database file ( must be specified ) \
 \n-h - Quick usage help \
 \nEach functioning mode has a subset of applicable options \
 \n-a - Add mode \
@@ -3226,6 +3227,7 @@ int printSyntax(char* arg)
 \n     \t-x 'database password'\
 \n     \t-c 'cipher' - Initializes a password database with encryption of 'cipher' \
 \n     \t-H 'digest' - Derives keys for 'cipher' with digest 'digest'.\
+\n     \t-i 'iterations' - Specify PBKDF2 iteration amount as iterations. \
 \n     \t-C send new entry's password to clipboard (useful if randomly generated)\
 \n     \t-s seconds - clear clipboard seconds after instead of default 30\
 \n-r - Read mode \
@@ -3247,6 +3249,7 @@ int printSyntax(char* arg)
 \n     \t-x 'database password' (the current database password to decrypt/with) \
 \n     \t-c 'cipher' - Update encryption algorithm  \
 \n     \t-H 'digest' - Update digest used for algorithms' KDFs \
+\n     \t-i 'iterations' - Update iteration amount used by PBKDF2 to 'iterations'\
 \nVersion 3.2.2\
 \n\
 ",
