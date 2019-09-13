@@ -343,6 +343,8 @@ passmanager -u allpasses -p gen -f ./passwords
 
 Dead-store elimination means that some of the sensitive material in memory buffers may not be able to be cleared.  The makefile provided disables optimization, and OPENSSL_cleanse is used if a user wishes to implement optimzation anyway.  Despite that, dead-store elimination has been found to be present in OpenSSL <=1.0.1q itself as well.
 
+If executable is launched with SUID bit (instead of as root or with sudo) memory locking will cause a Segmentation Fault in libcrypto.so after ~180 entries added. Workaround: Run as sudo if database becomes that large.
+
 .SH "SEE ALSO"
 openssl(1), xclip(1), crypto(3), evp(3), EVP_EncryptInit(3), PKCS5_PBKDF2_HMAC(3), RAND(3), RAND_bytes(3)
 
