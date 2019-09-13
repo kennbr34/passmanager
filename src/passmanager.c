@@ -87,27 +87,24 @@ struct conditionsStruct condition;
 /*Prototype functions*/
 
 int openDatabase();
-int writeDatabase(const char* tmpFileToUse);
+int writeDatabase();
 int configEvp();
 void mdListCallback(const OBJ_NAME* obj, void* arg);
 void encListCallback(const OBJ_NAME* obj, void* arg);
 void genEvpSalt();
 void deriveHMACKey();
 int deriveEVPKey(char* dbPass, unsigned char* evpSalt, unsigned int saltLen,const EVP_CIPHER *evpCipher,const EVP_MD *evpDigest, unsigned char *evpKey, unsigned char *evpIv, int PBKDF2Iterations);
-int writePass(FILE* dbFile);
-int printPasses(FILE* dbFile, char* searchString);
-int deletePass(FILE* dbFile, char* searchString);
-int updateEntry(FILE* dbFile, char* searchString);
-int updateDbEnc(FILE* dbFile);
+int writePass();
+int printPasses(char* searchString);
+int deletePass(char* searchString);
+int updateEntry(char* searchString);
+int updateDbEnc();
 void genPassWord(int stringLength);
 char* getPass(const char* prompt, char* paddedPass);
 void allocateBuffers();
 bool fileNonExistant(const char* filename);
 int returnFileSize(const char* filename);
-char* genFileName();
-void cleanUpFiles();
 void cleanUpBuffers();
-int wipeFile(const char* filename);
 void signalHandler(int signum);
 int sendToClipboard();
 int printSyntax(char* arg);
@@ -119,6 +116,7 @@ int evpEncrypt(EVP_CIPHER_CTX* ctx, int evpInputLength, int* evpOutputLength, un
 int freadWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream, char *errMessage);
 int fwriteWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream, char *errMessage);
 int compareMAC(const void * in_a, const void * in_b, size_t len);
+
 
 const EVP_CIPHER *evpCipher, *evpCipherOld;
 unsigned char evpKey[EVP_MAX_KEY_LENGTH], evpKeyOld[EVP_MAX_KEY_LENGTH];
@@ -149,10 +147,6 @@ int PBKDF2Iterations = DEFAULT_PBKDF2_ITER;
 int PBKDF2IterationsStore;
 int PBKDF2IterationsOld;
 
-char* tmpFile1Name;
-char* tmpFile2Name;
-char* tmpFile3Name;
-
 char dbFileName[NAME_MAX];
 char backupFileName[NAME_MAX];
 
@@ -165,6 +159,9 @@ char* newEntryPass;
 char* newEntryPassToVerify;
 char* paddedPass;
 
+unsigned char* encryptedBuffer;
+unsigned char dbInitBuffer[(UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH];
+int evpDataSize;
 
 int xclipClearTimeSeconds = 30;
 
@@ -264,18 +261,13 @@ int main(int argc, char* argv[])
 	}
 	#endif
     
-    atexit(cleanUpFiles);
     atexit(cleanUpBuffers);
 
     allocateBuffers();
 
     signal(SIGINT, signalHandler);
 
-    tmpFile1Name = genFileName();
-    tmpFile2Name = genFileName();
-    tmpFile3Name = genFileName();
-
-    FILE *EVPEncryptedFile, *EVPDataFileTmp, *dbFile;
+    FILE *EVPEncryptedFile, *dbFile;
 
     /*This loads up all names of alogirithms for OpenSSL into an object structure so we can call them by name later*/
     /*It is also needed for the mdListCallback() and encListCallback() functions to work*/
@@ -655,7 +647,6 @@ int main(int argc, char* argv[])
         /*Note this will be needed before openDatabase() is called in all modes except Read*/
         if (configEvp() != 0) {
             cleanUpBuffers();
-            cleanUpFiles();
             return 1;
         }
 
@@ -664,28 +655,14 @@ int main(int argc, char* argv[])
         if (returnFileSize(dbFileName) > 0) {
             if (openDatabase() != 0) {
                 cleanUpBuffers();
-                cleanUpFiles();
                 return 1;
             }
-            /*the file whose name is pointed to by tmpFile2Name now contains only cipher-text data and can be passed to writePass()*/
         } else {
             /*Otherwise run these functions to initialize a database*/
             genEvpSalt();
             deriveHMACKey();
             condition.databaseBeingInitalized = true;
         }
-
-        /*Open EVP algorithm's cipher-text for decryption and processing*/
-        /*In this case, appending a new entry to it*/
-        EVPDataFileTmp = fopen(tmpFile2Name, "a+");
-        if (EVPDataFileTmp == NULL) /*Make sure the file opens*/
-        {
-            perror(argv[0]);
-            cleanUpBuffers();
-            cleanUpFiles();
-            return errno;
-        }
-        chmod(tmpFile2Name, S_IRUSR | S_IWUSR);
 
         /*Derives a key for the EVP algorithm*/
         
@@ -694,7 +671,7 @@ int main(int argc, char* argv[])
 		}
 		
         /*writePass() appends a new entry to EVPDataFileTmp encrypted with the EVP algorithm chosen*/
-        int writePassResult = writePass(EVPDataFileTmp);
+        int writePassResult = writePass();
 
         if (writePassResult == 0) {
             printf("Added \"%s\" to database.\n", entryName);
@@ -705,9 +682,8 @@ int main(int argc, char* argv[])
             }
 
             /*writeDatabase attaches prepends salt and header and appends MACs to cipher-text and writes it all as password database*/
-            if (writeDatabase(tmpFile2Name) != 0) {
+            if (writeDatabase() != 0) {
                 cleanUpBuffers();
-                cleanUpFiles();
                 return 1;
             }
         }
@@ -731,21 +707,8 @@ int main(int argc, char* argv[])
         /*Note no configEvp() needed before openDatabase() in Read mode*/
         if (openDatabase() != 0) {
             cleanUpBuffers();
-            cleanUpFiles();
             return 1;
         }
-
-        /*the file whose name is pointed to by tmpFile2Name now contains only cipher-text data and can be passed to printPasses()*/
-        EVPDataFileTmp = fopen(tmpFile2Name, "rb");
-        if (EVPDataFileTmp == NULL) {
-            perror(argv[0]);
-            cleanUpBuffers();
-            cleanUpFiles();
-            printf("Couldn't open file: %s\n", tmpFile2Name);
-            return errno;
-        }
-        chmod(tmpFile2Name, S_IRUSR | S_IWUSR);
-
 		
 		if(deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKey,evpIv,PBKDF2Iterations) != 0) {
 			return 1;
@@ -753,15 +716,13 @@ int main(int argc, char* argv[])
 
         if (condition.searchForEntry == true && strcmp(entryName, "allpasses") != 0) /*Find a specific entry to print*/
         {
-            printPasses(EVPDataFileTmp, entryName); /*Decrypt and print pass specified by entryName*/
+            printPasses(entryName); /*Decrypt and print pass specified by entryName*/
             if (condition.sendToClipboard == true) {
                 printf("Sent password to clipboard. Paste with middle-click.\n");
             }
         } else if (condition.searchForEntry == true && strcmp(entryName, "allpasses") == 0)
-            printPasses(EVPDataFileTmp, NULL); /*Decrypt and print all passess*/
+            printPasses(NULL); /*Decrypt and print all passess*/
 
-        fclose(EVPDataFileTmp);
-        fclose(EVPEncryptedFile);
         fclose(dbFile);
 
     } else if (condition.deletingPass == true) /*Delete a specified entry*/
@@ -784,26 +745,13 @@ int main(int argc, char* argv[])
 
         if (configEvp()) {
             cleanUpBuffers();
-            cleanUpFiles();
-            printf("Couldn't open file: %s\n", tmpFile2Name);
             return 1;
         }
 
         if (openDatabase() != 0) {
             cleanUpBuffers();
-            cleanUpFiles();
             return 1;
         }
-
-        EVPDataFileTmp = fopen(tmpFile2Name, "rb+");
-        if (EVPDataFileTmp == NULL) {
-            perror(argv[0]);
-            cleanUpBuffers();
-            cleanUpFiles();
-            return errno;
-        }
-        chmod(tmpFile2Name, S_IRUSR | S_IWUSR);
-
 		
 		if(deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKey,evpIv,PBKDF2Iterations) != 0) {
 			return 1;
@@ -811,15 +759,12 @@ int main(int argc, char* argv[])
 
         /*Delete pass actually works by exclusion*/
         /*It writes all password entries except the one specified to a 3rd temporary file*/
-        int deletePassResult = deletePass(EVPDataFileTmp, entryName);
-
-        fclose(EVPDataFileTmp);
+        int deletePassResult = deletePass(entryName);
 
         if (deletePassResult == 0) {
 
-            if (writeDatabase(tmpFile3Name) != 0) {
+            if (writeDatabase() != 0) {
                 cleanUpBuffers();
-                cleanUpFiles();
             }
         }
     } else if (condition.updatingEntry == true) /*Update an entry name*/
@@ -912,34 +857,20 @@ int main(int argc, char* argv[])
 
         if (configEvp() != 0) {
             cleanUpBuffers();
-            cleanUpFiles();
             return 1;
         }
 
         if (openDatabase() != 0) {
             cleanUpBuffers();
-            cleanUpFiles();
             return 1;
         }
-
-        EVPDataFileTmp = fopen(tmpFile2Name, "rb+");
-        if (EVPDataFileTmp == NULL) {
-            perror(argv[0]);
-            cleanUpBuffers();
-            cleanUpFiles();
-            printf("Couldn't open file: %s\n", tmpFile2Name);
-            return errno;
-        }
-        chmod(tmpFile2Name, S_IRUSR | S_IWUSR);
 		
 		if(deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE,evpCipher,evpDigest,evpKey,evpIv,PBKDF2Iterations) != 0) {
 			return 1;
 		}
 
         /*Works like deletePass() but instead of excluding matched entry, modfies its buffer values and then outputs to 3rd temp file*/
-        int updateEntryResult = updateEntry(EVPDataFileTmp, entryNameToFind);
-
-        fclose(EVPDataFileTmp);
+        int updateEntryResult = updateEntry(entryNameToFind);
 
         if (updateEntryResult == 0) {
             if (condition.sendToClipboard == true) {
@@ -947,9 +878,8 @@ int main(int argc, char* argv[])
                 sendToClipboard(entryPass);
             }
 
-            if (writeDatabase(tmpFile3Name) != 0) {
+            if (writeDatabase() != 0) {
                 cleanUpBuffers();
-                cleanUpFiles();
             }
         }
     } else if (condition.updatingDbEnc == true)
@@ -963,19 +893,8 @@ int main(int argc, char* argv[])
 
         if (openDatabase() != 0) {
             cleanUpBuffers();
-            cleanUpFiles();
             return 1;
         }
-
-        EVPDataFileTmp = fopen(tmpFile2Name, "rb+");
-        if (EVPDataFileTmp == NULL) {
-            perror(argv[0]);
-            cleanUpBuffers();
-            cleanUpFiles();
-            printf("Couldn't open file: %s\n", tmpFile2Name);
-            return errno;
-        }
-        chmod(tmpFile2Name, S_IRUSR | S_IWUSR);
 
         /*Must store old EVP key data to decrypt database before new key material is generated*/
         strncpy(dbPassOld, dbPass, UI_BUFFERS_SIZE);
@@ -998,7 +917,6 @@ int main(int argc, char* argv[])
                 /*If not changing, replace old dbPass back into dbPass*/
                 strncpy(dbPass, dbPassOld, UI_BUFFERS_SIZE);
                 cleanUpBuffers();
-                cleanUpFiles();
                 return 1;
             } else {
                 printf("Changed password.\n");
@@ -1038,7 +956,6 @@ int main(int argc, char* argv[])
                 printf("Passwords don't match, not changing.\n");
                 strncpy(dbPass, dbPassOld, UI_BUFFERS_SIZE);
                 cleanUpBuffers();
-                cleanUpFiles();
                 return 1;
             } else {
                 printf("Changed password.\n");
@@ -1066,19 +983,15 @@ int main(int argc, char* argv[])
         /*This will change to the cipher just specified*/
         if (configEvp() != 0) {
             cleanUpBuffers();
-            cleanUpFiles();
             return 1;
         }
 
         /*The updatingDbEnc function decrypts with the old key and cipher settings, re-encrypts with new key and/or cipher settings and writes to 3rd temp file*/
-        int updateDbEncResult = updateDbEnc(EVPDataFileTmp);
-
-        fclose(EVPDataFileTmp);
+        int updateDbEncResult = updateDbEnc();
 
         if (updateDbEncResult == 0) {
-            if (writeDatabase(tmpFile3Name) != 0) {
+            if (writeDatabase() != 0) {
                 cleanUpBuffers();
-                cleanUpFiles();
                 return 1;
             }
         }
@@ -1089,7 +1002,6 @@ int main(int argc, char* argv[])
     }
 
     cleanUpBuffers();
-    cleanUpFiles();
     free(evpSalt);
     return 0;
 }
@@ -1191,37 +1103,6 @@ void allocateBuffers()
     free(tmpBuffer);
 }
 
-char* genFileName()
-{
-    unsigned char randomByte;
-    char* fileNameBuffer = calloc(sizeof(char), NAME_MAX);
-    /*Allocate fileName buffer to be large enough to accomodate default temporary directory name*/
-    char* fileName = calloc(sizeof(char), NAME_MAX - strlen(P_tmpdir));
-    int i = 0;
-
-    /*Go until i has iterated over the length of the pass requested*/
-    while (i < NAME_MAX) {
-        /*Gets a random byte from OpenSSL PRNG*/
-        RAND_bytes(&randomByte, 1);
-
-        /*Tests that byte to be printable and not blank*/
-        /*If it is it fills the temporary pass string buffer with that byte*/
-        if ((isupper(randomByte) != 0 || islower(randomByte) != 0 || isdigit(randomByte) != 0) && isblank(randomByte) == 0) {
-            fileNameBuffer[i] = randomByte;
-            i++;
-        }
-    }
-
-    /*Add null byte at end of random string generated for filename since the buffer is padded*/
-    fileNameBuffer[randomByte % (NAME_MAX - strlen(P_tmpdir))] = '\0';
-
-    snprintf(fileName, NAME_MAX, "%s/%s", P_tmpdir, fileNameBuffer);
-
-    free(fileNameBuffer);
-
-    return fileName;
-}
-
 void genPassWord(int stringLength)
 {
     unsigned char randomByte;
@@ -1234,7 +1115,6 @@ void genPassWord(int stringLength)
         if (!RAND_bytes(&randomByte, 1)) {
             printf("Failure: CSPRNG bytes could not be made unpredictable\n");
             cleanUpBuffers();
-            cleanUpFiles();
             exit(1);
         }
 
@@ -1275,7 +1155,6 @@ char* getPass(const char* prompt, char* paddedPass)
         /* Restore terminal. */
         (void)tcsetattr(fileno(stdin), TCSAFLUSH, &termisOld);
         cleanUpBuffers();
-        cleanUpFiles();
         printf("\nPassword was too large\n");
         exit(1);
     }
@@ -1304,7 +1183,6 @@ char* getPass(const char* prompt, char* paddedPass)
         OPENSSL_cleanse(pass, sizeof(char) * nread);
         free(pass);
         cleanUpBuffers();
-        cleanUpFiles();
         printf("\nPassword was too large\n");
         exit(1);
     } else {
@@ -1400,7 +1278,6 @@ void genEvpSalt()
         if (!RAND_bytes(&randomByte, 1)) {
             printf("Failure: CSPRNG bytes could not be made unpredictable\n");
             cleanUpBuffers();
-            cleanUpFiles();
             exit(1);
         }
         evpSalt[i] = randomByte;
@@ -1450,23 +1327,22 @@ int deriveEVPKey(char* dbPass, unsigned char* evpSalt, unsigned int saltLen,cons
 	return 0;
 }
 
-int writeDatabase(const char* tmpFileToUse)
+int writeDatabase()
 {
     unsigned char *cryptoHeaderPadding = calloc(sizeof(unsigned char),CRYPTO_HEADER_SIZE);
     unsigned char *fileBuffer;
     int MACSize = SHA512_DIGEST_LENGTH;
-    int fileSize = returnFileSize(tmpFileToUse);
+    int fileSize = evpDataSize;
     
     if (!RAND_bytes(cryptoHeaderPadding, CRYPTO_HEADER_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         cleanUpBuffers();
-        cleanUpFiles();
         exit(1);
     }
     memcpy(cryptoHeader,cryptoHeaderPadding,sizeof(char) * CRYPTO_HEADER_SIZE);
     free(cryptoHeaderPadding);
     
-    FILE *EVPDataFileTmp, *dbFile;
+    FILE *dbFile;
     
     dbFile = fopen(dbFileName, "wb");
     if (dbFile == NULL) {
@@ -1474,15 +1350,6 @@ int writeDatabase(const char* tmpFileToUse)
         printf("Couldn't open file: %s\n", dbFileName);
         return errno;
     }
-    
-    EVPDataFileTmp = fopen(tmpFileToUse, "rb");
-    if (EVPDataFileTmp == NULL) /*Make sure the file opens*/
-    {
-        perror("writeDatabase fopen tmpFileToUse");
-        printf("Couldn't open file: %s\n", tmpFileToUse);
-        return errno;
-    }
-    chmod(tmpFileToUse, S_IRUSR | S_IWUSR);
 
     /*Write crypto information as a header*/
 
@@ -1502,15 +1369,19 @@ int writeDatabase(const char* tmpFileToUse)
     
     /*Copy data from temp file into what will be the password database*/
     fileBuffer = calloc(sizeof(char), fileSize);
-    
-    if (freadWErrCheck(fileBuffer, sizeof(char), fileSize, EVPDataFileTmp, "openDatabase fread fileBuffer") != 0)
-		return returnVal;
 
-    if (fwriteWErrCheck(fileBuffer, sizeof(char), fileSize, dbFile, "openDatabase fwrite fileBuffer") != 0)
-		return returnVal;
+	if(condition.databaseBeingInitalized == true)
+	{
+		if (fwriteWErrCheck(dbInitBuffer, sizeof(char), fileSize, dbFile, "openDatabase fwrite fileBuffer") != 0)
+			return returnVal;
+	}
+	else
+	{
+		if (fwriteWErrCheck(encryptedBuffer, sizeof(char), fileSize, dbFile, "openDatabase fwrite fileBuffer") != 0)
+			return returnVal;
+	}
 
     fclose(dbFile);
-    fclose(EVPDataFileTmp);
 
     free(fileBuffer);
     
@@ -1552,8 +1423,6 @@ int writeDatabase(const char* tmpFileToUse)
 
     fclose(dbFile);
 
-    cleanUpFiles();
-
     return 0;
 }
 
@@ -1561,13 +1430,12 @@ int openDatabase()
 {
     char* token;
 
-    unsigned char* evpDataBuffer;
     unsigned char* verificationBuffer;
     int MACSize = SHA512_DIGEST_LENGTH;
     int fileSize = returnFileSize(dbFileName);
-    int evpDataSize = fileSize - (EVP_SALT_SIZE + CRYPTO_HEADER_SIZE + (MACSize * 2));
+    evpDataSize = fileSize - (EVP_SALT_SIZE + CRYPTO_HEADER_SIZE + (MACSize * 2));
 
-    FILE *dbFile, *EVPDataFileTmp;
+    FILE *dbFile;
 
     dbFile = fopen(dbFileName, "rb");
     if (dbFile == NULL)
@@ -1623,14 +1491,13 @@ int openDatabase()
 
 		fclose(dbFile);
 		free(verificationBuffer);
-        cleanUpFiles();
         cleanUpBuffers();
         return 1;
     }
     
-    /*Copy verificationBuffer to evpDataBuffer without the header information or MACs*/
-    evpDataBuffer = calloc(sizeof(char), evpDataSize);
-    memcpy(evpDataBuffer, verificationBuffer + EVP_SALT_SIZE + CRYPTO_HEADER_SIZE, evpDataSize);
+    /*Copy verificationBuffer to encryptedBuffer without the header information or MACs*/
+    encryptedBuffer = calloc(sizeof(char), evpDataSize);
+    memcpy(encryptedBuffer, verificationBuffer + EVP_SALT_SIZE + CRYPTO_HEADER_SIZE, evpDataSize);
 
 	fclose(dbFile);
 	free(verificationBuffer);
@@ -1648,7 +1515,6 @@ int openDatabase()
     token = strtok(NULL, ":");
     if (token == NULL) {
         printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
-        cleanUpFiles();
         exit(1);
     }
 
@@ -1680,55 +1546,28 @@ int openDatabase()
 		}
     }
 
-    /*Open a file to write the cipher-text into once we've stripped the MACs off*/
-    EVPDataFileTmp = fopen(tmpFile2Name, "wb");
-    if (EVPDataFileTmp == NULL) /*Make sure the file opens*/
-    {
-        perror("openDatabase fopen tmpFile2Name");
-        printf("Couldn't open file: %s\n", tmpFile2Name);
-        return errno;
-    }
-    chmod(tmpFile2Name, S_IRUSR | S_IWUSR);
-
-    if (fwriteWErrCheck(evpDataBuffer, sizeof(char), evpDataSize, EVPDataFileTmp, "openDatabase fwrite evpDataBuffer") != 0)
-		return returnVal;
-
-    fclose(EVPDataFileTmp);
-
-    free(evpDataBuffer);
-
     return 0;
 }
 
-int writePass(FILE* dbFile)
+int writePass()
 {
     int i;
-    long fileSize, newFileSize, oldFileSize;
+    long fileSize = evpDataSize, newFileSize, oldFileSize;
 
-    unsigned char dbInitBuffer[(UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH];
     int evpOutputLength;
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     EVP_CIPHER_CTX_init(ctx);
 
-    /*Use this method instad of returnFileSize() to use file pointed to by dbFile instead of filename*/
-    fseek(dbFile, 0L, SEEK_END);
-    fileSize = ftell(dbFile);
-    fseek(dbFile, 0L, SEEK_SET);
-
     /*entryPass and entryName are both copied into infoBuffer, which is then encrypted*/
     unsigned char* infoBuffer = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE * 2);
     unsigned char* decryptedBuffer = calloc(sizeof(unsigned char), fileSize + (UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH);
-    unsigned char* encryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
+    //unsigned char* encryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
 
     /*Copy bufers entryName and entryPass into infoBuffer, splitting the UI_BUFFERS_SIZE * 2 chars between the two*/
     for (i = 0; i < UI_BUFFERS_SIZE; i++)
         infoBuffer[i] = entryName[i];
     for (i = 0; i < UI_BUFFERS_SIZE; i++)
         infoBuffer[i + UI_BUFFERS_SIZE] = entryPass[i];
-
-    /*Store encrypted file in buffer*/
-    if (freadWErrCheck(encryptedBuffer, sizeof(unsigned char), fileSize, dbFile, "writePass fread encryptedBuffer") != 0)
-		return returnVal;
 
     if (condition.databaseBeingInitalized != true) {
 
@@ -1741,7 +1580,6 @@ int writePass(FILE* dbFile)
             free(infoBuffer);
             free(decryptedBuffer);
             free(encryptedBuffer);
-            cleanUpFiles();
             cleanUpBuffers();
             return 1;
         }
@@ -1757,7 +1595,6 @@ int writePass(FILE* dbFile)
             free(encryptedBuffer);
             free(ctx);
 	        
-	        cleanUpFiles();
 	        cleanUpBuffers();
 	        return 1;
 	    }
@@ -1775,7 +1612,6 @@ int writePass(FILE* dbFile)
             free(encryptedBuffer);
             free(ctx);
 	        
-	        cleanUpFiles();
 	        cleanUpBuffers();
 	        return 1;
 		}
@@ -1788,9 +1624,7 @@ int writePass(FILE* dbFile)
         /*Sign new ciphertext*/
         signCiphertext(EVP_CIPHER_iv_length(evpCipher), evpOutputLength, dbInitBuffer);
         
-        /*Write the encrypted information to file*/
-        if (fwriteWErrCheck(dbInitBuffer, evpOutputLength, sizeof(unsigned char), dbFile, "writePass fwrite dbInitBuffer") != 0)
-			return returnVal;
+        evpDataSize = evpOutputLength;
 
     } else {
 
@@ -1815,7 +1649,6 @@ int writePass(FILE* dbFile)
             free(encryptedBuffer);
             free(ctx);
 	        
-	        cleanUpFiles();
 	        cleanUpBuffers();
 	        return 1;
 		}
@@ -1829,25 +1662,19 @@ int writePass(FILE* dbFile)
         /*Sign new ciphertext*/
         signCiphertext(EVP_CIPHER_iv_length(evpCipher), newFileSize, encryptedBuffer);
         
-        fclose(dbFile);
-        wipeFile(tmpFile2Name);
-        dbFile = fopen(tmpFile2Name, "wb");
+        evpDataSize = newFileSize;
 
-        if (fwriteWErrCheck(encryptedBuffer, newFileSize, sizeof(unsigned char), dbFile, "writePass fwrite encryptedBuffer") != 0)
-			return returnVal;
     }
 
 	
     free(infoBuffer);
     free(decryptedBuffer);
-    free(encryptedBuffer);
     free(ctx);
 
-    fclose(dbFile);
     return 0;
 }
 
-int printPasses(FILE* dbFile, char* searchString)
+int printPasses(char* searchString)
 {
     int i, ii;
     int entriesMatched = 0;
@@ -1858,20 +1685,11 @@ int printPasses(FILE* dbFile, char* searchString)
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     EVP_CIPHER_CTX_init(ctx);
 
-	/*Use this method instad of returnFileSize() to use file pointed to by dbFile instead of filename*/
-    long fileSize;
-    fseek(dbFile, 0L, SEEK_END);
-    fileSize = ftell(dbFile);
-    fseek(dbFile, 0L, SEEK_SET);
+    long fileSize = evpDataSize;
 
     unsigned char* entryBuffer = calloc(sizeof(char), UI_BUFFERS_SIZE);
     unsigned char* passBuffer = calloc(sizeof(char), UI_BUFFERS_SIZE);
-    unsigned char* encryptedBuffer = calloc(sizeof(char), fileSize + EVP_MAX_BLOCK_LENGTH);
     unsigned char* decryptedBuffer = calloc(sizeof(char), fileSize + EVP_MAX_BLOCK_LENGTH);
-
-    /*Read the file into a buffer and check for error*/
-    if (freadWErrCheck(encryptedBuffer, sizeof(unsigned char), fileSize, dbFile, "printPasses fread encryptedBuffer") != 0)
-		return returnVal;
     
     /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
     if (verifyCiphertext(EVP_CIPHER_iv_length(evpCipher), fileSize, encryptedBuffer, HMACKey, evpIv) != 0) {
@@ -1882,7 +1700,6 @@ int printPasses(FILE* dbFile, char* searchString)
         free(passBuffer);
         free(encryptedBuffer);
         free(decryptedBuffer);
-        cleanUpFiles();
         cleanUpBuffers();
         return 1;
     }
@@ -1897,7 +1714,6 @@ int printPasses(FILE* dbFile, char* searchString)
 	        free(decryptedBuffer);
 	        free(ctx);
 	        
-	        cleanUpFiles();
 	        cleanUpBuffers();
 	        return 1;
 	}
@@ -1949,7 +1765,7 @@ int printPasses(FILE* dbFile, char* searchString)
     return 0;
 }
 
-int deletePass(FILE* dbFile, char* searchString)
+int deletePass(char* searchString)
 {	
 	int i, ii = 0, iii = 0;
     int lastCheck = 0;
@@ -1964,22 +1780,12 @@ int deletePass(FILE* dbFile, char* searchString)
     unsigned char* fileBuffer;
     unsigned char* fileBufferOld;
 
-    FILE* tmpFile;
-
     unsigned char* entryBuffer = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE);
     unsigned char* passBuffer = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE);
 
-	/*Use this method instad of returnFileSize() to use file pointed to by dbFile instead of filename*/
-    long fileSize, oldFileSize, newFileSize;
-    fseek(dbFile, 0L, SEEK_END);
-    fileSize = ftell(dbFile);
-    fseek(dbFile, 0L, SEEK_SET);
+    long fileSize = evpDataSize, oldFileSize, newFileSize;
 
-    unsigned char* encryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
     unsigned char* decryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
-
-    if (freadWErrCheck(encryptedBuffer, sizeof(unsigned char), fileSize, dbFile, "deletePass fread encryptedBuffer") != 0)
-		return returnVal;
 
     /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
     if (verifyCiphertext(EVP_CIPHER_iv_length(evpCipher), fileSize, encryptedBuffer, HMACKey, evpIv) != 0) {
@@ -1990,7 +1796,6 @@ int deletePass(FILE* dbFile, char* searchString)
         free(passBuffer);
         free(encryptedBuffer);
         free(decryptedBuffer);
-        cleanUpFiles();
         cleanUpBuffers();
         return 1;
     }
@@ -2010,7 +1815,6 @@ int deletePass(FILE* dbFile, char* searchString)
 			free(fileBuffer);
 			free(ctx);
 	        
-	        cleanUpFiles();
 	        cleanUpBuffers();
 	        return 1;
 	}
@@ -2086,7 +1890,6 @@ int deletePass(FILE* dbFile, char* searchString)
 			free(fileBuffer);
 			free(ctx);
 	        
-	        cleanUpFiles();
 	        cleanUpBuffers();
 	        return 1;
 	}
@@ -2097,34 +1900,20 @@ int deletePass(FILE* dbFile, char* searchString)
     OPENSSL_cleanse(fileBuffer, sizeof(unsigned char) * newFileSize);
     
     newFileSize = evpOutputLength;
+    evpDataSize = newFileSize;
 
 	/*Sign new ciphertext*/
 	signCiphertext(EVP_CIPHER_iv_length(evpCipher), newFileSize, encryptedBuffer);
 
-    /*Write the modified cipher-text to this temporary file for writeDatabase()*/
-    tmpFile = fopen(tmpFile3Name, "wb");
-    if (tmpFile == NULL) {
-        perror("deletePass fwrite tmpFile3Name");
-        printf("Couldn't open file: %s\n", tmpFile3Name);
-        return errno;
-    }
-    chmod(tmpFile3Name, S_IRUSR | S_IWUSR);
-
     if (entriesMatched < 1) {
         printf("Nothing matched that exactly.\n");
-        if (fwriteWErrCheck(encryptedBuffer, newFileSize, sizeof(unsigned char), tmpFile, "deletePass fwrite encryptedBuffer") != 0)
-			return returnVal;
     } else {
         printf("If you deleted more than you intended to, restore from %s.autobak\n", dbFileName);
-        if (fwriteWErrCheck(encryptedBuffer, newFileSize, sizeof(unsigned char), tmpFile, "deletePass fwrite encryptedBuffer") != 0)
-			return returnVal;
     }
-    fclose(tmpFile);
 
 	
     free(entryBuffer);
     free(passBuffer);
-    free(encryptedBuffer);
     free(decryptedBuffer);
     free(fileBuffer);
     free(ctx);
@@ -2132,7 +1921,7 @@ int deletePass(FILE* dbFile, char* searchString)
     return 0;
 }
 
-int updateEntry(FILE* dbFile, char* searchString)
+int updateEntry(char* searchString)
 {
     int i, ii = 0;
     bool noEntryMatched = true;
@@ -2149,22 +1938,12 @@ int updateEntry(FILE* dbFile, char* searchString)
 
     unsigned char* fileBuffer;
 
-    FILE* tmpFile;
-
     unsigned char* entryBuffer = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE);
     unsigned char* passBuffer = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE);
 
-    /*Use this method instad of returnFileSize() to use file pointed to by dbFile instead of filename*/
-    long fileSize, oldFileSize, newFileSize;
-    fseek(dbFile, 0L, SEEK_END);
-    fileSize = ftell(dbFile);
-    fseek(dbFile, 0L, SEEK_SET);
+    long fileSize = evpDataSize, oldFileSize, newFileSize;
 
-    unsigned char* encryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
     unsigned char* decryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
-
-    if (freadWErrCheck(encryptedBuffer, sizeof(unsigned char), fileSize, dbFile, "updateEntry fread encryptedBuffer") != 0)
-		return returnVal;
 
     /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
     if (verifyCiphertext(EVP_CIPHER_iv_length(evpCipher), fileSize, encryptedBuffer, HMACKey, evpIv) != 0) {
@@ -2179,7 +1958,6 @@ int updateEntry(FILE* dbFile, char* searchString)
         free(encryptedBuffer);
         free(decryptedBuffer);
 
-        cleanUpFiles();
         cleanUpBuffers();
         return 1;
     }
@@ -2201,7 +1979,6 @@ int updateEntry(FILE* dbFile, char* searchString)
 			free(fileBuffer);
 			free(ctx);
 	        
-	        cleanUpFiles();
 	        cleanUpBuffers();
 	        return 1;
 	}
@@ -2323,7 +2100,6 @@ int updateEntry(FILE* dbFile, char* searchString)
 			free(fileBuffer);
 			free(ctx);
 	        
-	        cleanUpFiles();
 	        cleanUpBuffers();
 	        return 1;
 	}
@@ -2331,9 +2107,10 @@ int updateEntry(FILE* dbFile, char* searchString)
     EVP_CIPHER_CTX_cleanup(ctx);
     
     newFileSize = evpOutputLength;
+    evpDataSize = newFileSize;
 
     /*Clear out fileBuffer ASAP*/
-    OPENSSL_cleanse(fileBuffer, sizeof(unsigned char) * newFileSize);
+    OPENSSL_cleanse(fileBuffer, sizeof(unsigned char) * oldFileSize);
 
 	/*Sign new ciphertext*/
     signCiphertext(EVP_CIPHER_iv_length(evpCipher), newFileSize, encryptedBuffer);   
@@ -2344,23 +2121,8 @@ int updateEntry(FILE* dbFile, char* searchString)
     } else
         printf("If you updated more than you intended to, restore from %s.autobak\n", dbFileName);
 
-    /*Write the modified cipher-text to this temporary file for writeDatabase()*/
-    tmpFile = fopen(tmpFile3Name, "wb");
-    if (tmpFile == NULL) {
-        perror("updateEntry fwrite tmpFile3Name");
-        printf("Couldn't open file: %s\n", tmpFile3Name);
-    }
-    chmod(tmpFile3Name, S_IRUSR | S_IWUSR);
-
-    /*Write the encryptedBuffer out and check for errors*/
-    if (fwriteWErrCheck(encryptedBuffer, newFileSize, sizeof(unsigned char), tmpFile, "updateEntry fwrite encryptedBuffer") != 0)
-		return returnVal;
-
-    fclose(tmpFile);
-    
     free(entryBuffer);
     free(passBuffer);
-    free(encryptedBuffer);
     free(decryptedBuffer);
     free(fileBuffer);
     free(ctx);
@@ -2368,25 +2130,15 @@ int updateEntry(FILE* dbFile, char* searchString)
     return 0;
 }
 
-int updateDbEnc(FILE* dbFile)
+int updateDbEnc()
 {
     int evpOutputLength;
     EVP_CIPHER_CTX* ctx = EVP_CIPHER_CTX_new();
     EVP_CIPHER_CTX_init(ctx);
 
-    FILE* tmpFile;
-
-    /*Use this method instad of returnFileSize() to use file pointed to by dbFile instead of filename*/
-    long fileSize, oldFileSize, newFileSize;
-    fseek(dbFile, 0L, SEEK_END);
-    fileSize = ftell(dbFile);
-    fseek(dbFile, 0L, SEEK_SET);
+    long fileSize = evpDataSize, oldFileSize, newFileSize;
 
     unsigned char* decryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
-    unsigned char* encryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
-
-    if (freadWErrCheck(encryptedBuffer, sizeof(unsigned char), fileSize, dbFile, "updateDbEnc fread encryptedBuffer") != 0)
-		return returnVal;
     
 	/*Verify authenticity of ciphertext loaded into encryptedBuffer*/
     if (verifyCiphertext(EVP_CIPHER_iv_length(evpCipherOld),fileSize,encryptedBuffer,HMACKeyOld, evpIvOld) != 0) {
@@ -2395,7 +2147,6 @@ int updateDbEnc(FILE* dbFile)
 
         free(decryptedBuffer);
         free(encryptedBuffer);
-        cleanUpFiles();
         cleanUpBuffers();
         return 1;
     }
@@ -2411,7 +2162,6 @@ int updateDbEnc(FILE* dbFile)
 	        free(decryptedBuffer);
 	        free(ctx);
 	        
-	        cleanUpFiles();
 	        cleanUpBuffers();
 	        return 1;
 	}
@@ -2425,6 +2175,9 @@ int updateDbEnc(FILE* dbFile)
 	}
 
     memcpy(HMACKey, HMACKeyNew, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
+    
+    free(encryptedBuffer);
+    encryptedBuffer = calloc(sizeof(unsigned char), oldFileSize + EVP_MAX_BLOCK_LENGTH);
 
     EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
     
@@ -2434,7 +2187,6 @@ int updateDbEnc(FILE* dbFile)
 	        free(decryptedBuffer);
 	        free(ctx);
 	        
-	        cleanUpFiles();
 	        cleanUpBuffers();
 	        return 1;
 	}
@@ -2442,6 +2194,7 @@ int updateDbEnc(FILE* dbFile)
     EVP_CIPHER_CTX_cleanup(ctx);
     
     newFileSize = evpOutputLength;
+    evpDataSize = newFileSize;
 
     /*Clear sensitive data from decryptedBuffer ASAP*/
     OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * oldFileSize);
@@ -2452,24 +2205,8 @@ int updateDbEnc(FILE* dbFile)
 	
 	/*Sign new ciphertext*/
 	signCiphertext(EVP_CIPHER_iv_length(evpCipher), newFileSize, encryptedBuffer);
-
-	/*Write the modified cipher-text to this temporary file for writeDatabase()*/
-    tmpFile = fopen(tmpFile3Name, "wb");
-    if (tmpFile == NULL)
-    {
-        perror("updateDbEnc tmpFile3Name");
-        printf("Couldn't open file: %s\n", tmpFile3Name);
-        return errno;
-    }
-    chmod(tmpFile3Name, S_IRUSR | S_IWUSR);
-
-    if (fwriteWErrCheck(encryptedBuffer, newFileSize, sizeof(unsigned char), tmpFile, "updateDbEnc fwrite encryptedBuffer") != 0)
-		return returnVal;
-    fclose(tmpFile);
-
 	
     free(decryptedBuffer);
-    free(encryptedBuffer);
     free(ctx);
 
     return 0;
@@ -2643,6 +2380,21 @@ int fwriteWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream, char *er
     return 0;
 }
 
+int compareMAC(const void * in_a, const void * in_b, size_t len)
+{
+	/*This is CRYPTO_memcmp from cryptlib.c in OpenSSL 1.1.*/
+	/*Added here for backward-compatability to OpenSSL 1.0.1*/
+    size_t i;
+    const volatile unsigned char *a = in_a;
+    const volatile unsigned char *b = in_b;
+    unsigned char x = 0;
+
+    for (i = 0; i < len; i++)
+        x |= a[i] ^ b[i];
+
+    return x;
+}
+
 void cleanUpBuffers()
 {
 	/*OPENSSL_cleanse won't be optimized away by the compiler*/
@@ -2662,77 +2414,6 @@ void cleanUpBuffers()
     OPENSSL_cleanse(HMACKeyOld, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
     OPENSSL_cleanse(HMACKeyNew, sizeof(unsigned char) * SHA512_DIGEST_LENGTH); 
 
-}
-
-int compareMAC(const void * in_a, const void * in_b, size_t len)
-{
-	/*This is CRYPTO_memcmp from cryptlib.c in OpenSSL 1.1.*/
-	/*Added here for backward-compatability to OpenSSL 1.0.1*/
-    size_t i;
-    const volatile unsigned char *a = in_a;
-    const volatile unsigned char *b = in_b;
-    unsigned char x = 0;
-
-    for (i = 0; i < len; i++)
-        x |= a[i] ^ b[i];
-
-    return x;
-}
-
-void cleanUpFiles()
-{
-    /*fileNonExistant returns 0 ('false') if stat() can stat the file*/
-    if (fileNonExistant(tmpFile1Name) == false) {
-        wipeFile(tmpFile1Name);
-        remove(tmpFile1Name);
-    }
-    if (fileNonExistant(tmpFile2Name) == false) {
-        wipeFile(tmpFile2Name);
-        remove(tmpFile2Name);
-    }
-    if (fileNonExistant(tmpFile3Name) == false) {
-        wipeFile(tmpFile3Name);
-        remove(tmpFile3Name);
-    }
-}
-
-int wipeFile(const char* filename)
-{
-	/*Over write the data we put in the temporary files with Schneier 7-Pass Method*/
-	/*Even though it's encrypted, it avoids leaving multiple cipher-texts around*/
-	/*https://en.wikipedia.org/wiki/Data_remanence#Feasibility_of_recovering_overwritten_data*/
-	/*https://en.wikipedia.org/wiki/Data_erasure#Standards*/
-	
-    int fileSize = returnFileSize(filename);
-    int i, ii, passes = 7;
-    unsigned char b;
-    FILE* fileToWrite;
-    for (ii = 0; ii <= passes; ii++) {
-        fileToWrite = fopen(filename, "w+");
-        if (fileToWrite == NULL)
-        {
-            perror("wipeFile");
-            printf("Couldn't open file: %s\n", filename);
-            return errno;
-        }
-        if (ii == 0) {
-            for (i = 0; i <= fileSize; i++)
-                fprintf(fileToWrite, "%i", 1);
-        } else if (ii == 1) {
-            for (i = 0; i <= fileSize; i++)
-                fprintf(fileToWrite, "%i", 0);
-
-        } else {
-            for (i = 0; i <= fileSize; i++) {
-                if (!RAND_bytes(&b, 1)) {
-                    printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-                }
-                fprintf(fileToWrite, "%c", 0);
-            }
-        }
-        fclose(fileToWrite);
-    }
-    return 0;
 }
 
 bool fileNonExistant(const char* filename)
@@ -2771,7 +2452,6 @@ void signalHandler(int signum)
     // Cleanup and close up stuff here
 
     cleanUpBuffers();
-    cleanUpFiles();
 
     /* Restore terminal. */
     (void)tcsetattr(fileno(stdin), TCSAFLUSH, &termisOld);
@@ -2841,7 +2521,7 @@ int printSyntax(char* arg)
 \n     \t-c 'cipher' - Update encryption algorithm  \
 \n     \t-H 'digest' - Update digest used for algorithms' KDFs \
 \n     \t-i 'iterations' - Update iteration amount used by PBKDF2 to 'iterations'\
-\nVersion 3.2.3\
+\nVersion 3.2.4\
 \n\
 ",
         arg);

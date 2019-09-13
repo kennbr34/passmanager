@@ -2,6 +2,9 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+2019-9-13
+(+ver 3.2.4)
+	Removed use of temp files so that program operates purely in memory
 2019-9-12
 (+ver 3.2.3)
 	No onger enforce CTR, CFB or OFB mode
