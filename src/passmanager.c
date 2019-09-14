@@ -2215,11 +2215,12 @@ int updateDbEnc()
 int verifyCiphertext(unsigned int IvLength, unsigned int encryptedBufferLength, unsigned char *encryptedBuffer, unsigned char *HMACKey, unsigned char *evpIv)
 {
 	/*Generate MAC from both cipher-text and IV*/
-	unsigned char hmacBuffer[encryptedBufferLength + IvLength];
+	unsigned char *hmacBuffer = calloc(sizeof(unsigned char), encryptedBufferLength + IvLength)
 	memcpy(hmacBuffer,evpIv,IvLength);
 	memcpy(hmacBuffer + IvLength,encryptedBuffer,encryptedBufferLength);
     HMAC(EVP_sha512(), HMACKey, SHA512_DIGEST_LENGTH, hmacBuffer, encryptedBufferLength + IvLength, MACcipherTextGenerates, HMACLengthPtr);
     OPENSSL_cleanse(hmacBuffer,sizeof(char) * (encryptedBufferLength + IvLength));
+    free(hmacBuffer)
     
     if(compareMAC(MACcipherTextSignedWith, MACcipherTextGenerates, SHA512_DIGEST_LENGTH) != 0)
 		return 1;
@@ -2230,11 +2231,12 @@ int verifyCiphertext(unsigned int IvLength, unsigned int encryptedBufferLength, 
 void signCiphertext(unsigned int IvLength, unsigned int encryptedBufferLength, unsigned char *encryptedBuffer)
 {
 	/*Generate MAC from both cipher-text and IV*/
-	unsigned char hmacBuffer[encryptedBufferLength + IvLength];
+	unsigned char *hmacBuffer = calloc(sizeof(unsigned char), encryptedBufferLength + IvLength)
     memcpy(hmacBuffer,evpIv,IvLength);
     memcpy(hmacBuffer + IvLength,encryptedBuffer,encryptedBufferLength);
     HMAC(EVP_sha512(), HMACKey, SHA512_DIGEST_LENGTH, hmacBuffer, encryptedBufferLength + IvLength, MACcipherTextGenerates, HMACLengthPtr);
     OPENSSL_cleanse(hmacBuffer,sizeof(char) * (encryptedBufferLength + IvLength));
+    free(hmacBuffer);
 }
 
 int evpDecrypt(EVP_CIPHER_CTX* ctx, int evpInputLength, int* evpOutputLength, unsigned char *encryptedBuffer, unsigned char *decryptedBuffer)
