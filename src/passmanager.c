@@ -2220,7 +2220,7 @@ int verifyCiphertext(unsigned int IvLength, unsigned int encryptedBufferLength, 
 	memcpy(hmacBuffer + IvLength,encryptedBuffer,encryptedBufferLength);
     HMAC(EVP_sha512(), HMACKey, SHA512_DIGEST_LENGTH, hmacBuffer, encryptedBufferLength + IvLength, MACcipherTextGenerates, HMACLengthPtr);
     OPENSSL_cleanse(hmacBuffer,sizeof(char) * (encryptedBufferLength + IvLength));
-    free(hmacBuffer)
+    free(hmacBuffer);
     
     if(compareMAC(MACcipherTextSignedWith, MACcipherTextGenerates, SHA512_DIGEST_LENGTH) != 0)
 		return 1;
