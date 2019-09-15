@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <openssl/crypto.h>
+#include <openssl/opensslv.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/objects.h>
@@ -185,37 +186,30 @@ int main(int argc, char* argv[])
     /*Check for super user priveleges*/
     if(geteuid() != 0 && getuid() != 0) {
 		printf("euid: %i uid: %i\n", geteuid(), getuid());
-		printf("No priveleges to lock memory.  You may lose sensitive data to swap! Aborting.\n");
+		printf("No priveleges to lock memory or disable prace. Your sensitive data might be swapped to disk or exposed to other processes. Aborting.\n");
 		exit(1);
 	} else {
-		/*Lock program memory*/	
-		
-		/*Prevent core dump if program crashes*/
-		struct rlimit rl;
-
-		rl.rlim_cur = 0;
-		rl.rlim_max = 0;
-
-		setrlimit(RLIMIT_CORE,&rl);
 
 		/*Variables for libcap functions*/
 		cap_t caps;
-		cap_value_t cap_list[2];
+		cap_value_t set_list[1];
 		cap_value_t clear_list[1];
 		caps = cap_get_proc();
 		if (caps == NULL) {
 			perror("libcap");
 			exit(1);
 		}
-		cap_list[0] = CAP_IPC_LOCK;
+		set_list[0] = CAP_IPC_LOCK;
 		clear_list[0] = CAP_SYS_PTRACE;
 		
-		/*Set CAP_IPC_LOCK so we're not limited to a measely 32K of locked memory*/
-		if (cap_set_flag(caps, CAP_EFFECTIVE,1, cap_list, CAP_SET) == -1) {
+		/*Enable memory locking*/
+		if (cap_set_flag(caps, CAP_EFFECTIVE,1, set_list, CAP_SET) == -1) {
 			perror("caplist CAP_EFFECTIVE");
 			exit(1);
 		}
-		if (cap_set_flag(caps, CAP_INHERITABLE,1, cap_list, CAP_SET) == -1) {
+		
+		/*Make the capability inheritable to child processes*/
+		if (cap_set_flag(caps, CAP_INHERITABLE,1, set_list, CAP_SET) == -1) {
 			perror("caplit CAP INHERITABLE");
 			exit(1);
 		}
@@ -224,6 +218,11 @@ int main(int argc, char* argv[])
 			perror("clearlist CAP_EFFECTIVE");
 			exit(1);
 		}
+		if (cap_set_flag(caps, CAP_PERMITTED,1, clear_list, CAP_CLEAR) == -1) {
+			perror("clearlist CAP_EFFECTIVE");
+			exit(1);
+		}
+		/*Make the disability inheritable to child processes*/
 		if (cap_set_flag(caps, CAP_INHERITABLE,1, clear_list, CAP_CLEAR) == -1) {
 			perror("clearlist CAP INHERITABLE");
 			exit(1);
@@ -236,6 +235,22 @@ int main(int argc, char* argv[])
 			perror("cap_free");
 			exit(1);
 		}
+		
+		/*Structure values for rlimits*/
+		struct rlimit core, memlock;
+
+		core.rlim_cur = 0;
+		core.rlim_max = 0;
+		memlock.rlim_cur = RLIM_INFINITY;
+		memlock.rlim_max = RLIM_INFINITY;
+
+		/*Disable core dumps*/
+		if(setrlimit(RLIMIT_CORE,&core) == -1)
+			perror("Disable core dump");
+		
+		/*Raise limit of locked memory to unlimited*/
+		if(setrlimit(RLIMIT_MEMLOCK,&memlock) == -1)
+			perror("Set memlock to unlimited");
 				
 		/*Lock all current and future  memory from being swapped*/
 		if ( mlockall(MCL_CURRENT|MCL_FUTURE) == -1 ) {
@@ -243,7 +258,7 @@ int main(int argc, char* argv[])
 			exit(1);
 		}
 		
-		/*Drop root*/
+		/*Drop root before executing the rest of the program*/
 		if(geteuid() == 0 && getuid() != 0) { /*If executable was not started as root, but given root privelge through SETUID/SETGID bit*/
 			if(seteuid(getuid())) { /*Drop EUID back to the user who executed the binary*/
 			perror("setuid");
@@ -253,7 +268,7 @@ int main(int argc, char* argv[])
 			perror("setuid");
 			exit(1);
 			}
-			if(getuid() == 0 || geteuid() == 0) { /*Fail if we could not drop root priveleges*/
+			if(getuid() == 0 || geteuid() == 0) { /*Fail if we could not drop root priveleges, unless started as root or with sudo*/
 				printf("Could not drop root\n");
 				exit(1);
 			}
@@ -1226,11 +1241,13 @@ int configEvp()
 			printf("Program does not support ciphers in wrap mode\n");
 			return 1;
 		}
+		#ifdef EVP_CIPH_OCB_MODE
 		else if (EVP_CIPHER_mode(EVP_get_cipherbyname(encCipherName)) == EVP_CIPH_OCB_MODE)
 		{
 			printf("Program does not support ciphers in OCB mode\n");
 			return 1;
 		}
+		#endif
 		else
 			evpCipher = EVP_get_cipherbyname(encCipherName);
 
@@ -2523,7 +2540,7 @@ int printSyntax(char* arg)
 \n     \t-c 'cipher' - Update encryption algorithm  \
 \n     \t-H 'digest' - Update digest used for algorithms' KDFs \
 \n     \t-i 'iterations' - Update iteration amount used by PBKDF2 to 'iterations'\
-\nVersion 3.2.4\
+\nVersion 3.2.5\
 \n\
 ",
         arg);

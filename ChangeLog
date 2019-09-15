@@ -2,6 +2,11 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+2019-9-14
+(+vr 3.2.5)
+	Fixed RLIMIT_MEMLOCK to stay unlimited after dropping root priveleges
+	Added #ifdef to test if OCB mode is designed for backward compatability
+	Set sys_ptrace capability to not effectiv, not permitted and not inheritable
 2019-9-13
 (+ver 3.2.4)
 	Removed use of temp files so that program operates purely in memory
