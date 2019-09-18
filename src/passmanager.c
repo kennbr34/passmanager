@@ -2314,7 +2314,7 @@ int updateEntry(char* searchString)
         printf("If you updated more than you intended to, restore from %s.autobak\n", dbFileName);
 	}
 	if(condition.sendToClipboard == true && entriesMatched > 1)
-				printf("Multiple entries matched, can't send to clipboard\n");
+				printf("Multiple entries matched, only sent fist entry's matched to clipboard\n");
 	
     free(entryBuffer);
     free(passBuffer);
