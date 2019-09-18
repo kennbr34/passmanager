@@ -1,1 +1,0 @@
-Fix to not try to send pass to xclip if more than one entry matched

@@ -2,8 +2,14 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+2019-9-17
+(+ver 3.2.6)
+	Fixed read mode to not send multiple passes to clipboard if multiple matched
+	Fixed all modes to not say password sent to clipboard even if there was a problem
+	Fixed error control and messages to inform of line and function where error occured
+	Fixed fread/fwrite error checking to differentiate between a problem with file stream and a short item count
 2019-9-14
-(+vr 3.2.5)
+(+ver 3.2.5)
 	Fixed RLIMIT_MEMLOCK to stay unlimited after dropping root priveleges
 	Added #ifdef to test if OCB mode is designed for backward compatability
 	Set sys_ptrace capability to not effectiv, not permitted and not inheritable
