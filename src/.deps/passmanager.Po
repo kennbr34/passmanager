@@ -121,7 +121,8 @@ src/passmanager.o: src/passmanager.c /usr/include/stdc-predef.h config.h \
  /usr/include/x86_64-linux-gnu/sys/time.h \
  /usr/include/x86_64-linux-gnu/sys/resource.h \
  /usr/include/x86_64-linux-gnu/bits/resource.h \
- /usr/include/x86_64-linux-gnu/bits/types/struct_rusage.h
+ /usr/include/x86_64-linux-gnu/bits/types/struct_rusage.h \
+ /usr/lib/gcc/x86_64-linux-gnu/7/include/stdbool.h
 
 /usr/include/stdc-predef.h:
 
@@ -436,3 +437,5 @@ config.h:
 /usr/include/x86_64-linux-gnu/bits/resource.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/struct_rusage.h:
+
+/usr/lib/gcc/x86_64-linux-gnu/7/include/stdbool.h:
