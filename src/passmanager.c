@@ -186,6 +186,8 @@ int genPassLength;
 /*Structs needed to hold termios info when resetting terminal echo'ing after taking password*/
 struct termios termisOld, termiosNew;
 
+int returnVal;
+
 int main(int argc, char* argv[])
 {
     /*Print help if no arguments given*/
@@ -199,7 +201,7 @@ int main(int argc, char* argv[])
     if(geteuid() != 0 && getuid() != 0) {
 		printf("euid: %i uid: %i\n", geteuid(), getuid());
 		printf("No priveleges to lock memory or disable prace. Your sensitive data might be swapped to disk or exposed to other processes. Aborting.\n");
-		exit(1);
+		exit(EXIT_FAILURE);
 	} else {
 
 		/*Variables for libcap functions*/
@@ -209,7 +211,7 @@ int main(int argc, char* argv[])
 		caps = cap_get_proc();
 		if (caps == NULL) {
 			printSysError(errno);
-			exit(1);
+			exit(EXIT_FAILURE);
 		}
 		set_list[0] = CAP_IPC_LOCK;
 		clear_list[0] = CAP_SYS_PTRACE;
@@ -217,35 +219,35 @@ int main(int argc, char* argv[])
 		/*Enable memory locking*/
 		if (cap_set_flag(caps, CAP_EFFECTIVE,1, set_list, CAP_SET) == -1) {
 			printSysError(errno);
-			exit(1);
+			exit(EXIT_FAILURE);
 		}
 		
 		/*Make the capability inheritable to child processes*/
 		if (cap_set_flag(caps, CAP_INHERITABLE,1, set_list, CAP_SET) == -1) {
 			printSysError(errno);
-			exit(errno);
+			exit(EXIT_FAILURE);
 		}
 		/*Disable ptrace ability*/
 		if (cap_set_flag(caps, CAP_EFFECTIVE,1, clear_list, CAP_CLEAR) == -1) {
 			printSysError(errno);
-			exit(errno);
+			exit(EXIT_FAILURE);
 		}
 		if (cap_set_flag(caps, CAP_PERMITTED,1, clear_list, CAP_CLEAR) == -1) {
 			printSysError(errno);
-			exit(errno);
+			exit(EXIT_FAILURE);
 		}
 		/*Make the disability inheritable to child processes*/
 		if (cap_set_flag(caps, CAP_INHERITABLE,1, clear_list, CAP_CLEAR) == -1) {
 			printSysError(errno);
-			exit(1);
+			exit(EXIT_FAILURE);
 		}
 		if (cap_set_proc(caps) == -1) {
 			printSysError(errno);
-			exit(errno);
+			exit(EXIT_FAILURE);
 		}
 		if (cap_free(caps) == -1) {
 			printSysError(errno);
-			exit(errno);
+			exit(EXIT_FAILURE);
 		}
 		
 		/*Structure values for rlimits*/
@@ -260,35 +262,35 @@ int main(int argc, char* argv[])
 		if(setrlimit(RLIMIT_CORE,&core) == -1)
 		{
 			printSysError(errno);
-			exit(errno);
+			exit(EXIT_FAILURE);
 		}
 		
 		/*Raise limit of locked memory to unlimited*/
 		if(setrlimit(RLIMIT_MEMLOCK,&memlock) == -1)
 		{
 			printSysError(errno);
-			exit(errno);
+			exit(EXIT_FAILURE);
 		}
 				
 		/*Lock all current and future  memory from being swapped*/
 		if ( mlockall(MCL_CURRENT|MCL_FUTURE) == -1 ) {
 			printSysError(errno);
-			exit(errno);
+			exit(EXIT_FAILURE);
 		}
 		
 		/*Drop root before executing the rest of the program*/
 		if(geteuid() == 0 && getuid() != 0) { /*If executable was not started as root, but given root privelge through SETUID/SETGID bit*/
 			if(seteuid(getuid())) { /*Drop EUID back to the user who executed the binary*/
 			printSysError(errno);
-			exit(errno);
+			exit(EXIT_FAILURE);
 			}
 			if(setuid(getuid())) { /*Drop UID back to the privelges of the user who executed the binary*/
 			printSysError(errno);
-			exit(errno);
+			exit(EXIT_FAILURE);
 			}
 			if(getuid() == 0 || geteuid() == 0) { /*Fail if we could not drop root priveleges, unless started as root or with sudo*/
 				printf("Could not drop root\n");
-				exit(errno);
+				exit(EXIT_FAILURE);
 			}
 		}
 	}
@@ -392,7 +394,7 @@ int main(int argc, char* argv[])
                 condition.deletingPass = true;
             if (strlen(optarg) > UI_BUFFERS_SIZE) {
                 printf("\nentry name too long\n");
-                exit(1);
+                exit(EXIT_FAILURE);
             }
             strncpy(entryName, optarg, UI_BUFFERS_SIZE);
             condition.entryGiven = true;
@@ -440,7 +442,7 @@ int main(int argc, char* argv[])
                 if (dbFile == NULL)
                 {
                     printFileError(optarg,errno);
-                    exit(errno);
+                    exit(EXIT_FAILURE);
                 }
 
                 strncpy(dbFileName, optarg, NAME_MAX);
@@ -450,7 +452,7 @@ int main(int argc, char* argv[])
                 if (dbFile == NULL)
                 {
                     printFileError(optarg,errno);
-                    exit(errno);
+                    exit(EXIT_FAILURE);
                 }
 
                 strncpy(dbFileName, optarg, NAME_MAX);
@@ -460,7 +462,7 @@ int main(int argc, char* argv[])
                 if (dbFile == NULL)
                 {
                     printFileError(optarg,errno);
-                    exit(errno);
+                    exit(EXIT_FAILURE);
                 }
                 strncpy(dbFileName, optarg, NAME_MAX);
             }
@@ -469,7 +471,7 @@ int main(int argc, char* argv[])
                 if (dbFile == NULL)
                 {
                     printFileError(optarg,errno);
-                    exit(errno);
+                    exit(EXIT_FAILURE);
                 }
                 strncpy(dbFileName, optarg, NAME_MAX);
             }
@@ -478,7 +480,7 @@ int main(int argc, char* argv[])
                 if (dbFile == NULL)
                 {
                     printFileError(optarg,errno);
-                    exit(errno);
+                    exit(EXIT_FAILURE);
                 }
                 strncpy(dbFileName, optarg, NAME_MAX);
             }
@@ -493,7 +495,7 @@ int main(int argc, char* argv[])
                 condition.searchForEntry = true;
             if (strlen(optarg) > UI_BUFFERS_SIZE) {
                 printf("\nentry name too long\n");
-                exit(errno);
+                exit(EXIT_FAILURE);
             }
             strncpy(entryName, optarg, UI_BUFFERS_SIZE);
             condition.entryGiven = true;
@@ -506,7 +508,7 @@ int main(int argc, char* argv[])
                 condition.updatingEntry = true;
             if (strlen(optarg) > UI_BUFFERS_SIZE) {
                 printf("\nentry name too long\n");
-                exit(errno);
+                exit(EXIT_FAILURE);
             }
             if (strcmp(optarg, "allpasses") == 0)
                 condition.updateAllPasses = true;
@@ -520,7 +522,7 @@ int main(int argc, char* argv[])
             }
             if (strlen(optarg) > UI_BUFFERS_SIZE) {
                 printf("\npassword too long\n");
-                exit(errno);
+                exit(EXIT_FAILURE);
             }
             if (strcmp(optarg, "gen") == 0)
                 condition.generateEntryPass = true;
@@ -580,7 +582,7 @@ int main(int argc, char* argv[])
     /*Finally test for errflag and halt program if on*/
     if (errflg) {
         printSyntax("passmanger"); /*Print proper usage of program*/
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     /*Before anything else, back up the password database*/
@@ -596,12 +598,18 @@ int main(int argc, char* argv[])
             if(backUpFileBuffer == NULL)
 			{
 				printSysError(errno);
-				exit(errno);
+				exit(EXIT_FAILURE);
 			}
             
-            freadWErrCheck(backUpFileBuffer, sizeof(char), returnFileSize(dbFileName), copyFile);
+            if(freadWErrCheck(backUpFileBuffer, sizeof(char), returnFileSize(dbFileName), copyFile) != 0) {
+				printSysError(returnVal);
+				exit(EXIT_FAILURE);
+			}
             
-            fwriteWErrCheck(backUpFileBuffer, sizeof(char), returnFileSize(dbFileName), backUpFile);
+            if(fwriteWErrCheck(backUpFileBuffer, sizeof(char), returnFileSize(dbFileName), backUpFile) != 0) {
+				printSysError(returnVal);
+				exit(EXIT_FAILURE);
+			}
 			
             fclose(copyFile);
             fclose(backUpFile);
@@ -617,7 +625,7 @@ int main(int argc, char* argv[])
         /*If dbFile is NULL there was a problem opening it*/
         if (dbFile == NULL) {
             printSysError(errno);
-            exit(errno);
+            exit(EXIT_FAILURE);
         }
 
         /*If generating a random password was specified on command line*/
@@ -657,7 +665,7 @@ int main(int argc, char* argv[])
                 getPass("Verify password:", entryPassToVerify);
                 if (strcmp(entryPass, entryPassToVerify) != 0) {
                     printf("\nPasswords do not match.  Nothing done.\n\n");
-                    exit(errno);
+                    exit(EXIT_FAILURE);
                 }
             }
         }
@@ -671,7 +679,7 @@ int main(int argc, char* argv[])
                 getPass("Verify password:", dbPassToVerify);
                 if (strcmp(dbPass, dbPassToVerify) != 0) {
                     printf("\nPasswords do not match.  Nothing done.\n\n");
-                    exit(errno);
+                    exit(EXIT_FAILURE);
                 }
             }
         }
@@ -700,11 +708,6 @@ int main(int argc, char* argv[])
         if (writePassResult == 0) {
             printf("Added \"%s\" to database.\n", entryName);
 
-            if (condition.sendToClipboard == true) {
-                if(sendToClipboard(entryPass) == 0)
-					printf("New password sent to clipboard. Paste with middle-click.\n");
-            }
-
             /*writeDatabase attaches prepends salt and header and appends MACs to cipher-text and writes it all as password database*/
             writeDatabase();
         }
@@ -721,7 +724,7 @@ int main(int argc, char* argv[])
         if (EVPEncryptedFile == NULL)
         {
             printFileError(dbFileName,errno);
-			exit(errno);
+			exit(EXIT_FAILURE);
         }
 
         /*Note no configEvp() needed before openDatabase() in Read mode*/
@@ -749,7 +752,7 @@ int main(int argc, char* argv[])
         {
             fclose(dbFile);
             printf("\nNo entry name was specified\n");
-			exit(1);
+			exit(EXIT_FAILURE);
         }
 
         fclose(dbFile);
@@ -936,7 +939,7 @@ int main(int argc, char* argv[])
             if (strcmp(dbPass, dbPassToVerify) != 0) {
                 printf("Passwords don't match, not changing.\n");
                 strncpy(dbPass, dbPassOld, UI_BUFFERS_SIZE);
-                exit(1);
+                exit(EXIT_FAILURE);
             } else {
                 printf("Changed password.\n");
                 deriveHMACKey();
@@ -972,12 +975,12 @@ int main(int argc, char* argv[])
 
     } else {
         printSyntax("passmanager"); /*Just in case something else happens...*/
-        return 1;
+        return EXIT_FAILURE;
     }
 
     cleanUpBuffers();
     free(evpSalt);
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 void allocateBuffers()
@@ -986,18 +989,18 @@ void allocateBuffers()
 	if(tmpBuffer == NULL)
 	{
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
 	
     entryPass = calloc(sizeof(char), UI_BUFFERS_SIZE);
     if(entryPass == NULL)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
     if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     memcpy(entryPass,tmpBuffer,sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
@@ -1005,11 +1008,11 @@ void allocateBuffers()
     if(entryPassToVerify == NULL)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
     if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 	memcpy(entryPassToVerify,tmpBuffer,sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
@@ -1017,11 +1020,11 @@ void allocateBuffers()
     if(entryName == NULL)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
     if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     memcpy(entryName,tmpBuffer,sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
@@ -1029,11 +1032,11 @@ void allocateBuffers()
     if(entryNameToFind == NULL)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
     if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     memcpy(entryNameToFind,tmpBuffer,sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
@@ -1041,11 +1044,11 @@ void allocateBuffers()
     if(newEntry == NULL)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
     if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     memcpy(entryPass,tmpBuffer,sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
@@ -1053,11 +1056,11 @@ void allocateBuffers()
     if(newEntryPass == NULL)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
     if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     memcpy(newEntryPass,tmpBuffer,sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
@@ -1065,11 +1068,11 @@ void allocateBuffers()
     if(newEntryPassToVerify == NULL)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
     if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     memcpy(newEntryPassToVerify,tmpBuffer,sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
@@ -1077,11 +1080,11 @@ void allocateBuffers()
     if(dbPass == NULL)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
     if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     memcpy(dbPass,tmpBuffer,sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
@@ -1089,11 +1092,11 @@ void allocateBuffers()
     if(dbPassToVerify == NULL)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
     if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     memcpy(dbPassToVerify,tmpBuffer,sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
@@ -1101,11 +1104,11 @@ void allocateBuffers()
     if(dbPassOld == NULL)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
     if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     memcpy(dbPassOld,tmpBuffer,sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
@@ -1113,40 +1116,40 @@ void allocateBuffers()
     if(HMACKey == NULL)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
     if (!RAND_bytes(HMACKey, SHA512_DIGEST_LENGTH)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     HMACKeyOld = calloc(sizeof(unsigned char), SHA512_DIGEST_LENGTH);
     if(HMACKeyOld == NULL)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
     if (!RAND_bytes(HMACKeyOld, SHA512_DIGEST_LENGTH)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     HMACKeyNew = calloc(sizeof(unsigned char), SHA512_DIGEST_LENGTH);
     if(HMACKeyNew == NULL)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
     if (!RAND_bytes(HMACKeyNew, SHA512_DIGEST_LENGTH)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     evpSalt = calloc(sizeof(unsigned char), EVP_SALT_SIZE);
     if(evpSalt == NULL)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
     
     free(tmpBuffer);
@@ -1164,7 +1167,7 @@ void genPassWord(int stringLength)
         if (!RAND_bytes(&randomByte, 1)) {
             printf("Failure: CSPRNG bytes could not be made unpredictable\n");
             cleanUpBuffers();
-            exit(1);
+            exit(EXIT_FAILURE);
         }
 
         /*Tests that byte to be printable and not blank*/
@@ -1200,7 +1203,7 @@ char* getPass(const char* prompt, char* paddedPass)
     if(paddedPassTmp == NULL)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
 
 
@@ -1210,7 +1213,7 @@ char* getPass(const char* prompt, char* paddedPass)
         (void)tcsetattr(fileno(stdin), TCSAFLUSH, &termisOld);
         cleanUpBuffers();
         printf("\nPassword was too large\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     memcpy(paddedPass,paddedPassTmp,sizeof(char) * UI_BUFFERS_SIZE);
     OPENSSL_cleanse(paddedPassTmp, sizeof(char) * UI_BUFFERS_SIZE);
@@ -1220,17 +1223,17 @@ char* getPass(const char* prompt, char* paddedPass)
 
     /* Turn echoing off and fail if we can’t. */
     if (tcgetattr(fileno(stdin), &termisOld) != 0)
-        exit(-1);
+        exit(EXIT_FAILURE);
     termiosNew = termisOld;
     termiosNew.c_lflag &= ~ECHO;
     if (tcsetattr(fileno(stdin), TCSAFLUSH, &termiosNew) != 0)
-        exit(-1);
+        exit(EXIT_FAILURE);
 
     /* Read the password. */
     printf("\n%s", prompt);
     nread = getline(&pass, &len, stdin);
     if (nread == -1)
-        exit(1);
+        exit(EXIT_FAILURE);
     else if (nread > UI_BUFFERS_SIZE) {
         /* Restore terminal. */
         (void)tcsetattr(fileno(stdin), TCSAFLUSH, &termisOld);
@@ -1238,7 +1241,7 @@ char* getPass(const char* prompt, char* paddedPass)
         free(pass);
         cleanUpBuffers();
         printf("\nPassword was too large\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     } else {
         /*Replace newline with null terminator*/
         pass[nread - 1] = '\0';
@@ -1268,23 +1271,23 @@ int configEvp()
 		if(!EVP_get_cipherbyname(encCipherName))
 		{
 			printf("Could not load cipher %s. Check that it is available with -c list\n", encCipherName);
-			exit(1);
+			exit(EXIT_FAILURE);
 		}
 		else if (EVP_CIPHER_mode(EVP_get_cipherbyname(encCipherName)) == EVP_CIPH_GCM_MODE || EVP_CIPHER_mode(EVP_get_cipherbyname(encCipherName)) == EVP_CIPH_CCM_MODE)
 		{
 			printf("Program does not support GCM or CCM modes.\nAlready authenticates with HMAC-SHA512\n");
-			exit(1);
+			exit(EXIT_FAILURE);
 		}
 		else if (EVP_CIPHER_mode(EVP_get_cipherbyname(encCipherName)) == EVP_CIPH_WRAP_MODE)
 		{
 			printf("Program does not support ciphers in wrap mode\n");
-			exit(1);
+			exit(EXIT_FAILURE);
 		}
 		#ifdef EVP_CIPH_OCB_MODE
 		else if (EVP_CIPHER_mode(EVP_get_cipherbyname(encCipherName)) == EVP_CIPH_OCB_MODE)
 		{
 			printf("Program does not support ciphers in OCB mode\n");
-			exit(1);
+			exit(EXIT_FAILURE);
 		}
 		#endif
 		else
@@ -1293,7 +1296,7 @@ int configEvp()
         /*If the cipher doesn't exists or there was a problem loading it return with error status*/
         if (!evpCipher) {
             fprintf(stderr, "Could not load cipher: %s\n", encCipherName);
-            exit(1);
+            exit(EXIT_FAILURE);
         }
 
     } else { /*If not default to aes-256-ctr*/
@@ -1301,7 +1304,7 @@ int configEvp()
         evpCipher = EVP_get_cipherbyname(encCipherName);
         if (!evpCipher) {
             fprintf(stderr, "Could not load cipher: %s\n", encCipherName);
-            exit(1);
+            exit(EXIT_FAILURE);
         }
     }
 
@@ -1310,14 +1313,14 @@ int configEvp()
         evpDigest = EVP_get_digestbyname(messageDigestName);
         if (!evpDigest) {
             fprintf(stderr, "Could not load digest: %s Check if available with -H list\n", messageDigestName);
-            exit(1);
+            exit(EXIT_FAILURE);
         }
     } else { /*If not default to sha512*/
         strcpy(messageDigestName, "sha512");
         evpDigest = EVP_get_digestbyname(messageDigestName);
         if (!evpDigest) {
             fprintf(stderr, "Could not load digest: %s Check if available with -H list\n", messageDigestName);
-            exit(1);
+            exit(EXIT_FAILURE);
         }
     }
    
@@ -1334,7 +1337,7 @@ void genEvpSalt()
         if (!RAND_bytes(&randomByte, 1)) {
             printf("Failure: CSPRNG bytes could not be made unpredictable\n");
             cleanUpBuffers();
-            exit(1);
+            exit(EXIT_FAILURE);
         }
         evpSalt[i] = randomByte;
         i++;
@@ -1356,7 +1359,7 @@ int deriveHMACKey()
     if(!PKCS5_PBKDF2_HMAC(dbPass, -1, hmacSalt, HMAC_SALT_SIZE, PBKDF2Iterations, EVP_get_digestbyname("sha512"), SHA512_DIGEST_LENGTH, HMACKey))
     {
 		printError("PBKDF2 deriveHmacKey Failed");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
 	
 	return 0;
@@ -1371,7 +1374,7 @@ int deriveEVPKey(char* dbPass, unsigned char* evpSalt, unsigned int saltLen,cons
 		evpDigest,EVP_CIPHER_key_length(evpCipher),
 		evpKey)) {
         printError("PBKDF2 failed\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     
     /*If this cipher uses an IV, generate that as well*/
@@ -1382,7 +1385,7 @@ int deriveEVPKey(char* dbPass, unsigned char* evpSalt, unsigned int saltLen,cons
             evpDigest,EVP_CIPHER_iv_length(evpCipher),
             evpIv)) {
         printError("PBKDF2 failed\n");
-        exit(1);
+        exit(EXIT_FAILURE);
 		}
 	}
 	
@@ -1403,7 +1406,7 @@ int writeDatabase()
     
     if (!RAND_bytes(cryptoHeaderPadding, CRYPTO_HEADER_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     memcpy(cryptoHeader,cryptoHeaderPadding,sizeof(char) * CRYPTO_HEADER_SIZE);
     free(cryptoHeaderPadding);
@@ -1413,7 +1416,7 @@ int writeDatabase()
     dbFile = fopen(dbFileName, "wb");
     if (dbFile == NULL) {
         printFileError(dbFileName,errno);
-        exit(errno);
+        exit(EXIT_FAILURE);
     }
 
     /*Write crypto information as a header*/
@@ -1422,33 +1425,45 @@ int writeDatabase()
     if(snprintf(cryptoHeader, CRYPTO_HEADER_SIZE, "%s:%s", encCipherName, messageDigestName) < 0)
     {
 		printError("snprintf failed");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
     
     /*Append PBKDF2Iterations to end of cryptoHeader*/
     memcpy(cryptoHeader + (strlen(cryptoHeader) + 1), &PBKDF2Iterations, sizeof(PBKDF2Iterations));
 	
     /*Write the salt*/
-    fwriteWErrCheck(evpSalt, sizeof(unsigned char), EVP_SALT_SIZE, dbFile);
+    if(fwriteWErrCheck(evpSalt, sizeof(unsigned char), EVP_SALT_SIZE, dbFile) != 0) {
+		printSysError(returnVal);
+		exit(EXIT_FAILURE);
+	}
 
     /*Write buffer pointed to by cryptoHeader*/
-    fwriteWErrCheck(cryptoHeader, sizeof(unsigned char), CRYPTO_HEADER_SIZE, dbFile);
+    if(fwriteWErrCheck(cryptoHeader, sizeof(unsigned char), CRYPTO_HEADER_SIZE, dbFile) != 0) {
+		printSysError(returnVal);
+		exit(EXIT_FAILURE);
+	}
     
     /*Copy data from temp file into what will be the password database*/
     fileBuffer = calloc(sizeof(char), fileSize);
     if(fileBuffer == NULL)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
 
 	if(condition.databaseBeingInitalized == true)
 	{
-		fwriteWErrCheck(dbInitBuffer, sizeof(char), fileSize, dbFile);
+		if(fwriteWErrCheck(dbInitBuffer, sizeof(char), fileSize, dbFile) != 0) {
+			printSysError(returnVal);
+			exit(EXIT_FAILURE);
+		}
 	}
 	else
 	{
-		fwriteWErrCheck(encryptedBuffer, sizeof(char), fileSize, dbFile);
+		if(fwriteWErrCheck(encryptedBuffer, sizeof(char), fileSize, dbFile) != 0) {
+			printSysError(returnVal);
+			exit(EXIT_FAILURE);
+		}
 	}
 
     fclose(dbFile);
@@ -1459,7 +1474,7 @@ int writeDatabase()
     dbFile = fopen(dbFileName, "rb");
     if (dbFile == NULL) {
         printFileError(dbFileName,errno);
-        exit(errno);
+        exit(EXIT_FAILURE);
     }
     chmod(dbFileName, S_IRUSR | S_IWUSR);
     
@@ -1467,15 +1482,18 @@ int writeDatabase()
     if(fileBuffer == NULL)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
 
-    freadWErrCheck(fileBuffer,sizeof(unsigned char),returnFileSize(dbFileName),dbFile);
+    if(freadWErrCheck(fileBuffer,sizeof(unsigned char),returnFileSize(dbFileName),dbFile) != 0) {
+		printSysError(returnVal);
+		exit(EXIT_FAILURE);
+	}
     
     if(HMAC(EVP_sha512(), HMACKey, MACSize, fileBuffer, returnFileSize(dbFileName), MACdBFileGenerates, HMACLengthPtr) == NULL)
     {
 		printError("HMAC falied");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
     free(fileBuffer);
 
@@ -1486,14 +1504,20 @@ int writeDatabase()
     if (dbFile == NULL)
     {
         printFileError(dbFileName,errno);
-        exit(errno);
+        exit(EXIT_FAILURE);
     }
     chmod(dbFileName, S_IRUSR | S_IWUSR);
     
     /*Append the MACs and close the file*/
-    fwriteWErrCheck(MACdBFileGenerates, sizeof(unsigned char), MACSize, dbFile);
+    if(fwriteWErrCheck(MACdBFileGenerates, sizeof(unsigned char), MACSize, dbFile) != 0) {
+		printSysError(returnVal);
+		exit(EXIT_FAILURE);
+	}
     
-    fwriteWErrCheck(MACcipherTextGenerates, sizeof(unsigned char), MACSize, dbFile);
+    if(fwriteWErrCheck(MACcipherTextGenerates, sizeof(unsigned char), MACSize, dbFile) != 0) {
+		printSysError(returnVal);
+		exit(EXIT_FAILURE);
+	}
 
     fclose(dbFile);
 
@@ -1515,7 +1539,7 @@ int openDatabase()
     if (dbFile == NULL)
     {
         printFileError(dbFileName,errno);
-        exit(errno);
+        exit(EXIT_FAILURE);
     }
 
     /*Grab the crypto information from header*/
@@ -1523,10 +1547,16 @@ int openDatabase()
     /*Then will be the cipher and the message digest names delimited with ':'*/
 
     /*fread overwrites any randomly generated salt with the one read from file*/
-    freadWErrCheck(evpSalt, sizeof(char), EVP_SALT_SIZE, dbFile);
+    if(freadWErrCheck(evpSalt, sizeof(char), EVP_SALT_SIZE, dbFile) != 0) {
+		printSysError(returnVal);
+		exit(EXIT_FAILURE);
+	}
 
     /*Read the cipher and message digest information in*/
-    freadWErrCheck(cryptoHeader, sizeof(char), CRYPTO_HEADER_SIZE, dbFile);
+    if(freadWErrCheck(cryptoHeader, sizeof(char), CRYPTO_HEADER_SIZE, dbFile) != 0) {
+		printSysError(returnVal);
+		exit(EXIT_FAILURE);
+	}
     
     /*Read PBKDF2Iterations from end of cryptoHeader*/
     memcpy(&PBKDF2Iterations, cryptoHeader + (strlen(cryptoHeader) + 1), sizeof(int));
@@ -1539,34 +1569,43 @@ int openDatabase()
     if(verificationBuffer == NULL)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
     
     /*Reset to beginning since reading in the salt and cryptoHeader have advanced the file position*/
     if(fseek(dbFile,0L,SEEK_SET) != 0)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
     
     /*Read in the size of the file minus the size of the two MACs i.e. MACSize * 2*/
-    freadWErrCheck(verificationBuffer,sizeof(unsigned char),fileSize - (MACSize * 2),dbFile);
+    if(freadWErrCheck(verificationBuffer,sizeof(unsigned char),fileSize - (MACSize * 2),dbFile) != 0) {
+		printSysError(returnVal);
+		exit(EXIT_FAILURE);
+	}
     
     /*Set the file position to the beginning of the first MAC*/
     if(fseek(dbFile,fileSize - (MACSize * 2),SEEK_SET) != 0)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
     
-	freadWErrCheck(MACdBFileSignedWith, sizeof(unsigned char), MACSize, dbFile);
+	if(freadWErrCheck(MACdBFileSignedWith, sizeof(unsigned char), MACSize, dbFile) != 0) {
+		printSysError(returnVal);
+		exit(EXIT_FAILURE);
+	}
     
-    freadWErrCheck(MACcipherTextSignedWith, sizeof(unsigned char), MACSize, dbFile);
+    if(freadWErrCheck(MACcipherTextSignedWith, sizeof(unsigned char), MACSize, dbFile) != 0) {
+		printSysError(returnVal);
+		exit(EXIT_FAILURE);
+	}
     
     if(HMAC(EVP_sha512(), HMACKey, MACSize, verificationBuffer, fileSize - (MACSize * 2), MACdBFileGenerates, HMACLengthPtr) == NULL)
     {
 		printError("HMAC failed");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
     
     /*Verify authenticity of database*/
@@ -1576,7 +1615,7 @@ int openDatabase()
 
 		fclose(dbFile);
 		free(verificationBuffer);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     
     /*Copy verificationBuffer to encryptedBuffer without the header information or MACs*/
@@ -1584,7 +1623,7 @@ int openDatabase()
     if(encryptedBuffer == NULL)
     {
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
     memcpy(encryptedBuffer, verificationBuffer + EVP_SALT_SIZE + CRYPTO_HEADER_SIZE, evpDataSize);
 
@@ -1597,14 +1636,14 @@ int openDatabase()
     token = strtok(cryptoHeader, ":");
     if (token == NULL) {
         printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     strncpy(encCipherName, token, NAME_MAX);
 
     token = strtok(NULL, ":");
     if (token == NULL) {
         printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     /*Then the message digest*/
@@ -1615,13 +1654,13 @@ int openDatabase()
     /*If the cipher doesn't exists or there was a problem loading it return with error status*/
     if (!evpCipher) {
         fprintf(stderr, "Could not load cipher %s. Is it installed? Use -c list to list available ciphers\n", encCipherName);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     evpDigest = EVP_get_digestbyname(messageDigestName);
     if (!evpDigest) {
         fprintf(stderr, "Could not load digest %s. Is it installed? Use -c list to list available ciphers\n", messageDigestName);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     if (condition.updatingDbEnc) {
@@ -1773,6 +1812,13 @@ int writePass()
 
     }
 
+	if (condition.sendToClipboard == true) {
+		if(sendToClipboard(entryPass) == 0)
+		{
+			printf("New password sent to clipboard. Paste with middle-click.\n");
+			printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
+		}
+	}
 	
     free(infoBuffer);
     free(decryptedBuffer);
@@ -1852,9 +1898,15 @@ int printPasses(char* searchString)
 						if(sendToClipboard(passBuffer) == 0)
 						{
 							if(strcmp(searchString, entryName) == 0)
+							{
 								printf("Sent the entry's password to clipboard. Paste with middle-click.\n");
+								printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
+							}
 							else
+							{
 								printf("Sent the first matched entry's password to clipboard. Paste with middle-click.\n(Note: There may be more entries that matched your search string)\n");
+								printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
+							}
 				        }
 				        break;
 				    }
@@ -2083,6 +2135,8 @@ int updateEntry(char* searchString)
     int entriesMatched = 0;
     int passLength;
     
+    int clipBoardSuccess;
+    
     char entryName[UI_BUFFERS_SIZE];
     char passWord[UI_BUFFERS_SIZE];
 
@@ -2179,6 +2233,15 @@ int updateEntry(char* searchString)
         if (strncmp(searchString, entryName, strlen(searchString)) == 0 || condition.updateAllPasses == true) {
 
             entriesMatched++;
+            
+            if (condition.sendToClipboard == true && condition.updateAllPasses == false && entriesMatched >= 1) {
+				if(entriesMatched > 1)
+					/*Need to skip to the writeBackLoop so updates aren't written to other matches, but those matches are written back unmodifed*/
+					/*Do this after entriesMatched is greater than 1 so that only one password is sent to the clipboard*/
+					goto writeBackLoop;
+				else
+					clipBoardSuccess = sendToClipboard(entryPass);
+			}
 
             //Update content in entryName before encrypting back
             if (condition.entryGiven == true) {
@@ -2216,6 +2279,7 @@ int updateEntry(char* searchString)
                     genPassWord(DEFAULT_GENPASS_LENGTH);
                     strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
                 }
+                
                 memcpy(passBuffer, newEntryPass, UI_BUFFERS_SIZE);
                 /*Do the same as above but if an alphanumeric pass was specified*/
             } else if (condition.updatingEntryPass == true && (condition.generateEntryPassAlpha == true || condition.updateAllPasses == true)) {
@@ -2226,9 +2290,10 @@ int updateEntry(char* searchString)
                     genPassWord(DEFAULT_GENPASS_LENGTH);
                     strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
                 }
+                
                 memcpy(passBuffer, newEntryPass, UI_BUFFERS_SIZE);
             }
-
+            
             if (condition.updatingEntryPass == true)
                 memcpy(passBuffer, newEntryPass, UI_BUFFERS_SIZE);
 
@@ -2244,11 +2309,8 @@ int updateEntry(char* searchString)
             else
                 printf("Matched \"%s\" to \"%s\" (Updating...)\n", searchString, entryBuffer);
                 
-            if (condition.sendToClipboard == true && condition.updateAllPasses == false && entriesMatched == 1) {
-				if(sendToClipboard(entryPass) == 0)
-					printf("Sent new password to clipboard. Paste with middle-click.\n");
-			}
         } else { /*Write back the original entry and pass if nothing matched searchString*/
+			writeBackLoop:
             for (i = 0; i < UI_BUFFERS_SIZE * 2; i++) {
                 if (i < UI_BUFFERS_SIZE)
                     fileBuffer[ii + i] = entryBuffer[i];
@@ -2313,8 +2375,13 @@ int updateEntry(char* searchString)
     {
         printf("If you updated more than you intended to, restore from %s.autobak\n", dbFileName);
 	}
-	if(condition.sendToClipboard == true && entriesMatched > 1)
-				printf("Multiple entries matched, only sent fist entry's matched to clipboard\n");
+	if(clipBoardSuccess == 0)
+	{
+		printf("\nSent new password to clipboard. Paste with middle-click.\n");
+		printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
+		if(entriesMatched > 1)
+			printf("(Note: Multiple entries matched, only updated and sent fist entry's password to clipboard)\n");
+	}
 	
     free(entryBuffer);
     free(passBuffer);
@@ -2455,7 +2522,7 @@ int signCiphertext(unsigned int IvLength, unsigned int encryptedBufferLength, un
 	if(hmacBuffer == NULL)
 	{
 		printSysError(errno);
-		exit(errno);
+		exit(EXIT_FAILURE);
 	}
     memcpy(hmacBuffer,evpIv,IvLength);
     memcpy(hmacBuffer + IvLength,encryptedBuffer,encryptedBufferLength);
@@ -2541,7 +2608,10 @@ int sendToClipboard(char* textToSend)
         return errno;
     }
 
-    fwriteWErrCheck(passBuffer, sizeof(char), strlen(passBuffer), xclipFile);
+    if(fwriteWErrCheck(passBuffer, sizeof(char), strlen(passBuffer), xclipFile) != 0) {
+		printSysError(returnVal);
+		exit(EXIT_FAILURE);
+	}
 		
     if (pclose(xclipFile) == -1) {
         printSysError(errno);
@@ -2549,8 +2619,6 @@ int sendToClipboard(char* textToSend)
     }
     OPENSSL_cleanse(passBuffer, strlen(passBuffer));
     OPENSSL_cleanse(textToSend,strlen(textToSend));
-
-    printf("\n%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
 
     /*Going to fork off the application into the background, and wait 30 seconds to send zeroes to the xclip clipboard*/
     /*This is so that we don't have to contain sensitive information in buffers while we wait*/
@@ -2561,7 +2629,7 @@ int sendToClipboard(char* textToSend)
     /* Fork off the parent process */
     pid = fork();
     if (pid < 0) {
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     /* If we got a good PID, then we can exit the parent process. */
     if (pid > 0) {
@@ -2573,7 +2641,7 @@ int sendToClipboard(char* textToSend)
     /* Create a new SID for the child process */
     sid = setsid();
     if (sid < 0) {
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     /*Tells child process to ignore sighup so the child doesn't exit when the parent does*/
@@ -2585,7 +2653,10 @@ int sendToClipboard(char* textToSend)
     
     sleep(xclipClearTimeSeconds);
 
-    fwriteWErrCheck(wipeOutBuffer, sizeof(char), strlen(passBuffer), wipeFile);
+    if(fwriteWErrCheck(wipeOutBuffer, sizeof(char), strlen(passBuffer), wipeFile) != 0) {
+		printSysError(returnVal);
+		exit(EXIT_FAILURE);
+	}
 
     exit(0);
 }
@@ -2594,9 +2665,15 @@ int freadWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
 	if (fread(ptr, size, nmemb, stream) != nmemb / size) {
 		if(feof(stream))
-			exit(EBADMSG);
+		{
+			returnVal = EBADMSG;
+			return EBADMSG;
+		}
 		else if(ferror(stream))
-			exit(errno);
+		{
+			returnVal = errno;
+			return errno;
+		}
 	}
 	
     return 0;
@@ -2606,9 +2683,15 @@ int fwriteWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
 	if (fwrite(ptr, size, nmemb, stream) != nmemb / size) {
 		if(feof(stream))
-			exit(EBADMSG);
+		{
+			returnVal = EBADMSG;
+			return EBADMSG;
+		}
 		else if(ferror(stream))
-			exit(errno);
+		{
+			returnVal = errno;
+			return errno;
+		}
 	}
             
     return 0;
