@@ -2542,7 +2542,6 @@ int sendToClipboard(char* textToSend)
     OPENSSL_cleanse(textToSend,passLength);
 
     /*Going to fork off the application into the background, and wait 30 seconds to send zeroes to the xclip clipboard*/
-    /*This is so that we don't have to contain sensitive information in buffers while we wait*/
 
     /*Stops the parent process from waiting for child process to complete*/
     signal(SIGCHLD, SIG_IGN);
@@ -2552,17 +2551,19 @@ int sendToClipboard(char* textToSend)
     if (pid < 0) {
         return 1;
     }
-    /* If we got a good PID, then we can exit the parent process. */
+    /* If we got a good PID, then we can return the parent process to the calling function.*/
     if (pid > 0) {
+		/*Do not change from 0 here or the parent process's calling function won't print information about what was sent to clipboard*/
         return 0;
     }
 
     /* At this point we are executing as the child process */
+    /* Don't return 1 on error after this point*/
 
     /* Create a new SID for the child process */
     sid = setsid();
     if (sid < 0) {
-        return 1;
+        printSysError(errno);
     }
 
     /*Tells child process to ignore sighup so the child doesn't exit when the parent does*/
@@ -2576,17 +2577,19 @@ int sendToClipboard(char* textToSend)
     
     if (wipeFile == NULL) {
         printSysError(errno);
-        return 1;
     }
 
     if(fwriteWErrCheck(wipeOutBuffer, sizeof(char), passLength, wipeFile) != 0) {
 		printSysError(returnVal);
-		return 1;
 	}
 	
 	/*Use fclose instead of pclose because pclose will use wait4() and throw an error since SIG_ING is set*/
     fclose(wipeFile);
 	
+	/*Leave this as 1 otherwise messages about what was sent to clipboard will be repeated*/
+	/*The child process will return to calling function, and a conditional tests if this function returns 0*/
+	/*When this child process's version of the function returns 1, the information will not be printed again*/
+	/*Don't simply exit otherwise sensitive buffers in the rest of the child process's calling function will not be cleared/freed*/
     return 1;
 }
 
