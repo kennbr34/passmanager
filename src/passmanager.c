@@ -302,7 +302,7 @@ int main(int argc, char* argv[])
 
     signal(SIGINT, signalHandler);
 
-    FILE *EVPEncryptedFile, *dbFile;
+    FILE *dbFile;
 
     /*This loads up all names of alogirithms for OpenSSL into an object structure so we can call them by name later*/
     /*It is also needed for the mdListCallback() and encListCallback() functions to work*/
@@ -711,6 +711,8 @@ int main(int argc, char* argv[])
             /*writeDatabase attaches prepends salt and header and appends MACs to cipher-text and writes it all as password database*/
             writeDatabase();
         }
+        
+        fclose(dbFile);
 
     } else if (condition.readingPass == true) /*Read passwords mode*/
     {
@@ -720,8 +722,7 @@ int main(int argc, char* argv[])
             getPass("Enter database password: ", dbPass);
         }
 
-        EVPEncryptedFile = fopen(dbFileName, "rb");
-        if (EVPEncryptedFile == NULL)
+        if (dbFile == NULL)
         {
             printFileError(dbFileName,errno);
 			exit(EXIT_FAILURE);
@@ -977,9 +978,7 @@ int main(int argc, char* argv[])
         printSyntax("passmanager"); /*Just in case something else happens...*/
         return EXIT_FAILURE;
     }
-
-    cleanUpBuffers();
-    free(evpSalt);
+    
     return EXIT_SUCCESS;
 }
 
@@ -1166,7 +1165,6 @@ void genPassWord(int stringLength)
         /*Gets a random byte from OpenSSL CSPRNG*/
         if (!RAND_bytes(&randomByte, 1)) {
             printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-            cleanUpBuffers();
             exit(EXIT_FAILURE);
         }
 
@@ -1211,7 +1209,6 @@ char* getPass(const char* prompt, char* paddedPass)
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         /* Restore terminal. */
         (void)tcsetattr(fileno(stdin), TCSAFLUSH, &termisOld);
-        cleanUpBuffers();
         printf("\nPassword was too large\n");
         exit(EXIT_FAILURE);
     }
@@ -1239,7 +1236,6 @@ char* getPass(const char* prompt, char* paddedPass)
         (void)tcsetattr(fileno(stdin), TCSAFLUSH, &termisOld);
         OPENSSL_cleanse(pass, sizeof(char) * nread);
         free(pass);
-        cleanUpBuffers();
         printf("\nPassword was too large\n");
         exit(EXIT_FAILURE);
     } else {
@@ -1336,7 +1332,6 @@ void genEvpSalt()
     while (i < EVP_SALT_SIZE) {
         if (!RAND_bytes(&randomByte, 1)) {
             printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-            cleanUpBuffers();
             exit(EXIT_FAILURE);
         }
         evpSalt[i] = randomByte;
@@ -1715,7 +1710,6 @@ int writePass()
             free(infoBuffer);
             free(decryptedBuffer);
             free(encryptedBuffer);
-            cleanUpBuffers();
             return 1;
         }
 
@@ -1732,7 +1726,6 @@ int writePass()
             free(encryptedBuffer);
             free(ctx);
 	        
-	        cleanUpBuffers();
 	        return 1;
 	    }
 
@@ -1750,7 +1743,6 @@ int writePass()
             free(encryptedBuffer);
             free(ctx);
 	        
-	        cleanUpBuffers();
 	        return 1;
 		}
         
@@ -1794,7 +1786,6 @@ int writePass()
             free(encryptedBuffer);
             free(ctx);
 	        
-	        cleanUpBuffers();
 	        return 1;
 		}
         
@@ -1853,7 +1844,6 @@ int printPasses(char* searchString)
         free(passBuffer);
         free(encryptedBuffer);
         free(decryptedBuffer);
-        cleanUpBuffers();
         return 1;
     }
     
@@ -1868,7 +1858,6 @@ int printPasses(char* searchString)
 	        free(decryptedBuffer);
 	        free(ctx);
 	        
-	        cleanUpBuffers();
 	        return 1;
 	}
 	
@@ -1928,7 +1917,6 @@ int printPasses(char* searchString)
 	
     free(entryBuffer);
     free(passBuffer);
-    free(encryptedBuffer);
     free(decryptedBuffer);
     free(ctx);
 
@@ -1980,7 +1968,6 @@ int deletePass(char* searchString)
         free(passBuffer);
         free(encryptedBuffer);
         free(decryptedBuffer);
-        cleanUpBuffers();
         return 1;
     }
 
@@ -2006,7 +1993,6 @@ int deletePass(char* searchString)
 		free(fileBuffer);
 		free(ctx);
         
-        cleanUpBuffers();
         return 1;
 	}
     
@@ -2097,7 +2083,6 @@ int deletePass(char* searchString)
 		free(fileBuffer);
 		free(ctx);
         
-        cleanUpBuffers();
         return 1;
 	}
     
@@ -2134,9 +2119,7 @@ int updateEntry(char* searchString)
     int i, ii = 0;
     int entriesMatched = 0;
     int passLength;
-    
-    int clipBoardSuccess;
-    
+        
     char entryName[UI_BUFFERS_SIZE];
     char passWord[UI_BUFFERS_SIZE];
 
@@ -2183,7 +2166,6 @@ int updateEntry(char* searchString)
         free(encryptedBuffer);
         free(decryptedBuffer);
 
-        cleanUpBuffers();
         return 1;
     }
 
@@ -2211,7 +2193,6 @@ int updateEntry(char* searchString)
 		free(fileBuffer);
 		free(ctx);
         
-        cleanUpBuffers();
         return 1;
 	}
     
@@ -2239,8 +2220,6 @@ int updateEntry(char* searchString)
 					/*Need to skip to the writeBackLoop so updates aren't written to other matches, but those matches are written back unmodifed*/
 					/*Do this after entriesMatched is greater than 1 so that only one password is sent to the clipboard*/
 					goto writeBackLoop;
-				else
-					clipBoardSuccess = sendToClipboard(entryPass);
 			}
 
             //Update content in entryName before encrypting back
@@ -2295,7 +2274,9 @@ int updateEntry(char* searchString)
             }
             
             if (condition.updatingEntryPass == true)
+            {
                 memcpy(passBuffer, newEntryPass, UI_BUFFERS_SIZE);
+            }
 
             /*Copy the entryBuffer and passBuffer out to fileBuffer*/
             for (i = 0; i < UI_BUFFERS_SIZE * 2; i++) {
@@ -2323,9 +2304,12 @@ int updateEntry(char* searchString)
     /*Clear out sensitive buffers ASAP*/
     OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
     OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
-    OPENSSL_cleanse(newEntryPass, sizeof(unsigned char) * UI_BUFFERS_SIZE);
+    /*Don't cleanse newEntryPass yet if we're going to send it to the clipboard*/
+    if(condition.sendToClipboard != true)
+		OPENSSL_cleanse(newEntryPass, sizeof(unsigned char) * UI_BUFFERS_SIZE);
     OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * oldFileSize + EVP_MAX_BLOCK_LENGTH);
     OPENSSL_cleanse(passWord, sizeof(char) * UI_BUFFERS_SIZE);
+    
 
     /*Clear the old encrypted information out to use encryptedBuffer to store cipher-text of modifications*/
     free(encryptedBuffer);
@@ -2352,7 +2336,6 @@ int updateEntry(char* searchString)
 		free(fileBuffer);
 		free(ctx);
         
-        cleanUpBuffers();
         return 1;
 	}
     
@@ -2375,13 +2358,17 @@ int updateEntry(char* searchString)
     {
         printf("If you updated more than you intended to, restore from %s.autobak\n", dbFileName);
 	}
-	if(clipBoardSuccess == 0)
+	if(condition.sendToClipboard == true)
 	{
-		printf("\nSent new password to clipboard. Paste with middle-click.\n");
-		printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
-		if(entriesMatched > 1)
-			printf("(Note: Multiple entries matched, only updated and sent fist entry's password to clipboard)\n");
+		if(sendToClipboard(newEntryPass) == 0)
+		{
+			printf("\nSent new password to clipboard. Paste with middle-click.\n");
+			printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
+			if(entriesMatched > 1)
+				printf("(Note: Multiple entries matched, only updated and sent fist entry's password to clipboard)\n");
+		}
 	}
+	OPENSSL_cleanse(newEntryPass, sizeof(char) * UI_BUFFERS_SIZE);
 	
     free(entryBuffer);
     free(passBuffer);
@@ -2414,7 +2401,6 @@ int updateDbEnc()
 
         free(decryptedBuffer);
         free(encryptedBuffer);
-        cleanUpBuffers();
         return 1;
     }
 
@@ -2431,7 +2417,6 @@ int updateDbEnc()
         free(decryptedBuffer);
         free(ctx);
         
-        cleanUpBuffers();
         return 1;
 	}
 	
@@ -2463,7 +2448,6 @@ int updateDbEnc()
         free(decryptedBuffer);
         free(ctx);
         
-        cleanUpBuffers();
         return 1;
 	}
 
@@ -2587,49 +2571,48 @@ int evpEncrypt(EVP_CIPHER_CTX* ctx, int evpInputLength, int* evpOutputLength, un
 
 int sendToClipboard(char* textToSend)
 {
+	int passLength = strlen(textToSend);
     char xclipCommand[] = "xclip -in";
     char wipeCommand[] = "xclip -in";
-    char wipeOutBuffer[strlen(textToSend)];
-    char *passBuffer = calloc(sizeof(char), strlen(textToSend));
-    if(passBuffer == NULL)
-    {
-		printSysError(errno);
-		return errno;
-	}
-    OPENSSL_cleanse(wipeOutBuffer, strlen(textToSend));
+    char wipeOutBuffer[passLength];
+    char passBuffer[passLength];
+
+	/*Using openssl_cleanse instead of memset so optimization won't wipe it out*/
+    OPENSSL_cleanse(wipeOutBuffer, passLength);
+    
     FILE* xclipFile = popen(xclipCommand, "w");
-    FILE* wipeFile = popen(wipeCommand, "w");
     pid_t pid, sid;
     
-    strncpy(passBuffer,textToSend,strlen(textToSend));
+    strncpy(passBuffer,textToSend,passLength);
 
     if (xclipFile == NULL) {
         printSysError(errno);
-        return errno;
+        return 1;
     }
 
-    if(fwriteWErrCheck(passBuffer, sizeof(char), strlen(passBuffer), xclipFile) != 0) {
+    if(fwriteWErrCheck(passBuffer, sizeof(char), passLength, xclipFile) != 0) {
 		printSysError(returnVal);
-		exit(EXIT_FAILURE);
+		return 1;
 	}
 		
     if (pclose(xclipFile) == -1) {
         printSysError(errno);
-        return errno;
+        return 1;
     }
-    OPENSSL_cleanse(passBuffer, strlen(passBuffer));
-    OPENSSL_cleanse(textToSend,strlen(textToSend));
+    
+    OPENSSL_cleanse(passBuffer,passLength);
+    OPENSSL_cleanse(textToSend,passLength);
 
     /*Going to fork off the application into the background, and wait 30 seconds to send zeroes to the xclip clipboard*/
     /*This is so that we don't have to contain sensitive information in buffers while we wait*/
 
     /*Stops the parent process from waiting for child process to complete*/
     signal(SIGCHLD, SIG_IGN);
-
+    
     /* Fork off the parent process */
     pid = fork();
     if (pid < 0) {
-        exit(EXIT_FAILURE);
+        return 1;
     }
     /* If we got a good PID, then we can exit the parent process. */
     if (pid > 0) {
@@ -2641,24 +2624,32 @@ int sendToClipboard(char* textToSend)
     /* Create a new SID for the child process */
     sid = setsid();
     if (sid < 0) {
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     /*Tells child process to ignore sighup so the child doesn't exit when the parent does*/
     signal(SIGHUP, SIG_IGN);
 
     sid = setsid();
-    
-    cleanUpBuffers();
-    
+        
     sleep(xclipClearTimeSeconds);
+    
+    FILE* wipeFile = popen(wipeCommand, "w");
+    
+    if (wipeFile == NULL) {
+        printSysError(errno);
+        return 1;
+    }
 
-    if(fwriteWErrCheck(wipeOutBuffer, sizeof(char), strlen(passBuffer), wipeFile) != 0) {
+    if(fwriteWErrCheck(wipeOutBuffer, sizeof(char), passLength, wipeFile) != 0) {
 		printSysError(returnVal);
-		exit(EXIT_FAILURE);
+		return 1;
 	}
-
-    exit(0);
+	
+	/*Use fclose instead of pclose because pclose will use wait4() and throw an error since SIG_ING is set*/
+    fclose(wipeFile);
+	
+    return 1;
 }
 
 int freadWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream)
@@ -2716,21 +2707,26 @@ void cleanUpBuffers()
 {
 	/*OPENSSL_cleanse won't be optimized away by the compiler*/
 
-    OPENSSL_cleanse(entryPass, sizeof(char) * UI_BUFFERS_SIZE);
-    OPENSSL_cleanse(entryPassToVerify, sizeof(char) * UI_BUFFERS_SIZE);
-    OPENSSL_cleanse(newEntryPass, sizeof(char) * UI_BUFFERS_SIZE);
-    OPENSSL_cleanse(newEntryPassToVerify, sizeof(char) * UI_BUFFERS_SIZE);
-    OPENSSL_cleanse(dbPass, sizeof(unsigned char) * strlen(dbPass));
-    OPENSSL_cleanse(dbPassOld, sizeof(unsigned char) * UI_BUFFERS_SIZE);
-    OPENSSL_cleanse(dbPassToVerify, sizeof(unsigned char) * UI_BUFFERS_SIZE);
+    OPENSSL_cleanse(entryPass, sizeof(char) * UI_BUFFERS_SIZE);free(entryPass);
+    OPENSSL_cleanse(entryName, sizeof(char) * UI_BUFFERS_SIZE);free(entryName);
+    OPENSSL_cleanse(entryNameToFind, sizeof(char) * UI_BUFFERS_SIZE);free(entryNameToFind);
+    OPENSSL_cleanse(entryPassToVerify, sizeof(char) * UI_BUFFERS_SIZE);free(entryPassToVerify);
+    OPENSSL_cleanse(newEntry, sizeof(char) * UI_BUFFERS_SIZE);free(newEntry);
+    OPENSSL_cleanse(newEntryPass, sizeof(char) * UI_BUFFERS_SIZE);free(newEntryPass);
+    OPENSSL_cleanse(newEntryPassToVerify, sizeof(char) * UI_BUFFERS_SIZE);free(newEntryPassToVerify);
+    OPENSSL_cleanse(dbPass, sizeof(unsigned char) * strlen(dbPass));free(dbPass);
+    OPENSSL_cleanse(dbPassOld, sizeof(unsigned char) * UI_BUFFERS_SIZE);free(dbPassOld);
+    OPENSSL_cleanse(dbPassToVerify, sizeof(unsigned char) * UI_BUFFERS_SIZE);free(dbPassToVerify);
     OPENSSL_cleanse(evpKey, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
     OPENSSL_cleanse(evpIv, sizeof(unsigned char) * EVP_MAX_IV_LENGTH);
     OPENSSL_cleanse(evpKeyOld, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
     OPENSSL_cleanse(evpIvOld, sizeof(unsigned char) * EVP_MAX_IV_LENGTH);
-    OPENSSL_cleanse(HMACKey, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
-    OPENSSL_cleanse(HMACKeyOld, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
-    OPENSSL_cleanse(HMACKeyNew, sizeof(unsigned char) * SHA512_DIGEST_LENGTH); 
+    OPENSSL_cleanse(HMACKey, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);free(HMACKey);
+    OPENSSL_cleanse(HMACKeyOld, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);free(HMACKeyOld);
+    OPENSSL_cleanse(HMACKeyNew, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);free(HMACKeyNew);
 
+	free(evpSalt);
+    free(encryptedBuffer);
 }
 
 bool fileNonExistant(const char* filename)
