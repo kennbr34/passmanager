@@ -437,53 +437,13 @@ int main(int argc, char* argv[])
             condition.userChoseCipher = true;
             break;
         case 'f':
-            if (condition.addingPass == true) {
-                dbFile = fopen(optarg, "ab");
-                if (dbFile == NULL)
-                {
-                    printFileError(optarg,errno);
-                    exit(EXIT_FAILURE);
-                }
-
-                strncpy(dbFileName, optarg, NAME_MAX);
-            }
-            if (condition.readingPass == true) {
-                dbFile = fopen(optarg, "rb");
-                if (dbFile == NULL)
-                {
-                    printFileError(optarg,errno);
-                    exit(EXIT_FAILURE);
-                }
-
-                strncpy(dbFileName, optarg, NAME_MAX);
-            }
-            if (condition.deletingPass == true) {
-                dbFile = fopen(optarg, "rb+");
-                if (dbFile == NULL)
-                {
-                    printFileError(optarg,errno);
-                    exit(EXIT_FAILURE);
-                }
-                strncpy(dbFileName, optarg, NAME_MAX);
-            }
-            if (condition.updatingDbEnc == true) {
-                dbFile = fopen(optarg, "rb+");
-                if (dbFile == NULL)
-                {
-                    printFileError(optarg,errno);
-                    exit(EXIT_FAILURE);
-                }
-                strncpy(dbFileName, optarg, NAME_MAX);
-            }
-            if (condition.updatingEntry == true) {
-                dbFile = fopen(optarg, "rb+");
-                if (dbFile == NULL)
-                {
-                    printFileError(optarg,errno);
-                    exit(EXIT_FAILURE);
-                }
-                strncpy(dbFileName, optarg, NAME_MAX);
-            }
+			dbFile = fopen(optarg, "rb+");
+			if (dbFile == NULL)
+			{
+				printFileError(optarg,errno);
+				exit(EXIT_FAILURE);
+			}
+			fclose(dbFile);
             strncpy(dbFileName, optarg, NAME_MAX);
             condition.fileGiven = true;
             break;
@@ -622,12 +582,6 @@ int main(int argc, char* argv[])
 
         /*Check a few things before proceeding*/
 
-        /*If dbFile is NULL there was a problem opening it*/
-        if (dbFile == NULL) {
-            printSysError(errno);
-            exit(EXIT_FAILURE);
-        }
-
         /*If generating a random password was specified on command line*/
         if (strcmp(entryPass, "gen") == 0) {
             condition.generateEntryPass = true;
@@ -706,26 +660,16 @@ int main(int argc, char* argv[])
         int writePassResult = writePass();
 
         if (writePassResult == 0) {
-            printf("Added \"%s\" to database.\n", entryName);
-
             /*writeDatabase attaches prepends salt and header and appends MACs to cipher-text and writes it all as password database*/
             writeDatabase();
         }
         
-        fclose(dbFile);
-
     } else if (condition.readingPass == true) /*Read passwords mode*/
     {
 
         if (condition.dbPassGivenasArg != true)
         {
             getPass("Enter database password: ", dbPass);
-        }
-
-        if (dbFile == NULL)
-        {
-            printFileError(dbFileName,errno);
-			exit(EXIT_FAILURE);
         }
 
         /*Note no configEvp() needed before openDatabase() in Read mode*/
@@ -739,8 +683,6 @@ int main(int argc, char* argv[])
         } else if (condition.searchForEntry == true && condition.printAllPasses == true)
             printPasses(NULL); /*Decrypt and print all passess*/
 
-        fclose(dbFile);
-
     } else if (condition.deletingPass == true) /*Delete a specified entry*/
     {
 		if (condition.dbPassGivenasArg != true)
@@ -751,12 +693,9 @@ int main(int argc, char* argv[])
         /*Must specify an entry to delete*/
         if (condition.entryGiven != true) /*Fail if no entry specified*/
         {
-            fclose(dbFile);
             printf("\nNo entry name was specified\n");
 			exit(EXIT_FAILURE);
         }
-
-        fclose(dbFile);
 
         configEvp();
 
@@ -770,6 +709,7 @@ int main(int argc, char* argv[])
 
         if (deletePassResult == 0)
 			writeDatabase();
+			
     } else if (condition.updatingEntry == true) /*Update an entry name*/
     {
 
@@ -856,8 +796,6 @@ int main(int argc, char* argv[])
             }
         }
 
-        fclose(dbFile);
-
         configEvp();
 
         openDatabase();
@@ -872,8 +810,6 @@ int main(int argc, char* argv[])
         }
     } else if (condition.updatingDbEnc == true)
     {
-        fclose(dbFile);
-
         if (condition.dbPassGivenasArg != true)
         {
             getPass("Enter current database password: ", dbPass);
@@ -1802,6 +1738,8 @@ int writePass()
         evpDataSize = newFileSize;
 
     }
+    
+    printf("Added \"%s\" to database.\n", entryName);
 
 	if (condition.sendToClipboard == true) {
 		if(sendToClipboard(entryPass) == 0)
@@ -2763,8 +2701,6 @@ void signalHandler(int signum)
 {
     printf("\nCaught signal %d\n\nCleaning up buffers...\n", signum);
     // Cleanup and close up stuff here
-
-    cleanUpBuffers();
 
     /* Restore terminal. */
     (void)tcsetattr(fileno(stdin), TCSAFLUSH, &termisOld);
