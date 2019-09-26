@@ -53,7 +53,7 @@
 
 #define printFileError(fileName, errCode) \
 { \
-	fprintf(stderr,"%s: %s\n", fileName, strerror(errCode)); \
+	fprintf(stderr,"%s: %s (Line: %i)\n", fileName, strerror(errCode), __LINE__); \
 }
 
 #define printError(errMsg) \
@@ -437,15 +437,12 @@ int main(int argc, char* argv[])
             condition.userChoseCipher = true;
             break;
         case 'f':
-			dbFile = fopen(optarg, "rb+");
-			if (dbFile == NULL)
-			{
-				printFileError(optarg,errno);
-				exit(EXIT_FAILURE);
-			}
-			fclose(dbFile);
+			if (optarg[0] == '-' && strlen(optarg) == 2) {
+                printf("Option -f requires an argument\n");
+                errflg++;
+            } else
+                condition.fileGiven = true;
             strncpy(dbFileName, optarg, NAME_MAX);
-            condition.fileGiven = true;
             break;
         case 'n':
             if (optarg[0] == '-' && strlen(optarg) == 2) {
@@ -539,6 +536,24 @@ int main(int argc, char* argv[])
     /*If the user didn't specify a file with -f set error flag on*/
     if (condition.fileGiven != true)
         errflg++;
+    
+    /*Test if file is readable and if we are initializing a database*/
+    
+    if(returnFileSize(dbFileName) > 0)
+    {
+		dbFile = fopen(dbFileName,"rb");
+		if(dbFile == NULL)
+		{
+			printFileError(dbFileName,errno);
+			exit(EXIT_FAILURE);
+		}
+		fclose(dbFile);
+	}
+	else
+	{
+		condition.databaseBeingInitalized = true;
+	}
+        
     /*Finally test for errflag and halt program if on*/
     if (errflg) {
         printSyntax("passmanger"); /*Print proper usage of program*/
@@ -546,7 +561,7 @@ int main(int argc, char* argv[])
     }
 
     /*Before anything else, back up the password database*/
-    if (returnFileSize(dbFileName) != 0 && condition.readingPass != true) {
+    if (condition.databaseBeingInitalized != true && condition.readingPass != true) {
         strncpy(backupFileName, dbFileName, NAME_MAX);
         strncat(backupFileName, ".autobak", NAME_MAX);
         FILE* backUpFile = fopen(backupFileName, "w");
@@ -643,13 +658,12 @@ int main(int argc, char* argv[])
 
         /*If password file exists run openDatabase on it*/
         /*Test by filesize and not if the file exists because at this point an empty file by this name will be there*/
-        if (returnFileSize(dbFileName) > 0) {
+        if (condition.databaseBeingInitalized != true) {
 			openDatabase();
         } else {
             /*Otherwise run these functions to initialize a database*/
             genEvpSalt();
             deriveHMACKey();
-            condition.databaseBeingInitalized = true;
         }
 
         /*Derives a key for the EVP algorithm*/
@@ -2584,7 +2598,8 @@ int sendToClipboard(char* textToSend)
 	}
 	
 	/*Use fclose instead of pclose because pclose will use wait4() and throw an error since SIG_ING is set*/
-    fclose(wipeFile);
+    if(fclose(wipeFile) == EOF)
+		printSysError(errno);
 	
 	/*Leave this as 1 otherwise messages about what was sent to clipboard will be repeated*/
 	/*The child process will return to calling function, and a conditional tests if this function returns 0*/
