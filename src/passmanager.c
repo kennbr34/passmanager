@@ -2598,8 +2598,7 @@ int sendToClipboard(char* textToSend)
 	}
 	
 	/*Use fclose instead of pclose because pclose will use wait4() and throw an error since SIG_ING is set*/
-    if(fclose(wipeFile) == EOF)
-		printSysError(errno);
+    fclose(wipeFile);
 	
 	/*Leave this as 1 otherwise messages about what was sent to clipboard will be repeated*/
 	/*The child process will return to calling function, and a conditional tests if this function returns 0*/
