@@ -96,7 +96,11 @@ src/passmanager.o: src/passmanager.c /usr/include/stdc-predef.h config.h \
  /usr/include/x86_64-linux-gnu/bits/ss_flags.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_sigstack.h \
  /usr/include/x86_64-linux-gnu/bits/sigthread.h /usr/include/string.h \
- /usr/include/strings.h /usr/include/x86_64-linux-gnu/sys/stat.h \
+ /usr/include/strings.h /usr/include/x86_64-linux-gnu/sys/mman.h \
+ /usr/include/x86_64-linux-gnu/bits/mman.h \
+ /usr/include/x86_64-linux-gnu/bits/mman-linux.h \
+ /usr/include/x86_64-linux-gnu/bits/mman-shared.h \
+ /usr/include/x86_64-linux-gnu/sys/stat.h \
  /usr/include/x86_64-linux-gnu/bits/stat.h /usr/include/termios.h \
  /usr/include/x86_64-linux-gnu/bits/termios.h \
  /usr/include/x86_64-linux-gnu/sys/ttydefaults.h /usr/include/unistd.h \
@@ -105,10 +109,6 @@ src/passmanager.o: src/passmanager.c /usr/include/stdc-predef.h config.h \
  /usr/include/x86_64-linux-gnu/bits/confname.h \
  /usr/include/x86_64-linux-gnu/bits/getopt_posix.h \
  /usr/include/x86_64-linux-gnu/bits/getopt_core.h \
- /usr/include/x86_64-linux-gnu/sys/mman.h \
- /usr/include/x86_64-linux-gnu/bits/mman.h \
- /usr/include/x86_64-linux-gnu/bits/mman-linux.h \
- /usr/include/x86_64-linux-gnu/bits/mman-shared.h \
  /usr/include/sys/capability.h /usr/include/linux/types.h \
  /usr/include/x86_64-linux-gnu/asm/types.h \
  /usr/include/asm-generic/types.h /usr/include/asm-generic/int-ll64.h \
@@ -118,11 +118,11 @@ src/passmanager.o: src/passmanager.c /usr/include/stdc-predef.h config.h \
  /usr/include/x86_64-linux-gnu/asm/posix_types.h \
  /usr/include/x86_64-linux-gnu/asm/posix_types_64.h \
  /usr/include/asm-generic/posix_types.h /usr/include/linux/capability.h \
- /usr/include/x86_64-linux-gnu/sys/time.h \
+ /usr/lib/gcc/x86_64-linux-gnu/7/include/stdbool.h \
  /usr/include/x86_64-linux-gnu/sys/resource.h \
  /usr/include/x86_64-linux-gnu/bits/resource.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_rusage.h \
- /usr/lib/gcc/x86_64-linux-gnu/7/include/stdbool.h
+ /usr/include/x86_64-linux-gnu/sys/time.h
 
 /usr/include/stdc-predef.h:
 
@@ -374,6 +374,14 @@ config.h:
 
 /usr/include/strings.h:
 
+/usr/include/x86_64-linux-gnu/sys/mman.h:
+
+/usr/include/x86_64-linux-gnu/bits/mman.h:
+
+/usr/include/x86_64-linux-gnu/bits/mman-linux.h:
+
+/usr/include/x86_64-linux-gnu/bits/mman-shared.h:
+
 /usr/include/x86_64-linux-gnu/sys/stat.h:
 
 /usr/include/x86_64-linux-gnu/bits/stat.h:
@@ -395,14 +403,6 @@ config.h:
 /usr/include/x86_64-linux-gnu/bits/getopt_posix.h:
 
 /usr/include/x86_64-linux-gnu/bits/getopt_core.h:
-
-/usr/include/x86_64-linux-gnu/sys/mman.h:
-
-/usr/include/x86_64-linux-gnu/bits/mman.h:
-
-/usr/include/x86_64-linux-gnu/bits/mman-linux.h:
-
-/usr/include/x86_64-linux-gnu/bits/mman-shared.h:
 
 /usr/include/sys/capability.h:
 
@@ -430,7 +430,7 @@ config.h:
 
 /usr/include/linux/capability.h:
 
-/usr/include/x86_64-linux-gnu/sys/time.h:
+/usr/lib/gcc/x86_64-linux-gnu/7/include/stdbool.h:
 
 /usr/include/x86_64-linux-gnu/sys/resource.h:
 
@@ -438,4 +438,4 @@ config.h:
 
 /usr/include/x86_64-linux-gnu/bits/types/struct_rusage.h:
 
-/usr/lib/gcc/x86_64-linux-gnu/7/include/stdbool.h:
+/usr/include/x86_64-linux-gnu/sys/time.h:
