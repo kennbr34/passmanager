@@ -2,23 +2,36 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+2019-9-30
+	Generate new salt for any database modification, 
+	Check return status of deriveEVPKey, deriveHMACKey and genEVPSalt
+	Fixed double free of encryptedBuffer on MAC failure
+	sendToClipboard changed, error checking fclose calls, formatting
+2019-9-26
+	Fixed error message caused by closing wipeFile in sendToClipboard
+	Fixed testing for dbFile existence and passing of name on command line
+	Added comments clarifying sendToClipboard function behavior
+	Fixed nonsensical opening/closing of dbFile left over from old design
+	Fixed memory leaks and updateEntry function 
+2019-9-24
+	Fixed updateEntry function and chnaged error messages
 2019-9-17
 (+ver 3.2.6)
 	Fixed read mode to not send multiple passes to clipboard if multiple matched
 	Fixed all modes to not say password sent to clipboard even if there was a problem
-	Fixed error control and messages to inform of line and function where error occured
+	Fixed error control and messages to inform of line and function where error occurred
 	Fixed fread/fwrite error checking to differentiate between a problem with file stream and a short item count
 2019-9-14
 (+ver 3.2.5)
-	Fixed RLIMIT_MEMLOCK to stay unlimited after dropping root priveleges
-	Added #ifdef to test if OCB mode is designed for backward compatability
-	Set sys_ptrace capability to not effectiv, not permitted and not inheritable
+	Fixed RLIMIT_MEMLOCK to stay unlimited after dropping root privileges
+	Added #ifdef to test if OCB mode is designed for backward compatibility
+	Set sys_ptrace capability to not effective, not permitted and not inheritable
 2019-9-13
 (+ver 3.2.4)
 	Removed use of temp files so that program operates purely in memory
 2019-9-12
 (+ver 3.2.3)
-	No onger enforce CTR, CFB or OFB mode
+	No longer enforce CTR, CFB or OFB mode
 	Support CBC, ECB mode
 	Warn that OCB and wrap modes are not supported
 	Change comparison of MAC to constant time
@@ -27,13 +40,13 @@
 		Renamed variables names to better describe purpose and intent
 		Made functions to reduce redundant code blocks
 			fread/fwrite calls with error checking
-			MAC verificatin
+			MAC verification
 			EVP encryption/decryption
 		Removed superfluous comments
 	Complete diff comparison: https://github.com/kennbr34/passmanager/compare/3.2.3
 2019-8-23
 (+ver 3.2.2)
-	Fix error where root privelges are not being dropped
+	Fix error where root privileges are not being dropped
 2019-8-22
 (+ver 3.2.1)
 	Added authentication on database file as well as temporary files so that all Associated Data is authenticated
@@ -58,9 +71,9 @@
 	Fixed use of boundless input functions to avoid buffer overflow (strcpy to strncpy, sprint to snprint, etc.)
 2019-8-14
 (+ver 2.4.0)
-	Fixed authenticated encryption to aunthenticate IV along with encrypted message
+	Fixed authenticated encryption to authenticate IV along with encrypted message
 	Fixed memory sanitation errors
-	Fixed errors parsing ciphres and digests from command line
+	Fixed errors parsing ciphers and digests from command line
 2019-7-26
 (+ver 2.3.2)
 	Changed primeSSL function to better test for and enforce use of stream ciphers or CTR, OFB or CFB modes for multiple-encryption safety
@@ -83,7 +96,7 @@
 2019-1-16
 (+ver 2.2.0)
 	Changed KDF routines from EVP_BytesToKey to PKCS5_PBKDF2_HMAC
-	Added conditional to ensure root priveleges are dropped
+	Added conditional to ensure root privileges are dropped
 2019-1-14
 (+ver 2.1.4)
 	Prevent core dumping
@@ -104,7 +117,7 @@
 2019-1-6
 (+ver 2.1.0)
 	Authentication Composition Changed to Encrypt-then-MAC
-	Both ciphers in cascade now selectable
+	Both ciphers in cascade now select-able
 	Parameter checking forces CFB, OFB or CTR modes
 	memset functions changed to OPENSSL_cleanse to avoid dead-store elimination
 	
