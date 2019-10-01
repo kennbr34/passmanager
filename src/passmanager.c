@@ -536,7 +536,7 @@ int main(int argc, char *argv[])
 
     /*Test if file is readable and if we are initializing a database*/
     /*If the size is less than EVP_SALT_SIZE + CRYPTO_HEADER_SIZE then it is either not a database file or being initialized*/
-    if (returnFileSize(dbFileName) <= EVP_SALT_SIZE + CRYPTO_HEADER_SIZE) {
+    if (fileNonExistant(dbFileName) == true) {
         condition.databaseBeingInitalized = true;
     } else {
         dbFile = fopen(dbFileName, "rb");
