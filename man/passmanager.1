@@ -31,7 +31,7 @@ Options may have different implications depending on operating mode
 .PP
 \fB\-H\fR \fIdigest\fI\fR \- Specify 'list' for a list of methods available to OpenSSL. Default: sha512.
 .PP
-\fB\-i\fR \fIiterations\fI\fR \- Specify amount of PBKDF2 to be \fIiterations\fI\fR. Default: 500000
+\fB\-i\fR \fIiterations\fI\fR \- Specify amount of PBKDF2 to be \fIiterations\fI\fR. Default: 1000000
 .PP
 \fB\-P\fR - In \fIUpdate entry\fI\fR or \fIUpdate database\fI\fR  mode (\fB\-u\fR and \fB\-U\fR respectively) this option enables updating the \fIentry password\fI\fR or \fIdatabase password\fI\fR via prompt instead of as command line argument
 .PP
@@ -125,9 +125,7 @@ In \fBRead\fB\fR mode the password database is searched for an entry with the na
 .PP
 Entries can be specifically matched such as "gmail : account1" and "gmail : account2", or both with 'gmail'.
 .PP
-Searching for a specific entry pass can be useful to send the password directly to the clipboard using xclip.
-.PP
-Note that if multiple entries match your search string, only the first matched entry will be sent to the clipboard.
+Searching for a specific entry pass can be useful to send the password directly to the clipboard using xclip. Note that if multiple entries match your search string, only the first matched entry will be sent to the clipboard.
 .PP
 To display the entire password database, enter 'allpasses' for the \fIentry name\fI\fR argument.
 .PP
@@ -157,7 +155,7 @@ Both the entry name and password can be updated. The new entry name can be suppl
 .PP
 As in \fBAdd\fB\fR mode, entering 'gen' for the \fIentry password\fI\fR argument will generate a random password.  This is especially useful for updating old passwords.
 
-Single new passwords can be sent directly to the clipboard with xclip as well.
+Single new passwords can be sent directly to the clipboard with xclip as well. Note that if multiple entries match your search string, only the first matched entry will be updated and sent to the clipboard.
 
 All entries can be updated at once with new randomly generated passwords, if \fIentry name\fI\fR is equal to 'allpasses'
 .PP
@@ -208,7 +206,7 @@ updates database password. Read via prompt. Cannot be supplied via commandline.
 
 .SS OpenSSL Ciphers and Digests
 
-The encryption algorithm used by OpenSSL can be chosen between the ciphers provided by the high-level functions in the \fIevp(3)\fI\fR library. By default the program uses 256-bit AES in CTR mode, using the \fIPKCS5_PBKDF2_HMAC(3)\fI\fR function to derive keys (see \fIPKCS5_PBKDF2_HMAC(3)\fI\fR for details), and the SHA512 digest algorithm. Authenticated ciphers using GCM or CCM are not supported as the program uses HMAC for authentication. The ability to choose cipher algorithms is primarily added incase disparate versions of OpenSSL are installed across different machine, thus making different ciphers available.  For example, ChaCha20 may not be available on one machine while it is on the other.
+The encryption algorithm used by OpenSSL can be chosen between the ciphers provided by the high-level functions in the \fIevp(3)\fI\fR library. By default the program uses 256-bit AES in CTR mode, using the \fIPKCS5_PBKDF2_HMAC(3)\fI\fR function to derive keys (see \fIPKCS5_PBKDF2_HMAC(3)\fI\fR for details), and the SHA512 digest algorithm. Authenticated ciphers using GCM or CCM are not supported as the program uses HMAC for authentication. The ability to choose cipher algorithms is primarily added incase different versions of OpenSSL are installed across different machine, thus making different ciphers available.  For example, ChaCha20 may not be available on one machine while it is on the other.
 
 .SS CSPRNG
 
@@ -222,15 +220,15 @@ Input buffers will accept any amount of whitespace or special characters up to 5
 
 .SS Database Creation and Modification
 
-The cipher-text and IV of the EVP algorithm chosen is ran through HMAC-SHA512 to create a Message Authentication Code in Encrypt-then-MAC composition. The header, cipher-text and the MAC are then placed together inside of a database file, which is then also authenticated with a separate MAC.  Therefore, the reading and writing of the database file is driven by two primary functions, \fIopenDatabase()\fI\fR and \fIwriteDatabase()\fI\fR which contain the routines to write the cipher-text message and MACs into a database, or to read a database containing them.
+The cipher-text and IV of the EVP algorithm chosen is ran through HMAC-SHA512 to create a Message Authentication Code in Encrypt-then-MAC composition. The header, cipher-text and the MAC are then placed together inside of a database file, which is then also authenticated with a separate MAC.  Therefore, the reading and writing of the database file is driven by two primary functions, \fIopenDatabase()\fI\fR and \fIwriteDatabase()\fI\fR which contain the routines to write the cipher-text message and MACs into a database, or to read a database containing them. Every database file created has its own unique 256-bit salt to be used by PBKDF2 and is prepended to the header to ensure no keys ( for both encryption and HMAC) or IVs are reused across mulitiple database files.
 
 \fIwriteDatabase()\fI\fR is used to write the cipher-text of the user input to a database file also containing a salt, cipher and digest names, and PBKDF2 iteration amount as a header, the cipher text, and finally the MACs.  The cipher-text of the EVP algorithm is ran through HMAC-SHA512 to create the MAC, then the cipher-text is sent to \fIwriteDatabase()\fI\fR, prepended with the header, and finally written to file as the database with both a MAC of the cipher-text itself, and the MAC of the header plus the cipher-text appended.  The resulting file can be considered the database we're reading and writing, which contains the encrypted password database inside, sandwiched betwen the header and the MACs. 
 
-\fIopenDatabase()\fI\fR strips the header, storing the salt, cipher and digest names, PBKDF2 iteration amount, and MACs to be used, and then passes cipher-text on to a buffer for decryption and processing.  Only if the MACs generated matches the MACs attached to the cipher-text does the program do any decryption. The separate modes process information in from a buffer to make any modications, and once complete, the buffer with the modifications made is passed back to \fIwriteDatabase()\fi\fR to form the new database. Any time \fIwriteDatabase()\fi\fR creates a new database file, a new 256-bit salt to be used by PBKDF2 is prepended to the header to ensure no keys ( for both encryption and HMAC) or IVs are reused.
+\fIopenDatabase()\fI\fR strips the header, storing the salt, cipher and digest names, PBKDF2 iteration amount, and MACs to be used, and then passes cipher-text on to a buffer for decryption and processing.  Only if the MACs generated match the MACs attached to the cipher-text does the program do any decryption. The separate modes process information in from a buffer to make any modications, and once complete, the buffer with the modifications made is passed back to \fIwriteDatabase()\fi\fR to overwrite the pervious databse with the modifications made.
 
 .SS Authenicated Encryption and Associated Data
 
-Two MACs are generated and appended to the database file for authentication of both the ciper-text held in temporary files, as well as the database file itself.  The cipher-text MAC is generated on the cipher-text alone and verified within each processing mode so that alterations to the cipher-text through the temporary files will be detected and thwart any type of man-in-the-middle attack. The database file as a whole is authenticated so that the associated data (salt, cipher name, digest name and key derivation configuration) can also be authenticated and detected upon opening the database before other processing modes are used.
+Two MACs are generated and appended to the database file for authentication of both the ciper-text held in temporary buffers, as well as the database file itself.  The cipher-text MAC is generated on the cipher-text alone and verified within each processing mode so that alterations to the cipher-text through the temporary buffers will be detected and thwart any type of man-in-the-middle attack. The database file as a whole is also authenticated so that the associated data (salt, cipher name, digest name and key derivation configuration) can also be authenticated and detected upon opening the database before other processing modes are used.
 
 .SS Memory Sanitation
 
