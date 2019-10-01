@@ -107,7 +107,7 @@ int writeDatabase();
 int configEvp();
 void mdListCallback(const OBJ_NAME *obj, void *arg);
 void encListCallback(const OBJ_NAME *obj, void *arg);
-void genEvpSalt();
+int genEvpSalt();
 int deriveHMACKey();
 int deriveEVPKey(char *dbPass, unsigned char *evpSalt, unsigned int saltLen, const EVP_CIPHER *evpCipher, const EVP_MD *evpDigest, unsigned char *evpKey, unsigned char *evpIv, int PBKDF2Iterations);
 int writePass();
@@ -535,9 +535,11 @@ int main(int argc, char *argv[])
         errflg++;
 
     /*Test if file is readable and if we are initializing a database*/
-
-    if (returnFileSize(dbFileName) > 0) {
-        dbFile = fopen(dbFileName, "rb");
+	/*If the size is less than EVP_SALT_SIZE + CRYPTO_HEADER_SIZE then it is either not a database file or being initialized*/
+    if (returnFileSize(dbFileName) <= EVP_SALT_SIZE + CRYPTO_HEADER_SIZE) {
+        condition.databaseBeingInitalized = true;
+    } else {
+		dbFile = fopen(dbFileName, "rb");
         if (dbFile == NULL) {
             printFileError(dbFileName, errno);
             exit(EXIT_FAILURE);
@@ -546,9 +548,7 @@ int main(int argc, char *argv[])
             printFileError(dbFileName, errno);
             exit(EXIT_FAILURE);
         }
-    } else {
-        condition.databaseBeingInitalized = true;
-    }
+	}
 
     /*Finally test for errflag and halt program if on*/
     if (errflg) {
@@ -664,13 +664,22 @@ int main(int argc, char *argv[])
             openDatabase();
         } else {
             /*Otherwise run these functions to initialize a database*/
-            genEvpSalt();
-            deriveHMACKey();
+            if(genEvpSalt() != 0) {
+				printError("Could not create salt");
+				exit(EXIT_FAILURE);
+			}
+            if(deriveHMACKey() != 0) {
+				printError("Could not create HMAC key");
+				exit(EXIT_FAILURE);
+			}
         }
 
         /*Derives a key for the EVP algorithm*/
 
-        deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations);
+        if(deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations) != 0) {
+			printError("Could not derive EVP key");
+			exit(EXIT_FAILURE);
+		}
 
         /*writePass() appends a new entry to EVPDataFileTmp encrypted with the EVP algorithm chosen*/
         int writePassResult = writePass();
@@ -690,7 +699,10 @@ int main(int argc, char *argv[])
         /*Note no configEvp() needed before openDatabase() in Read mode*/
         openDatabase();
 
-        deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations);
+        if(deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations) != 0) {
+			printError("Could not derive EVP key");
+			exit(EXIT_FAILURE);
+		}
 
         if (condition.searchForEntry == true && strcmp(entryName, "allpasses") != 0) /*Find a specific entry to print*/
         {
@@ -715,7 +727,10 @@ int main(int argc, char *argv[])
 
         openDatabase();
 
-        deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations);
+        if(deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations) != 0 ) {
+			printError("Could not derive EVP Key");
+			exit(EXIT_FAILURE);
+		}
 
         /*Delete pass actually works by exclusion*/
         /*It writes all password entries except the one specified to a 3rd temporary file*/
@@ -812,7 +827,10 @@ int main(int argc, char *argv[])
 
         openDatabase();
 
-        deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations);
+        if(deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations) != 0) {
+			printError("Could not derive EVP Key");
+			exit(EXIT_FAILURE);
+		}
 
         /*Works like deletePass() but instead of excluding matched entry, modfies its buffer values and then outputs to 3rd temp file*/
         int updateEntryResult = updateEntry(entryNameToFind);
@@ -850,7 +868,10 @@ int main(int argc, char *argv[])
                 return 1;
             } else {
                 printf("Changed password.\n");
-                deriveHMACKey();
+                if(deriveHMACKey() != 0) {
+					printError("Could not derive HMAC key");
+					exit(EXIT_FAILURE);
+				}
                 memcpy(HMACKeyNew, HMACKey, sizeof(char) * SHA512_DIGEST_LENGTH);
             }
 
@@ -888,7 +909,10 @@ int main(int argc, char *argv[])
                 exit(EXIT_FAILURE);
             } else {
                 printf("Changed password.\n");
-                deriveHMACKey();
+                if(deriveHMACKey() != 0) {
+					printError("Could not derive HMAC key");
+					exit(EXIT_FAILURE);
+				}
                 memcpy(HMACKeyNew, HMACKey, sizeof(char) * SHA512_DIGEST_LENGTH);
             }
 
@@ -1244,7 +1268,7 @@ int configEvp()
     return 0;
 }
 
-void genEvpSalt()
+int genEvpSalt()
 {
 
     unsigned char randomByte;
@@ -1252,12 +1276,14 @@ void genEvpSalt()
 
     while (i < EVP_SALT_SIZE) {
         if (!RAND_bytes(&randomByte, 1)) {
-            printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-            exit(EXIT_FAILURE);
+            printError("Failure: CSPRNG bytes could not be made unpredictable\n");
+            return 1;
         }
         evpSalt[i] = randomByte;
         i++;
     }
+    
+    return 0;
 }
 
 int deriveHMACKey()
@@ -1274,7 +1300,7 @@ int deriveHMACKey()
     /*Generate a separate key to use for HMAC*/
     if (!PKCS5_PBKDF2_HMAC(dbPass, -1, hmacSalt, HMAC_SALT_SIZE, PBKDF2Iterations, EVP_get_digestbyname("sha512"), SHA512_DIGEST_LENGTH, HMACKey)) {
         printError("PBKDF2 deriveHmacKey Failed");
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     return 0;
@@ -1289,7 +1315,7 @@ int deriveEVPKey(char *dbPass, unsigned char *evpSalt, unsigned int saltLen, con
                            evpDigest, EVP_CIPHER_key_length(evpCipher),
                            evpKey)) {
         printError("PBKDF2 failed\n");
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     /*If this cipher uses an IV, generate that as well*/
@@ -1300,7 +1326,7 @@ int deriveEVPKey(char *dbPass, unsigned char *evpSalt, unsigned int saltLen, con
                                evpDigest, EVP_CIPHER_iv_length(evpCipher),
                                evpIv)) {
             printError("PBKDF2 failed\n");
-            exit(EXIT_FAILURE);
+            return 1;
         }
     }
 
@@ -1477,7 +1503,10 @@ int openDatabase()
     memcpy(&PBKDF2Iterations, cryptoHeader + (strlen(cryptoHeader) + 1), sizeof(int));
 
     /*Generate a separate salt and key for HMAC authentication*/
-    deriveHMACKey();
+    if(deriveHMACKey() != 0) {
+		printError("Could not derive HMAC key");
+		exit(EXIT_FAILURE);
+	}
 
     /*Copy all of the file minus the MACs but including the salt and cryptoHeader into a buffer for verification*/
     verificationBuffer = calloc(fileSize - (MACSize * 2), sizeof(unsigned char));
@@ -1590,7 +1619,10 @@ int openDatabase()
         evpCipherOld = evpCipher;
         PBKDF2IterationsOld = PBKDF2Iterations;
 
-        deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKeyOld, evpIvOld, PBKDF2IterationsOld);
+        if(deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKeyOld, evpIvOld, PBKDF2IterationsOld) != 0) {
+			printError("Could not derive EVP key");
+			exit(EXIT_FAILURE);
+		}
     }
 
     return 0;
@@ -1633,7 +1665,6 @@ int writePass()
 
             free(infoBuffer);
             free(decryptedBuffer);
-            free(encryptedBuffer);
             return 1;
         }
 
@@ -1680,6 +1711,21 @@ int writePass()
         evpDataSize = evpOutputLength;
 
     } else {
+
+		/*Create new databse with new salt, so also need new HMAC and EVP key derived from that salt*/
+		if(genEvpSalt() != 0) {
+			printError("Could not update salt");
+			return 1;
+		}
+		if(deriveHMACKey() != 0) {
+			printError("Could not create new HMAC key");
+			return 1;
+		}
+		if(deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations) != 0) {
+			printError("Could not create new EVP key");
+			return 1;
+		}
+		
 
         EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
 
@@ -1762,7 +1808,6 @@ int printPasses(char *searchString)
 
         free(entryBuffer);
         free(passBuffer);
-        free(encryptedBuffer);
         free(decryptedBuffer);
         return 1;
     }
@@ -1875,7 +1920,6 @@ int deletePass(char *searchString)
 
         free(entryBuffer);
         free(passBuffer);
-        free(encryptedBuffer);
         free(decryptedBuffer);
         return 1;
     }
@@ -1972,6 +2016,20 @@ int deletePass(char *searchString)
         printSysError(errno);
         return errno;
     }
+    
+    /*Create new databse with new salt, so also need new HMAC and EVP key derived from that salt*/
+	if(genEvpSalt() != 0) {
+		printError("Could not update salt");
+		return 1;
+	}
+	if(deriveHMACKey() != 0) {
+		printError("Could not create new HMAC key");
+		return 1;
+	}
+	if(deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations) != 0) {
+		printError("Could not create new EVP key");
+		return 1;
+	}
 
     EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
 
@@ -2060,7 +2118,6 @@ int updateEntry(char *searchString)
         free(newEntryPass);
         free(entryBuffer);
         free(passBuffer);
-        free(encryptedBuffer);
         free(decryptedBuffer);
 
         return 1;
@@ -2211,6 +2268,20 @@ int updateEntry(char *searchString)
         printSysError(errno);
         return errno;
     }
+    
+    /*Create new databse with new salt, so also need new HMAC and EVP key derived from that salt*/
+	if(genEvpSalt() != 0) {
+		printError("Could not update salt");
+		return 1;
+	}
+	if(deriveHMACKey() != 0) {
+		printError("Could not create new HMAC key");
+		return 1;
+	}
+	if(deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations) != 0) {
+		printError("Could not create new EVP key");
+		return 1;
+	}
 
     EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
 
@@ -2287,7 +2358,6 @@ int updateDbEnc()
         printMACErrMessage(1);
 
         free(decryptedBuffer);
-        free(encryptedBuffer);
         return 1;
     }
 
@@ -2310,10 +2380,6 @@ int updateDbEnc()
 
     oldFileSize = evpOutputLength;
 
-    if (deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations) != 0) {
-        return 1;
-    }
-
     memcpy(HMACKey, HMACKeyNew, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
 
     free(encryptedBuffer);
@@ -2322,6 +2388,20 @@ int updateDbEnc()
         printSysError(errno);
         return errno;
     }
+    
+    /*Create new databse with new salt, so also need new HMAC and EVP key derived from that salt*/
+	if(genEvpSalt() != 0) {
+		printError("Could not update salt");
+		return 1;
+	}
+	if(deriveHMACKey() != 0) {
+		printError("Could not create new HMAC key");
+		return 1;
+	}
+	if(deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations) != 0) {
+		printError("Could not create new EVP key");
+		return 1;
+	}
 
     EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
 
@@ -2342,11 +2422,6 @@ int updateDbEnc()
 
     /*Clear sensitive data from decryptedBuffer ASAP*/
     OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * oldFileSize);
-
-    /*Must generate new key for HMAC in case PBKDF2Iterations was updated*/
-    /*Not going to test conditional if PBKDF2Iterations were updated since it doesn't effect other parameters to update it anyway*/
-    if (deriveHMACKey() != 0)
-        return 1;
 
     /*Sign new ciphertext*/
     if (signCiphertext(EVP_CIPHER_iv_length(evpCipher), newFileSize, encryptedBuffer) != 0)
