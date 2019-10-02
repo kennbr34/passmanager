@@ -203,18 +203,10 @@ int main(int argc, char *argv[])
     } else {
 
         /*Structure values for rlimits*/
-        struct rlimit core, memlock;
+        struct rlimit memlock;
 
-        core.rlim_cur = 0;
-        core.rlim_max = 0;
         memlock.rlim_cur = RLIM_INFINITY;
         memlock.rlim_max = RLIM_INFINITY;
-
-        /*Disable core dumps*/
-        if (setrlimit(RLIMIT_CORE, &core) == -1) {
-            printSysError(errno);
-            exit(EXIT_FAILURE);
-        }
 
         /*Raise limit of locked memory to unlimited*/
         if (setrlimit(RLIMIT_MEMLOCK, &memlock) == -1) {
@@ -246,6 +238,9 @@ int main(int argc, char *argv[])
     }
 
 #ifdef __linux__
+	/*Set process core to not be dumpable*/
+	/*Also prevents ptrace attaching to the process*/
+	/*Disable if you need to debug*/
 	if(prctl(PR_SET_DUMPABLE,0,0,0,0) != 0) {
 		printSysError(errno);
 		exit(EXIT_FAILURE);
