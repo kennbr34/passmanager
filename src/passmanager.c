@@ -41,6 +41,8 @@
 #include <unistd.h>
 #ifdef __linux__
 #include <sys/prctl.h>
+#elif defined __FreeBSD__
+#include <sys/procctl.h>
 #endif
 #include <stdbool.h>
 #include <sys/resource.h>
@@ -245,6 +247,13 @@ int main(int argc, char *argv[])
 		printSysError(errno);
 		exit(EXIT_FAILURE);
 	}
+#elif defined __FreeBSD__
+	/*If using FreeBSD procctl can do the same thing*/
+	int procCtlArg = PROC_TRACE_CTL_DISABLE;
+	if(procctl(P_PID,getpid(),PROC_TRACE_CTL,&procCtlArg) == -1) {
+                printSysError(errno);
+                exit(EXIT_FAILURE);
+        }
 #endif
 
     atexit(cleanUpBuffers);
@@ -2745,7 +2754,7 @@ int printSyntax(char *arg)
 \n     \t-c 'cipher' - Update encryption algorithm  \
 \n     \t-H 'digest' - Update digest used for algorithms' KDFs \
 \n     \t-i 'iterations' - Update iteration amount used by PBKDF2 to 'iterations'\
-\nVersion 3.2.6\
+\nVersion 3.2.7\
 \n\
 ",
            arg);

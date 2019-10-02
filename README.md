@@ -4,7 +4,7 @@ Thorough documentation on design and use was also added via manual file, in addi
 
 # PLATFORMS
 
-The program utilizes OpenSSL and libcap and should work on any Linux.
+The program utilizes OpenSSL and should work on any Linux.
 
 Confirmed Operational On:
 
@@ -19,8 +19,6 @@ Confirmed Operational On:
 
 OpenSSL development files (1.0.1.g or higher)
 
-libcap development files (2.24-12 or higher)
-
 xclip (optional for clipboard functions)
 
 # INSTALL
@@ -28,6 +26,8 @@ xclip (optional for clipboard functions)
 This archive is an automake package.
 
 To install, run these commands from the current working directory:
+
+'make install' must be ran as root to install the binary with SUID permission and to install the man file
 
 $ ./configure\
 $ make\
@@ -37,7 +37,7 @@ $ make\
 
 If you don't want to install the automake package contents, and want to compile the binary alone, just link with lcrypto
 
-gcc passmanager.c -o passmanager -lcrypto -lcap
+gcc passmanager.c -o passmanager -lcrypto
 
 Special Note: I would advise against using optimization, because the functions which are used to clear memory of sensitive data may be optimized out.
 

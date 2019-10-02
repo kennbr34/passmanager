@@ -2,6 +2,10 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+2019-10-1
+(+ver 3.2.7)
+	Got rid of libcap capabilities functions because they are not needed
+	Replaced ptrace and core-dump disability on Linux with prctl and added it for FreeBSD with procctl
 2019-9-30
 	Generate new salt for any database modification, 
 	Check return status of deriveEVPKey, deriveHMACKey and genEVPSalt
