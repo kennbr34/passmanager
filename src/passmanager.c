@@ -195,7 +195,6 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-#ifdef __linux__
     /*Check for super user priveleges*/
     if (geteuid() != 0 && getuid() != 0) {
         printf("euid: %i uid: %i\n", geteuid(), getuid());
@@ -203,6 +202,7 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     } else {
 
+#ifdef __linux__
         /*Variables for libcap functions*/
         cap_t caps;
         cap_value_t set_list[1];
@@ -248,6 +248,7 @@ int main(int argc, char *argv[])
             printSysError(errno);
             exit(EXIT_FAILURE);
         }
+#endif
 
         /*Structure values for rlimits*/
         struct rlimit core, memlock;
@@ -291,7 +292,6 @@ int main(int argc, char *argv[])
             }
         }
     }
-#endif
 
     atexit(cleanUpBuffers);
 
