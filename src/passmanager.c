@@ -40,7 +40,9 @@
 #include <time.h>
 #include <unistd.h>
 #ifdef __linux__
-#include <sys/capability.h>
+#include <sys/prctl.h>
+#elif defined __FreeBSD__
+#include <sys/procctl.h>
 #endif
 #include <stdbool.h>
 #include <sys/resource.h>
@@ -198,71 +200,15 @@ int main(int argc, char *argv[])
     /*Check for super user priveleges*/
     if (geteuid() != 0 && getuid() != 0) {
         printf("euid: %i uid: %i\n", geteuid(), getuid());
-        printf("No priveleges to lock memory or disable prace. Your sensitive data might be swapped to disk or exposed to other processes. Aborting.\n");
+        printf("No priveleges to lock memory. Your sensitive data might be swapped to disk or exposed to other processes. Aborting.\n");
         exit(EXIT_FAILURE);
     } else {
 
-#ifdef __linux__
-        /*Variables for libcap functions*/
-        cap_t caps;
-        cap_value_t set_list[1];
-        cap_value_t clear_list[1];
-        caps = cap_get_proc();
-        if (caps == NULL) {
-            printSysError(errno);
-            exit(EXIT_FAILURE);
-        }
-        set_list[0] = CAP_IPC_LOCK;
-        clear_list[0] = CAP_SYS_PTRACE;
-
-        /*Enable memory locking*/
-        if (cap_set_flag(caps, CAP_EFFECTIVE, 1, set_list, CAP_SET) == -1) {
-            printSysError(errno);
-            exit(EXIT_FAILURE);
-        }
-
-        /*Make the capability inheritable to child processes*/
-        if (cap_set_flag(caps, CAP_INHERITABLE, 1, set_list, CAP_SET) == -1) {
-            printSysError(errno);
-            exit(EXIT_FAILURE);
-        }
-        /*Disable ptrace ability*/
-        if (cap_set_flag(caps, CAP_EFFECTIVE, 1, clear_list, CAP_CLEAR) == -1) {
-            printSysError(errno);
-            exit(EXIT_FAILURE);
-        }
-        if (cap_set_flag(caps, CAP_PERMITTED, 1, clear_list, CAP_CLEAR) == -1) {
-            printSysError(errno);
-            exit(EXIT_FAILURE);
-        }
-        /*Make the disability inheritable to child processes*/
-        if (cap_set_flag(caps, CAP_INHERITABLE, 1, clear_list, CAP_CLEAR) == -1) {
-            printSysError(errno);
-            exit(EXIT_FAILURE);
-        }
-        if (cap_set_proc(caps) == -1) {
-            printSysError(errno);
-            exit(EXIT_FAILURE);
-        }
-        if (cap_free(caps) == -1) {
-            printSysError(errno);
-            exit(EXIT_FAILURE);
-        }
-#endif
-
         /*Structure values for rlimits*/
-        struct rlimit core, memlock;
+        struct rlimit memlock;
 
-        core.rlim_cur = 0;
-        core.rlim_max = 0;
         memlock.rlim_cur = RLIM_INFINITY;
         memlock.rlim_max = RLIM_INFINITY;
-
-        /*Disable core dumps*/
-        if (setrlimit(RLIMIT_CORE, &core) == -1) {
-            printSysError(errno);
-            exit(EXIT_FAILURE);
-        }
 
         /*Raise limit of locked memory to unlimited*/
         if (setrlimit(RLIMIT_MEMLOCK, &memlock) == -1) {
@@ -292,6 +238,23 @@ int main(int argc, char *argv[])
             }
         }
     }
+
+#ifdef __linux__
+	/*Set process core to not be dumpable*/
+	/*Also prevents ptrace attaching to the process*/
+	/*Disable if you need to debug*/
+	if(prctl(PR_SET_DUMPABLE,0,0,0,0) != 0) {
+		printSysError(errno);
+		exit(EXIT_FAILURE);
+	}
+#elif defined __FreeBSD__
+	/*If using FreeBSD procctl can do the same thing*/
+	int procCtlArg = PROC_TRACE_CTL_DISABLE;
+	if(procctl(P_PID,getpid(),PROC_TRACE_CTL,&procCtlArg) == -1) {
+                printSysError(errno);
+                exit(EXIT_FAILURE);
+        }
+#endif
 
     atexit(cleanUpBuffers);
 
@@ -2791,7 +2754,7 @@ int printSyntax(char *arg)
 \n     \t-c 'cipher' - Update encryption algorithm  \
 \n     \t-H 'digest' - Update digest used for algorithms' KDFs \
 \n     \t-i 'iterations' - Update iteration amount used by PBKDF2 to 'iterations'\
-\nVersion 3.2.6\
+\nVersion 3.2.7\
 \n\
 ",
            arg);
