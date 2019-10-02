@@ -40,7 +40,9 @@
 #include <time.h>
 #include <unistd.h>
 #ifdef __linux__
-#include <sys/capability.h>
+#include <sys/prctl.h>
+#elif defined __bsdi__
+#include <sys/procctl.h>
 #endif
 #include <stdbool.h>
 #include <sys/resource.h>
@@ -198,57 +200,9 @@ int main(int argc, char *argv[])
     /*Check for super user priveleges*/
     if (geteuid() != 0 && getuid() != 0) {
         printf("euid: %i uid: %i\n", geteuid(), getuid());
-        printf("No priveleges to lock memory or disable prace. Your sensitive data might be swapped to disk or exposed to other processes. Aborting.\n");
+        printf("No priveleges to lock memory. Your sensitive data might be swapped to disk or exposed to other processes. Aborting.\n");
         exit(EXIT_FAILURE);
     } else {
-
-#ifdef __linux__
-        /*Variables for libcap functions*/
-        cap_t caps;
-        cap_value_t set_list[1];
-        cap_value_t clear_list[1];
-        caps = cap_get_proc();
-        if (caps == NULL) {
-            printSysError(errno);
-            exit(EXIT_FAILURE);
-        }
-        set_list[0] = CAP_IPC_LOCK;
-        clear_list[0] = CAP_SYS_PTRACE;
-
-        /*Enable memory locking*/
-        if (cap_set_flag(caps, CAP_EFFECTIVE, 1, set_list, CAP_SET) == -1) {
-            printSysError(errno);
-            exit(EXIT_FAILURE);
-        }
-
-        /*Make the capability inheritable to child processes*/
-        if (cap_set_flag(caps, CAP_INHERITABLE, 1, set_list, CAP_SET) == -1) {
-            printSysError(errno);
-            exit(EXIT_FAILURE);
-        }
-        /*Disable ptrace ability*/
-        if (cap_set_flag(caps, CAP_EFFECTIVE, 1, clear_list, CAP_CLEAR) == -1) {
-            printSysError(errno);
-            exit(EXIT_FAILURE);
-        }
-        if (cap_set_flag(caps, CAP_PERMITTED, 1, clear_list, CAP_CLEAR) == -1) {
-            printSysError(errno);
-            exit(EXIT_FAILURE);
-        }
-        /*Make the disability inheritable to child processes*/
-        if (cap_set_flag(caps, CAP_INHERITABLE, 1, clear_list, CAP_CLEAR) == -1) {
-            printSysError(errno);
-            exit(EXIT_FAILURE);
-        }
-        if (cap_set_proc(caps) == -1) {
-            printSysError(errno);
-            exit(EXIT_FAILURE);
-        }
-        if (cap_free(caps) == -1) {
-            printSysError(errno);
-            exit(EXIT_FAILURE);
-        }
-#endif
 
         /*Structure values for rlimits*/
         struct rlimit core, memlock;
@@ -292,6 +246,17 @@ int main(int argc, char *argv[])
             }
         }
     }
+
+#ifdef __linux__
+	if(prctl(PR_SET_DUMPABLE,0,0,0,0) != 0) {
+		printSysError(errno);
+		exit(EXIT_FAILURE);
+	}
+#elif defined __bsdi__
+	if(procctl(P_PID,getpid(),PROC_TRACE_CTL,PROC_TRACE_CTL_DISABLE) == -1)
+		printSysError(errno);
+		exit(EXIT_FAILURE);
+#endif
 
     atexit(cleanUpBuffers);
 

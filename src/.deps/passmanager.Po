@@ -109,15 +109,15 @@ src/passmanager.o: src/passmanager.c /usr/include/stdc-predef.h config.h \
  /usr/include/x86_64-linux-gnu/bits/confname.h \
  /usr/include/x86_64-linux-gnu/bits/getopt_posix.h \
  /usr/include/x86_64-linux-gnu/bits/getopt_core.h \
- /usr/include/sys/capability.h /usr/include/linux/types.h \
- /usr/include/x86_64-linux-gnu/asm/types.h \
+ /usr/include/x86_64-linux-gnu/sys/prctl.h /usr/include/linux/prctl.h \
+ /usr/include/linux/types.h /usr/include/x86_64-linux-gnu/asm/types.h \
  /usr/include/asm-generic/types.h /usr/include/asm-generic/int-ll64.h \
  /usr/include/x86_64-linux-gnu/asm/bitsperlong.h \
  /usr/include/asm-generic/bitsperlong.h /usr/include/linux/posix_types.h \
  /usr/include/linux/stddef.h \
  /usr/include/x86_64-linux-gnu/asm/posix_types.h \
  /usr/include/x86_64-linux-gnu/asm/posix_types_64.h \
- /usr/include/asm-generic/posix_types.h /usr/include/linux/capability.h \
+ /usr/include/asm-generic/posix_types.h \
  /usr/lib/gcc/x86_64-linux-gnu/7/include/stdbool.h \
  /usr/include/x86_64-linux-gnu/sys/resource.h \
  /usr/include/x86_64-linux-gnu/bits/resource.h \
@@ -404,7 +404,9 @@ config.h:
 
 /usr/include/x86_64-linux-gnu/bits/getopt_core.h:
 
-/usr/include/sys/capability.h:
+/usr/include/x86_64-linux-gnu/sys/prctl.h:
+
+/usr/include/linux/prctl.h:
 
 /usr/include/linux/types.h:
 
@@ -427,8 +429,6 @@ config.h:
 /usr/include/x86_64-linux-gnu/asm/posix_types_64.h:
 
 /usr/include/asm-generic/posix_types.h:
-
-/usr/include/linux/capability.h:
 
 /usr/lib/gcc/x86_64-linux-gnu/7/include/stdbool.h:
 
