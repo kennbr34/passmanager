@@ -41,7 +41,7 @@
 #include <unistd.h>
 #ifdef __linux__
 #include <sys/prctl.h>
-#elif defined __bsdi__
+#elif defined __FreeBSD__
 #include <sys/procctl.h>
 #endif
 #include <stdbool.h>
@@ -252,7 +252,7 @@ int main(int argc, char *argv[])
 		printSysError(errno);
 		exit(EXIT_FAILURE);
 	}
-#elif defined __bsdi__
+#elif defined __FreeBSD__
 	if(procctl(P_PID,getpid(),PROC_TRACE_CTL,PROC_TRACE_CTL_DISABLE) == -1)
 		printSysError(errno);
 		exit(EXIT_FAILURE);
