@@ -98,9 +98,10 @@ struct conditionsStruct {
     bool generateEntryPassAlpha;
     bool printAllPasses;
     bool updateAllPasses;
+    bool printingDbInfo;
 };
 
-struct conditionsStruct condition;
+struct conditionsStruct condition = {0};
 
 /*Prototype functions*/
 
@@ -134,6 +135,7 @@ int evpEncrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, un
 int freadWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream);
 int fwriteWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream);
 int compareMAC(const void *in_a, const void *in_b, size_t len);
+void printDbInfo();
 
 const EVP_CIPHER *evpCipher, *evpCipherOld;
 unsigned char evpKey[EVP_MAX_KEY_LENGTH], evpKeyOld[EVP_MAX_KEY_LENGTH];
@@ -274,7 +276,7 @@ int main(int argc, char *argv[])
     int i;
 
     /*Process through arguments*/
-    while ((opt = getopt(argc, argv, "i:s:l:f:u:n:d:a:r:p:x:H:c:hUPC")) != -1) {
+    while ((opt = getopt(argc, argv, "i:s:l:f:u:n:d:a:r:p:x:H:c:hUPCI")) != -1) {
         switch (opt) {
         case 'h':
             printSyntax("passmanager");
@@ -314,6 +316,9 @@ int main(int argc, char *argv[])
         case 'C':
             condition.sendToClipboard = true;
             break;
+        case 'I':
+			condition.printingDbInfo = true;
+			break;
         case 'P':
             condition.updatingEntryPass = true;
             break;
@@ -494,7 +499,7 @@ int main(int argc, char *argv[])
         OPENSSL_cleanse(argv[i], strlen(argv[i]));
 
     /*If the user didn't specify a file with -f set error flag on*/
-    if (condition.fileGiven != true)
+    if (condition.fileGiven == false)
         errflg++;
 
     /*Test if database is being initialized and if not if it is readable*/
@@ -519,7 +524,7 @@ int main(int argc, char *argv[])
     }
 
     /*Before anything else, back up the password database*/
-    if (condition.databaseBeingInitalized != true && condition.readingPass != true) {
+    if (condition.databaseBeingInitalized == false && condition.readingPass == false && condition.printingDbInfo == false) {
         strncpy(backupFileName, dbFileName, NAME_MAX);
         strncat(backupFileName, ".autobak", NAME_MAX);
         FILE *backUpFile = fopen(backupFileName, "w");
@@ -555,8 +560,19 @@ int main(int argc, char *argv[])
             free(backUpFileBuffer);
         }
     }
-
-    if (condition.addingPass == true) /*This mode will add an entry*/
+    
+    if (condition.printingDbInfo == true) {
+		if (condition.databaseBeingInitalized == false) {
+            openDatabase();
+        } else {
+			printf("Database file not initialized\n");
+			exit(EXIT_FAILURE);
+        }
+        
+        printDbInfo();
+        
+        return EXIT_SUCCESS;
+	} else if (condition.addingPass == true) /*This mode will add an entry*/
     {
 
         /*Check a few things before proceeding*/
@@ -574,7 +590,7 @@ int main(int argc, char *argv[])
                 genPassWord(genPassLength);
             else
                 genPassWord(DEFAULT_GENPASS_LENGTH);
-        } else if (condition.entryPassGivenasArg != true) {
+        } else if (condition.entryPassGivenasArg == false) {
             /*Prompt for entry password*/
             getPass("Enter entry password to be saved: ", entryPass);
 
@@ -604,7 +620,7 @@ int main(int argc, char *argv[])
         }
 
         /*Prompt for database password if not supplied as argument*/
-        if (condition.dbPassGivenasArg != true) {
+        if (condition.dbPassGivenasArg == false) {
             getPass("Enter database password to encode with: ", dbPass);
 
             /*If this function returns 0 then it is the first time entering the database password so input should be verified*/
@@ -622,7 +638,7 @@ int main(int argc, char *argv[])
 
         /*If password file exists run openDatabase on it*/
         /*Test by filesize and not if the file exists because at this point an empty file by this name will be there*/
-        if (condition.databaseBeingInitalized != true) {
+        if (condition.databaseBeingInitalized == false) {
             openDatabase();
         } else {
             /*Otherwise run these functions to initialize a database*/
@@ -654,7 +670,7 @@ int main(int argc, char *argv[])
     } else if (condition.readingPass == true) /*Read passwords mode*/
     {
 
-        if (condition.dbPassGivenasArg != true) {
+        if (condition.dbPassGivenasArg == false) {
             getPass("Enter database password: ", dbPass);
         }
 
@@ -674,12 +690,12 @@ int main(int argc, char *argv[])
 
     } else if (condition.deletingPass == true) /*Delete a specified entry*/
     {
-        if (condition.dbPassGivenasArg != true) {
+        if (condition.dbPassGivenasArg == false) {
             getPass("Enter database password: ", dbPass);
         }
 
         /*Must specify an entry to delete*/
-        if (condition.entryGiven != true) /*Fail if no entry specified*/
+        if (condition.entryGiven == false) /*Fail if no entry specified*/
         {
             printf("\nNo entry name was specified\n");
             exit(EXIT_FAILURE);
@@ -704,7 +720,7 @@ int main(int argc, char *argv[])
     } else if (condition.updatingEntry == true) /*Update an entry name*/
     {
 
-        if (condition.dbPassGivenasArg != true) {
+        if (condition.dbPassGivenasArg == false) {
             getPass("Enter database password: ", dbPass);
         }
 
@@ -744,7 +760,7 @@ int main(int argc, char *argv[])
                     genPassWord(DEFAULT_GENPASS_LENGTH);
                     strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
                 }
-            } else if (condition.entryPassGivenasArg != true) {
+            } else if (condition.entryPassGivenasArg == false) {
                 getPass("Enter entry password to be saved: ", newEntryPass);
 
                 /*If password retrieved by prompt was gen/genalpha generate a random password*/
@@ -801,7 +817,7 @@ int main(int argc, char *argv[])
             writeDatabase();
         }
     } else if (condition.updatingDbEnc == true) {
-        if (condition.dbPassGivenasArg != true) {
+        if (condition.dbPassGivenasArg == false) {
             getPass("Enter current database password: ", dbPass);
         }
 
@@ -812,12 +828,12 @@ int main(int argc, char *argv[])
         memcpy(HMACKeyOld, HMACKey, sizeof(char) * SHA512_DIGEST_LENGTH);
 
         /*If -i was given along with nothing else*/
-        if (condition.userChosePBKDF2Iterations == true && (condition.updatingEntryPass != true && condition.userChoseCipher != true && condition.userChoseDigest != true)) {
+        if (condition.userChosePBKDF2Iterations == true && (condition.updatingEntryPass == false && condition.userChoseCipher == false && condition.userChoseDigest == false)) {
             PBKDF2Iterations = PBKDF2IterationsStore;
             printf("PBKDF2 iterations changed to %i\n", PBKDF2Iterations);
         }
         /*If -U was given but neither -c or -H*/
-        else if (condition.updatingDbEnc == true && (condition.userChoseCipher != true && condition.userChoseDigest != true)) {
+        else if (condition.updatingDbEnc == true && (condition.userChoseCipher == false && condition.userChoseDigest == false)) {
             /*Get new encryption password from user*/
             getPass("Enter new database password: ", dbPass);
 
@@ -848,7 +864,7 @@ int main(int argc, char *argv[])
             }
         }
         /*-U was given but not -P and -c and/or -H might be there*/
-        else if (condition.updatingDbEnc == true && condition.updatingEntryPass != true) {
+        else if (condition.updatingDbEnc == true && condition.updatingEntryPass == false) {
             if (condition.userChoseCipher == true) {
                 strncpy(encCipherName, encCipherNameFromCmdLine, NAME_MAX);
                 printf("Changing cipher to %s\n", encCipherNameFromCmdLine);
@@ -1464,11 +1480,13 @@ int openDatabase()
     /*Read PBKDF2Iterations from end of cryptoHeader*/
     memcpy(&PBKDF2Iterations, cryptoHeader + (strlen(cryptoHeader) + 1), sizeof(int));
 
-    /*Generate a separate salt and key for HMAC authentication*/
-    if (deriveHMACKey() != 0) {
-        printError("Could not derive HMAC key");
-        exit(EXIT_FAILURE);
-    }
+	if (condition.printingDbInfo == false) {
+	    /*Generate a separate salt and key for HMAC authentication*/
+	    if (deriveHMACKey() != 0) {
+	        printError("Could not derive HMAC key");
+	        exit(EXIT_FAILURE);
+	    }
+	}
 
     /*Copy all of the file minus the MACs but including the salt and cryptoHeader into a buffer for verification*/
     verificationBuffer = calloc(fileSize - (MACSize * 2), sizeof(unsigned char));
@@ -1505,26 +1523,30 @@ int openDatabase()
         exit(EXIT_FAILURE);
     }
 
-    if (HMAC(EVP_sha512(), HMACKey, MACSize, verificationBuffer, fileSize - (MACSize * 2), MACdBFileGenerates, HMACLengthPtr) == NULL) {
-        printError("HMAC failed");
-        exit(EXIT_FAILURE);
-    }
+	if(condition.printingDbInfo == false) {
+		
+	    if (HMAC(EVP_sha512(), HMACKey, MACSize, verificationBuffer, fileSize - (MACSize * 2), MACdBFileGenerates, HMACLengthPtr) == NULL) {
+	        printError("HMAC failed");
+	        exit(EXIT_FAILURE);
+	    }
 
-    /*Verify authenticity of database*/
-    if (compareMAC(MACdBFileSignedWith, MACdBFileGenerates, MACSize) != 0) {
-        /*Return error status before proceeding and clean up sensitive data*/
-        printMACErrMessage(0);
-
-        if (fclose(dbFile) == EOF) {
-            printFileError(dbFileName, errno);
-            free(verificationBuffer);
-            exit(EXIT_FAILURE);
-        }
-
-        free(verificationBuffer);
-
-        exit(EXIT_FAILURE);
-    }
+	
+	    /*Verify authenticity of database*/
+	    if (compareMAC(MACdBFileSignedWith, MACdBFileGenerates, MACSize) != 0) {
+	        /*Return error status before proceeding and clean up sensitive data*/
+	        printMACErrMessage(0);
+	
+	        if (fclose(dbFile) == EOF) {
+	            printFileError(dbFileName, errno);
+	            free(verificationBuffer);
+	            exit(EXIT_FAILURE);
+	        }
+	
+	        free(verificationBuffer);
+	
+	        exit(EXIT_FAILURE);
+	    }
+	}
 
     /*Copy verificationBuffer to encryptedBuffer without the header information or MACs*/
     encryptedBuffer = calloc(sizeof(char), evpDataSize);
@@ -1575,7 +1597,7 @@ int openDatabase()
         exit(EXIT_FAILURE);
     }
 
-    if (condition.updatingDbEnc) {
+    if (condition.updatingDbEnc == true && condition.printingDbInfo == false) {
         /*Copy old evpCipher to evpCipherOld and generate evpKeyOld based on this*/
         /*This needs to be done in openDatabase() before cipher and digest parameters are changed later on */
         evpCipherOld = evpCipher;
@@ -1617,7 +1639,7 @@ int writePass()
     for (i = 0; i < UI_BUFFERS_SIZE; i++)
         infoBuffer[i + UI_BUFFERS_SIZE] = entryPass[i];
 
-    if (condition.databaseBeingInitalized != true) {
+    if (condition.databaseBeingInitalized == false) {
 
         /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
         if (verifyCiphertext(EVP_CIPHER_iv_length(evpCipher), fileSize, encryptedBuffer, HMACKey, evpIv) != 0) {
@@ -2217,7 +2239,7 @@ int updateEntry(char *searchString)
     OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
     OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
     /*Don't cleanse newEntryPass yet if we're going to send it to the clipboard*/
-    if (condition.sendToClipboard != true)
+    if (condition.sendToClipboard == false)
         OPENSSL_cleanse(newEntryPass, sizeof(unsigned char) * UI_BUFFERS_SIZE);
     OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * oldFileSize + EVP_MAX_BLOCK_LENGTH);
     OPENSSL_cleanse(passWord, sizeof(char) * UI_BUFFERS_SIZE);
@@ -2610,6 +2632,78 @@ int compareMAC(const void *in_a, const void *in_b, size_t len)
         x |= a[i] ^ b[i];
 
     return x;
+}
+
+void printDbInfo()
+{
+	printf("Number of entries in database: %i\n", evpDataSize / (UI_BUFFERS_SIZE * 2));
+	printf("PBKDF2 configuration:\n");
+	printf("\tDigest Algorithm: %s\n", messageDigestName);
+	printf("\tSalt:");
+	for(int i=0; i < EVP_SALT_SIZE; i++) {
+		printf("%02x", evpSalt[i] & 0xff);
+	}
+	printf("\n");
+	printf("\tIterations: %i\n", PBKDF2Iterations);
+	printf("\tDigest size: %i bits\n", EVP_MD_size(EVP_get_digestbyname(messageDigestName)) * 8);
+	printf("\tBlock size: %i bits\n", EVP_MD_block_size(EVP_get_digestbyname(messageDigestName)) * 8);
+	printf("Encryption configuration: %s \n\tAlgorithm: ", encCipherName);
+	if(strncmp(encCipherName,"aes",3) == 0)
+		printf("AES\n");
+	else if(strncmp(encCipherName,"bf",2) == 0 || strcmp(encCipherName,"blowfish") == 0)
+		printf("Blowfish\n");
+	else if(strncmp(encCipherName,"rc2",3) == 0)
+		printf("RC2\n");
+	else if(strncmp(encCipherName,"rc4",3) == 0)
+		printf("RC4\n");
+	else if(strncmp(encCipherName,"sm4",3) == 0)
+		printf("SM4\n");
+	else if(strncmp(encCipherName,"des",3) == 0)
+		printf("DES\n");
+	else if(strncmp(encCipherName,"cast",4) == 0)
+		printf("CAST\n");
+	else if(strncmp(encCipherName,"aria",4) == 0)
+		printf("Aria\n");
+	else if(strncmp(encCipherName,"camellia",8) == 0)
+		printf("Camellia\n");
+	else if(strncmp(encCipherName,"chacha20",8) == 0)
+		printf("Cha-Cha20\n");
+	switch(EVP_CIPHER_mode(EVP_get_cipherbyname(encCipherName))) {
+		case EVP_CIPH_CBC_MODE :
+			printf("\tMode: Cipher Block Chaining\n");
+			break;
+		case EVP_CIPH_ECB_MODE :
+			printf("\tMode: Electronic Code Book\n");
+			break;
+		case EVP_CIPH_CTR_MODE :
+			printf("\tMode: Counter\n");
+			break;
+		case EVP_CIPH_OFB_MODE :
+			printf("\tMode: Output Feedback\n");
+			break;
+		case EVP_CIPH_CFB_MODE :
+			printf("\tMode: Cipher Feedback\n");
+			break;
+		case EVP_CIPH_STREAM_CIPHER :
+			printf("\tMode: Sream\n");
+			break;
+		default:
+			printf("\tMode: Unkonwn\n");
+			break;
+	}
+	printf("\tBlock Size: %i bits\n", EVP_CIPHER_block_size(EVP_get_cipherbyname(encCipherName)) * 8);
+	printf("\tKey Size: %i bits\n", EVP_CIPHER_key_length(EVP_get_cipherbyname(encCipherName)) * 8);
+	printf("\tIV Size: %i bits\n", EVP_CIPHER_iv_length(EVP_get_cipherbyname(encCipherName)) * 8);
+	printf("Database MAC:\n\t");
+	for(int i=0; i < SHA512_DIGEST_LENGTH; i++) {
+		printf("%02x", MACdBFileSignedWith[i] & 0xff);
+	}
+	printf("\n");
+	printf("Ciphertext+IV MAC:\n\t");
+	for(int i=0; i < SHA512_DIGEST_LENGTH; i++) {
+		printf("%02x", MACcipherTextSignedWith[i] & 0xff);
+	}
+	printf("\n");
 }
 
 void cleanUpBuffers()

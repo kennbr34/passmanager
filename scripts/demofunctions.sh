@@ -24,22 +24,34 @@ echo -e "\nDisplay changes made... (Press enter)"
 read
 echo passmanager -r allpasses -f ./examplepasswords1.dat -x password
 passmanager -r allpasses -f ./examplepasswords1.dat -x password
-echo -e "\nNow try changing the password. You will be prompted for the current and new password"
+echo -e "\nNow try changing the password. You will be prompted for the current and new password... (Press enter)"
+read
 echo passmanager -U -f ./examplepasswords1.dat
 passmanager -U -f ./examplepasswords1.dat
-echo -e "\nNow read the database with the password you just changed to"
+echo -e "\nNow read the database with the password you just changed to... (Press enter)"
+read
 echo passmanager -r allpasses -f ./examplepasswords1.dat
 passmanager -r allpasses -f ./examplepasswords1.dat
-echo -e "\nNow try changing the encryption to bf-ofb:bf-ofb and whirlpool:sha512"
-echo passmanager -U -c bf-ofb -H whirlpool -f ./examplepasswords1.dat
-passmanager -U -c bf-ofb -H whirlpool -f ./examplepasswords1.dat
+echo -e "\nNow try changing the encryption to bf-ofb:bf-ofb and whirlpool:sha512 and the PBKDF2 iterations to 100k... (Press enter)"
+read
+echo passmanager -U -c bf-ofb -H whirlpool -i 100000 -f ./examplepasswords1.dat
+passmanager -U -c bf-ofb -H whirlpool -i 100000 -f ./examplepasswords1.dat
 echo -e "\nRead the password database to confirm change... (Press enter)"
 read
 echo passmanager -r allpasses -f ./examplepasswords1.dat
 passmanager -r allpasses -f ./examplepasswords1.dat
-echo -e "\nNow change the password back to 'password' when prompted"
-echo passmanager -U -c aes-256-ctr -H sha512 -P -f ./examplepasswords1.dat
-passmanager -U -c aes-256-ctr -H sha512 -P -f ./examplepasswords1.dat
+echo -e "\nNow view database information... (Press enter)"
+read
+echo passmanager -I -f ./examplepasswords1.dat
+passmanager -I -f ./examplepasswords1.dat
+echo -e "\nNow change the password back to 'password' and the encryption and PBKDF2 iterations back when prompted... (Press enter)"
+read
+echo passmanager -U -c aes-256-ctr -H sha512 -i 1 -P -f ./examplepasswords1.dat
+passmanager -U -c aes-256-ctr -H sha512 -i 1 -P -f ./examplepasswords1.dat
+echo -e "\nNow view database information again... (Press enter)"
+read
+echo passmanager -I -f ./examplepasswords1.dat
+passmanager -I -f ./examplepasswords1.dat
 echo -e "\nNow read the database to confirm... (Press enter)"
 read
 echo passmanager -r allpasses -f ./examplepasswords1.dat -x password
@@ -88,7 +100,9 @@ echo passmanager -d name -f ./examplepasswords1.dat -x password1
 passmanager -d name -f ./examplepasswords1.dat -x password1
 echo passmanager -U -c bf-ofb -f ./examplepasswords1.dat -x password1
 passmanager -U -c bf-ofb -f ./examplepasswords1.dat -x password1
-echo -e "\nNow imagine you started to update the database encryption, but didn't like the options you entered press Ctrl=C when prompted for the password... (Press enter)"
+echo -e "\nNow imagine you started to update the database encryption, but didn't like the options you entered press Ctrl-C when prompted for the password... (Press enter)"
 read
 echo passmanager -U -c foocipher-f ./examplepasswords1.dat
 passmanager -U -c foocipher -f ./examplepasswords1.dat
+echo -e "\nProgram catches interrupt signal and makes sure to clean up sensitive buffers before exiting."
+echo -e "\nThese are all the program's basic functions and operations.\n"
