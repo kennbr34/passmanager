@@ -136,6 +136,7 @@ int freadWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream);
 int fwriteWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream);
 int compareMAC(const void *in_a, const void *in_b, size_t len);
 void printDbInfo();
+void backupDatabase();
 
 const EVP_CIPHER *evpCipher, *evpCipherOld;
 unsigned char evpKey[EVP_MAX_KEY_LENGTH], evpKeyOld[EVP_MAX_KEY_LENGTH];
@@ -1547,6 +1548,9 @@ int openDatabase()
 	        exit(EXIT_FAILURE);
 	    }
 	}
+	
+	/*Create a backup after verification of MAC so that user can recover database if something went wrong in the last modification*/
+	backupDatabase();
 
     /*Copy verificationBuffer to encryptedBuffer without the header information or MACs*/
     encryptedBuffer = calloc(sizeof(char), evpDataSize);
@@ -1610,6 +1614,47 @@ int openDatabase()
     }
 
     return 0;
+}
+
+void backupDatabase()
+{
+	/*Before anything else, back up the password database*/
+    if (condition.databaseBeingInitalized == false && condition.readingPass == false && condition.printingDbInfo == false) {
+        strncpy(backupFileName, dbFileName, NAME_MAX);
+        strncat(backupFileName, ".autobak", NAME_MAX);
+        FILE *backUpFile = fopen(backupFileName, "w");
+        if (backUpFile == NULL) {
+            printf("Couldn't make a backup file. Be careful...\n");
+        } else {
+            FILE *copyFile = fopen(dbFileName, "r");
+            char *backUpFileBuffer = calloc(sizeof(char), returnFileSize(dbFileName));
+            if (backUpFileBuffer == NULL) {
+                printSysError(errno);
+                exit(EXIT_FAILURE);
+            }
+
+            if (freadWErrCheck(backUpFileBuffer, sizeof(char), returnFileSize(dbFileName), copyFile) != 0) {
+                printSysError(returnVal);
+                exit(EXIT_FAILURE);
+            }
+
+            if (fwriteWErrCheck(backUpFileBuffer, sizeof(char), returnFileSize(dbFileName), backUpFile) != 0) {
+                printSysError(returnVal);
+                exit(EXIT_FAILURE);
+            }
+
+            if (fclose(copyFile) == EOF) {
+                printFileError(dbFileName, errno);
+                exit(EXIT_FAILURE);
+            }
+            if (fclose(backUpFile) == EOF) {
+                printFileError(backupFileName, errno);
+                exit(EXIT_FAILURE);
+            }
+
+            free(backUpFileBuffer);
+        }
+    }
 }
 
 int writePass()
