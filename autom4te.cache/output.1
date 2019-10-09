@@ -718,6 +718,7 @@ enable_option_checking
 enable_silent_rules
 enable_maintainer_mode
 enable_dependency_tracking
+with_xclip
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1362,6 +1363,11 @@ Optional Features:
                           do not reject slow dependency extractors
   --disable-dependency-tracking 
                           speeds up one-time build
+
+Optional Packages:
+  --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
+  --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --without-xclip         disable support for xclip
 
 Some influential environment variables:
   CC          C compiler command
@@ -3886,11 +3892,68 @@ fi
 
 # Checks for libraries.
 #AC_CHECK_LIB(cap,[main], [], [AC_MSG_ERROR(libcap not found)])
+#AC_CHECK_LIB(X11,[main], [], [AC_MSG_ERROR(libX11 not found)])
 
+
+@%:@ Check whether --with-xclip was given.
+if test "${with_xclip+set}" = set; then :
+  withval=$with_xclip; 
+else
+  with_xclip=yes
+fi
+
+          
+          LIBS=
+          
+if test "x$with_xclip" != xno; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -lX11" >&5
+$as_echo_n "checking for main in -lX11... " >&6; }
+if ${ac_cv_lib_X11_main+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lX11  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+
+int
+main ()
+{
+return main ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_X11_main=yes
+else
+  ac_cv_lib_X11_main=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_X11_main" >&5
+$as_echo "$ac_cv_lib_X11_main" >&6; }
+if test "x$ac_cv_lib_X11_main" = xyes; then :
+  LIBS="-lX11"
+
+               
+$as_echo "@%:@define HAVE_LIBX11 1" >>confdefs.h
+
+              
+else
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "xclip test failed (--without-xclip to disable)
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+
+fi
 
   if test "$PORTNAME" != "win32"; then
-     
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for CRYPTO_new_ex_data in -lcrypto" >&5
+     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CRYPTO_new_ex_data in -lcrypto" >&5
 $as_echo_n "checking for CRYPTO_new_ex_data in -lcrypto... " >&6; }
 if ${ac_cv_lib_crypto_CRYPTO_new_ex_data+:} false; then :
   $as_echo_n "(cached) " >&6

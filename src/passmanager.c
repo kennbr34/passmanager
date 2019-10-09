@@ -47,6 +47,9 @@
 #include <stdbool.h>
 #include <sys/resource.h>
 #include <sys/time.h>
+#ifdef HAVE_LIBX11
+#include "xclip.c"
+#endif
 
 #define printSysError(errCode) \
     { \
@@ -136,6 +139,7 @@ int freadWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream);
 int fwriteWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream);
 int compareMAC(const void *in_a, const void *in_b, size_t len);
 void printDbInfo();
+void backupDatabase();
 
 const EVP_CIPHER *evpCipher, *evpCipherOld;
 unsigned char evpKey[EVP_MAX_KEY_LENGTH], evpKeyOld[EVP_MAX_KEY_LENGTH];
@@ -521,44 +525,6 @@ int main(int argc, char *argv[])
     if (errflg) {
         printSyntax("passmanger"); /*Print proper usage of program*/
         exit(EXIT_FAILURE);
-    }
-
-    /*Before anything else, back up the password database*/
-    if (condition.databaseBeingInitalized == false && condition.readingPass == false && condition.printingDbInfo == false) {
-        strncpy(backupFileName, dbFileName, NAME_MAX);
-        strncat(backupFileName, ".autobak", NAME_MAX);
-        FILE *backUpFile = fopen(backupFileName, "w");
-        if (backUpFile == NULL) {
-            printf("Couldn't make a backup file. Be careful...\n");
-        } else {
-            FILE *copyFile = fopen(dbFileName, "r");
-            char *backUpFileBuffer = calloc(sizeof(char), returnFileSize(dbFileName));
-            if (backUpFileBuffer == NULL) {
-                printSysError(errno);
-                exit(EXIT_FAILURE);
-            }
-
-            if (freadWErrCheck(backUpFileBuffer, sizeof(char), returnFileSize(dbFileName), copyFile) != 0) {
-                printSysError(returnVal);
-                exit(EXIT_FAILURE);
-            }
-
-            if (fwriteWErrCheck(backUpFileBuffer, sizeof(char), returnFileSize(dbFileName), backUpFile) != 0) {
-                printSysError(returnVal);
-                exit(EXIT_FAILURE);
-            }
-
-            if (fclose(copyFile) == EOF) {
-                printFileError(dbFileName, errno);
-                exit(EXIT_FAILURE);
-            }
-            if (fclose(backUpFile) == EOF) {
-                printFileError(backupFileName, errno);
-                exit(EXIT_FAILURE);
-            }
-
-            free(backUpFileBuffer);
-        }
     }
     
     if (condition.printingDbInfo == true) {
@@ -1547,6 +1513,9 @@ int openDatabase()
 	        exit(EXIT_FAILURE);
 	    }
 	}
+	
+	/*Create a backup after verification of MAC so that user can recover database if something went wrong in the last modification*/
+	backupDatabase();
 
     /*Copy verificationBuffer to encryptedBuffer without the header information or MACs*/
     encryptedBuffer = calloc(sizeof(char), evpDataSize);
@@ -1610,6 +1579,47 @@ int openDatabase()
     }
 
     return 0;
+}
+
+void backupDatabase()
+{
+	/*Before anything else, back up the password database*/
+    if (condition.databaseBeingInitalized == false && condition.readingPass == false && condition.printingDbInfo == false) {
+        strncpy(backupFileName, dbFileName, NAME_MAX);
+        strncat(backupFileName, ".autobak", NAME_MAX);
+        FILE *backUpFile = fopen(backupFileName, "w");
+        if (backUpFile == NULL) {
+            printf("Couldn't make a backup file. Be careful...\n");
+        } else {
+            FILE *copyFile = fopen(dbFileName, "r");
+            char *backUpFileBuffer = calloc(sizeof(char), returnFileSize(dbFileName));
+            if (backUpFileBuffer == NULL) {
+                printSysError(errno);
+                exit(EXIT_FAILURE);
+            }
+
+            if (freadWErrCheck(backUpFileBuffer, sizeof(char), returnFileSize(dbFileName), copyFile) != 0) {
+                printSysError(returnVal);
+                exit(EXIT_FAILURE);
+            }
+
+            if (fwriteWErrCheck(backUpFileBuffer, sizeof(char), returnFileSize(dbFileName), backUpFile) != 0) {
+                printSysError(returnVal);
+                exit(EXIT_FAILURE);
+            }
+
+            if (fclose(copyFile) == EOF) {
+                printFileError(dbFileName, errno);
+                exit(EXIT_FAILURE);
+            }
+            if (fclose(backUpFile) == EOF) {
+                printFileError(backupFileName, errno);
+                exit(EXIT_FAILURE);
+            }
+
+            free(backUpFileBuffer);
+        }
+    }
 }
 
 int writePass()
@@ -1754,15 +1764,23 @@ int writePass()
     printf("Added \"%s\" to database.\n", entryName);
 
     if (condition.sendToClipboard == true) {
+		free(infoBuffer);
+		free(decryptedBuffer);
+		free(ctx);
         if (sendToClipboard(entryPass) == 0) {
             printf("New password sent to clipboard. Paste with middle-click.\n");
-            printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
+            #ifdef HAVE_LIBX11
+			printf("clipboard will be cleared after pasting\n");
+			#endif
+			#ifndef HAVE_LIBX11
+			printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
+			#endif
         }
-    }
-
-    free(infoBuffer);
-    free(decryptedBuffer);
-    free(ctx);
+    } else {
+	    free(infoBuffer);
+	    free(decryptedBuffer);
+	    free(ctx);
+	}
 
     return 0;
 }
@@ -1829,15 +1847,27 @@ int printPasses(char *searchString)
                 if (condition.sendToClipboard == true) {
                     printf("Matched \"%s\" to \"%s\"\n", searchString, entryBuffer);
                     if (entriesMatched == 1 && condition.sendToClipboard == true) {
+						OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
+						OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * evpOutputLength + EVP_MAX_BLOCK_LENGTH);
+
+						free(entryBuffer);
+						free(decryptedBuffer);
+						free(ctx);
                         if (sendToClipboard(passBuffer) == 0) {
                             if (strcmp(searchString, entryName) == 0) {
                                 printf("Sent the entry's password to clipboard. Paste with middle-click.\n");
-                                printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
                             } else {
                                 printf("Sent the first matched entry's password to clipboard. Paste with middle-click.\n(Note: There may be more entries that matched your search string)\n");
-                                printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
                             }
+                            #ifdef HAVE_LIBX11
+                            printf("clipboard will be cleared after pasting\n");
+                            #endif
+                            #ifndef HAVE_LIBX11
+                            printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
+                            #endif
                         }
+                        OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
+                        free(passBuffer);
                         break;
                     }
                 } else {
@@ -1849,16 +1879,20 @@ int printPasses(char *searchString)
     }
 
     if (entriesMatched == 0 && searchString != NULL)
+    {
         printf("Nothing matched \"%s\"\n", searchString);
+    }
 
-    OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
-    OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
-    OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * evpOutputLength + EVP_MAX_BLOCK_LENGTH);
-
-    free(entryBuffer);
-    free(passBuffer);
-    free(decryptedBuffer);
-    free(ctx);
+	if(condition.sendToClipboard == false) {
+	    OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
+	    OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
+	    OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * evpOutputLength + EVP_MAX_BLOCK_LENGTH);
+	
+	    free(entryBuffer);
+	    free(passBuffer);
+	    free(decryptedBuffer);
+	    free(ctx);
+	}
 
     return 0;
 }
@@ -2303,20 +2337,34 @@ int updateEntry(char *searchString)
         printf("If you updated more than you intended to, restore from %s.autobak\n", dbFileName);
     }
     if (condition.sendToClipboard == true) {
+		free(entryBuffer);
+	    free(passBuffer);
+	    free(decryptedBuffer);
+	    free(fileBuffer);
+	    free(ctx);
         if (sendToClipboard(newEntryPass) == 0) {
             printf("\nSent new password to clipboard. Paste with middle-click.\n");
-            printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
+            #ifdef HAVE_LIBX11
+			printf("clipboard will be cleared after pasting\n");
+			#endif
+			#ifndef HAVE_LIBX11
+			printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
+			#endif
             if (entriesMatched > 1)
                 printf("(Note: Multiple entries matched, only updated and sent fist entry's password to clipboard)\n");
         }
-    }
-    OPENSSL_cleanse(newEntryPass, sizeof(char) * UI_BUFFERS_SIZE);
+        OPENSSL_cleanse(newEntryPass, sizeof(char) * UI_BUFFERS_SIZE);
 
-    free(entryBuffer);
-    free(passBuffer);
-    free(decryptedBuffer);
-    free(fileBuffer);
-    free(ctx);
+	    
+    } else {
+	    OPENSSL_cleanse(newEntryPass, sizeof(char) * UI_BUFFERS_SIZE);
+	
+	    free(entryBuffer);
+	    free(passBuffer);
+	    free(decryptedBuffer);
+	    free(fileBuffer);
+	    free(ctx);
+	}
 
     return 0;
 }
@@ -2507,6 +2555,26 @@ int evpEncrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, un
     return 0;
 }
 
+#ifdef HAVE_LIBX11
+int sendToClipboard(char *textToSend)
+{
+    int passLength = strlen(textToSend);
+    char wipeOutBuffer[passLength];
+    char passBuffer[passLength];
+
+    /*Using openssl_cleanse instead of memset so optimization won't wipe it out*/
+    OPENSSL_cleanse(wipeOutBuffer, passLength);
+
+    strncpy(passBuffer, textToSend, passLength);
+
+    sendWithXclip(passBuffer);
+    
+    OPENSSL_cleanse(passBuffer, passLength);
+
+    return 0;
+}
+#endif
+#ifndef HAVE_LIBX11
 int sendToClipboard(char *textToSend)
 {
     int passLength = strlen(textToSend);
@@ -2588,6 +2656,7 @@ int sendToClipboard(char *textToSend)
     /*Don't simply exit otherwise sensitive buffers in the rest of the child process's calling function will not be cleared/freed*/
     return 1;
 }
+#endif
 
 int freadWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {

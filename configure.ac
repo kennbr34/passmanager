@@ -15,7 +15,23 @@ AC_PROG_CC
 
 # Checks for libraries.
 #AC_CHECK_LIB(cap,[main], [], [AC_MSG_ERROR(libcap not found)])
+#AC_CHECK_LIB(X11,[main], [], [AC_MSG_ERROR(libX11 not found)])
 
+AC_ARG_WITH([xclip],
+            [AS_HELP_STRING([--without-xclip],
+              [disable support for xclip])],
+            [],
+            [with_xclip=yes])
+          
+          LIBS=
+          AS_IF([test "x$with_xclip" != xno],
+            [AC_CHECK_LIB([X11], [main],
+              [AC_SUBST([LIBS], ["-lX11"])
+               AC_DEFINE([HAVE_LIBX11], [1],
+                         [Define if you have libX11])
+              ],
+              [AC_MSG_FAILURE(
+                 [xclip test failed (--without-xclip to disable)])])])
 
 dnl Order matters!
   if test "$PORTNAME" != "win32"; then
