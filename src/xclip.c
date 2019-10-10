@@ -130,8 +130,10 @@ int xcin(Display *dpy,
     return 1;
 }
 
-int sendWithXclip(char *textToSend)
+int sendWithXclip(char *textToSend, pid_t ppid)
 {
+	if(getpid() == ppid)
+		exit(EXIT_SUCCESS);
 
     Window win;
     Display *dpy;
@@ -150,7 +152,7 @@ int sendWithXclip(char *textToSend)
     pid = fork();
     /* exit the parent process; */
     if (pid) {
-        return EXIT_SUCCESS;
+        exit(EXIT_SUCCESS);
     }
 
     /* At this point we are executing as the child process */
