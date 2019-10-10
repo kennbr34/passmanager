@@ -22,9 +22,9 @@
 #include <X11/Xlib.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <string.h>
 
 #define XCLIB_XCIN_NONE 0
 #define XCLIB_XCIN_INCR 2
@@ -38,8 +38,7 @@ void errmalloc(void)
     exit(EXIT_FAILURE);
 }
 
-struct requestor
-{
+struct requestor {
     Window cwin;
     Atom pty;
     unsigned int context;
@@ -52,33 +51,24 @@ static struct requestor *get_requestor(Window win)
 {
     struct requestor *requestor;
 
-    if (requestors)
-    {
-        for (requestor = requestors; requestor != NULL; requestor = requestor->next)
-        {
-            if (requestor->cwin == win)
-            {
+    if (requestors) {
+        for (requestor = requestors; requestor != NULL; requestor = requestor->next) {
+            if (requestor->cwin == win) {
                 return requestor;
             }
         }
     }
 
     requestor = (struct requestor *)calloc(1, sizeof(struct requestor));
-    if (!requestor)
-    {
+    if (!requestor) {
         errmalloc();
-    }
-    else
-    {
+    } else {
         requestor->context = XCLIB_XCIN_NONE;
     }
 
-    if (!requestors)
-    {
+    if (!requestors) {
         requestors = requestor;
-    }
-    else
-    {
+    } else {
         requestor->next = requestors;
         requestors = requestor;
     }
@@ -90,21 +80,15 @@ static void del_requestor(struct requestor *requestor)
 {
     struct requestor *reqitr;
 
-    if (!requestor)
-    {
+    if (!requestor) {
         return;
     }
 
-    if (requestors == requestor)
-    {
+    if (requestors == requestor) {
         requestors = requestors->next;
-    }
-    else
-    {
-        for (reqitr = requestors; reqitr != NULL; reqitr = reqitr->next)
-        {
-            if (reqitr->next == requestor)
-            {
+    } else {
+        for (reqitr = requestors; reqitr != NULL; reqitr = reqitr->next) {
+            if (reqitr->next == requestor) {
                 reqitr->next = reqitr->next->next;
                 break;
             }
@@ -119,29 +103,29 @@ int xcin(Display *dpy,
          XEvent evt,
          Atom *pty, Atom target, unsigned char *txt, unsigned long len)
 {
-    XEvent res;              /* response to event */
+    XEvent res; /* response to event */
 
-	/* set the window and property that is being used */
-	*win = evt.xselectionrequest.requestor;
-	*pty = evt.xselectionrequest.property;
-	
-	/* send data  */
-	XChangeProperty(dpy,
-					*win,
-					*pty, target, 8, PropModeReplace, (unsigned char *)txt, (int)len);
+    /* set the window and property that is being used */
+    *win = evt.xselectionrequest.requestor;
+    *pty = evt.xselectionrequest.property;
 
-	/* set values for the response event */
-	res.xselection.property = *pty;
-	res.xselection.type = SelectionNotify;
-	res.xselection.display = evt.xselectionrequest.display;
-	res.xselection.requestor = *win;
-	res.xselection.selection = evt.xselectionrequest.selection;
-	res.xselection.target = evt.xselectionrequest.target;
-	res.xselection.time = evt.xselectionrequest.time;
+    /* send data  */
+    XChangeProperty(dpy,
+                    *win,
+                    *pty, target, 8, PropModeReplace, (unsigned char *)txt, (int)len);
 
-	/* send the response event */
-	XSendEvent(dpy, evt.xselectionrequest.requestor, 0, 0, &res);
-	XFlush(dpy);
+    /* set values for the response event */
+    res.xselection.property = *pty;
+    res.xselection.type = SelectionNotify;
+    res.xselection.display = evt.xselectionrequest.display;
+    res.xselection.requestor = *win;
+    res.xselection.selection = evt.xselectionrequest.selection;
+    res.xselection.target = evt.xselectionrequest.target;
+    res.xselection.time = evt.xselectionrequest.time;
+
+    /* send the response event */
+    XSendEvent(dpy, evt.xselectionrequest.requestor, 0, 0, &res);
+    XFlush(dpy);
 
     return 1;
 }
@@ -151,7 +135,7 @@ int sendWithXclip(char *textToSend)
 
     Window win;
     Display *dpy;
-    pid_t pid, sid;
+    pid_t pid;
     XEvent evt;
     Atom sseln = XA_PRIMARY;
     Atom target = XA_STRING;
@@ -162,43 +146,31 @@ int sendWithXclip(char *textToSend)
     win = XCreateSimpleWindow(dpy, DefaultRootWindow(dpy), 0, 0, 1, 1, 0, 0, 0);
     XSelectInput(dpy, win, PropertyChangeMask);
     XSetSelectionOwner(dpy, sseln, win, CurrentTime);
-    
-    /*Stops the parent process from waiting for child process to complete*/
-    signal(SIGCHLD, SIG_IGN);
 
-    /* Fork off the parent process */
     pid = fork();
-    if (pid < 0) {
-        exit(1);
-    }
-    /* If we got a good PID, then we can exit the parent process. */
-    if (pid > 0) {
-        return 0;
+    /* exit the parent process; */
+    if (pid) {
+        return EXIT_SUCCESS;
     }
 
     /* At this point we are executing as the child process */
-
-    /* Create a new SID for the child process */
-    sid = setsid();
-    if (sid < 0) {
-        exit(1);
-    }
 
     struct requestor *requestor;
     int finished;
 
     XNextEvent(dpy, &evt);
 
-	requestor = get_requestor(evt.xselectionrequest.requestor);
-    
+    requestor = get_requestor(evt.xselectionrequest.requestor);
+
     finished = xcin(dpy, &(requestor->cwin), evt, &(requestor->pty), target, (unsigned char *)textToSend, strlen(textToSend));
     
-    if (finished)
-    {
+    OPENSSL_cleanse(textToSend,strlen(textToSend));
+
+    if (finished) {
         del_requestor(requestor);
     }
 
     XCloseDisplay(dpy);
-        
+
     exit(EXIT_SUCCESS);
 }

@@ -40,15 +40,15 @@
 #include <time.h>
 #include <unistd.h>
 #ifdef __linux__
-#include <sys/prctl.h>
+#    include <sys/prctl.h>
 #elif defined __FreeBSD__
-#include <sys/procctl.h>
+#    include <sys/procctl.h>
 #endif
 #include <stdbool.h>
 #include <sys/resource.h>
 #include <sys/time.h>
 #ifdef HAVE_LIBX11
-#include "xclip.c"
+#    include "xclip.c"
 #endif
 
 #define printSysError(errCode) \
@@ -246,20 +246,20 @@ int main(int argc, char *argv[])
     }
 
 #ifdef __linux__
-	/*Set process core to not be dumpable*/
-	/*Also prevents ptrace attaching to the process*/
-	/*Disable if you need to debug*/
-	if(prctl(PR_SET_DUMPABLE,0,0,0,0) != 0) {
-		printSysError(errno);
-		exit(EXIT_FAILURE);
-	}
+    /*Set process core to not be dumpable*/
+    /*Also prevents ptrace attaching to the process*/
+    /*Disable if you need to debug*/
+    if (prctl(PR_SET_DUMPABLE, 0, 0, 0, 0) != 0) {
+        printSysError(errno);
+        exit(EXIT_FAILURE);
+    }
 #elif defined __FreeBSD__
-	/*If using FreeBSD procctl can do the same thing*/
-	int procCtlArg = PROC_TRACE_CTL_DISABLE;
-	if(procctl(P_PID,getpid(),PROC_TRACE_CTL,&procCtlArg) == -1) {
-                printSysError(errno);
-                exit(EXIT_FAILURE);
-        }
+    /*If using FreeBSD procctl can do the same thing*/
+    int procCtlArg = PROC_TRACE_CTL_DISABLE;
+    if (procctl(P_PID, getpid(), PROC_TRACE_CTL, &procCtlArg) == -1) {
+        printSysError(errno);
+        exit(EXIT_FAILURE);
+    }
 #endif
 
     atexit(cleanUpBuffers);
@@ -321,8 +321,8 @@ int main(int argc, char *argv[])
             condition.sendToClipboard = true;
             break;
         case 'I':
-			condition.printingDbInfo = true;
-			break;
+            condition.printingDbInfo = true;
+            break;
         case 'P':
             condition.updatingEntryPass = true;
             break;
@@ -526,19 +526,19 @@ int main(int argc, char *argv[])
         printSyntax("passmanger"); /*Print proper usage of program*/
         exit(EXIT_FAILURE);
     }
-    
+
     if (condition.printingDbInfo == true) {
-		if (condition.databaseBeingInitalized == false) {
+        if (condition.databaseBeingInitalized == false) {
             openDatabase();
         } else {
-			printf("Database file not initialized\n");
-			exit(EXIT_FAILURE);
+            printf("Database file not initialized\n");
+            exit(EXIT_FAILURE);
         }
-        
+
         printDbInfo();
-        
+
         return EXIT_SUCCESS;
-	} else if (condition.addingPass == true) /*This mode will add an entry*/
+    } else if (condition.addingPass == true) /*This mode will add an entry*/
     {
 
         /*Check a few things before proceeding*/
@@ -1446,13 +1446,13 @@ int openDatabase()
     /*Read PBKDF2Iterations from end of cryptoHeader*/
     memcpy(&PBKDF2Iterations, cryptoHeader + (strlen(cryptoHeader) + 1), sizeof(int));
 
-	if (condition.printingDbInfo == false) {
-	    /*Generate a separate salt and key for HMAC authentication*/
-	    if (deriveHMACKey() != 0) {
-	        printError("Could not derive HMAC key");
-	        exit(EXIT_FAILURE);
-	    }
-	}
+    if (condition.printingDbInfo == false) {
+        /*Generate a separate salt and key for HMAC authentication*/
+        if (deriveHMACKey() != 0) {
+            printError("Could not derive HMAC key");
+            exit(EXIT_FAILURE);
+        }
+    }
 
     /*Copy all of the file minus the MACs but including the salt and cryptoHeader into a buffer for verification*/
     verificationBuffer = calloc(fileSize - (MACSize * 2), sizeof(unsigned char));
@@ -1489,33 +1489,32 @@ int openDatabase()
         exit(EXIT_FAILURE);
     }
 
-	if(condition.printingDbInfo == false) {
-		
-	    if (HMAC(EVP_sha512(), HMACKey, MACSize, verificationBuffer, fileSize - (MACSize * 2), MACdBFileGenerates, HMACLengthPtr) == NULL) {
-	        printError("HMAC failed");
-	        exit(EXIT_FAILURE);
-	    }
+    if (condition.printingDbInfo == false) {
 
-	
-	    /*Verify authenticity of database*/
-	    if (compareMAC(MACdBFileSignedWith, MACdBFileGenerates, MACSize) != 0) {
-	        /*Return error status before proceeding and clean up sensitive data*/
-	        printMACErrMessage(0);
-	
-	        if (fclose(dbFile) == EOF) {
-	            printFileError(dbFileName, errno);
-	            free(verificationBuffer);
-	            exit(EXIT_FAILURE);
-	        }
-	
-	        free(verificationBuffer);
-	
-	        exit(EXIT_FAILURE);
-	    }
-	}
-	
-	/*Create a backup after verification of MAC so that user can recover database if something went wrong in the last modification*/
-	backupDatabase();
+        if (HMAC(EVP_sha512(), HMACKey, MACSize, verificationBuffer, fileSize - (MACSize * 2), MACdBFileGenerates, HMACLengthPtr) == NULL) {
+            printError("HMAC failed");
+            exit(EXIT_FAILURE);
+        }
+
+        /*Verify authenticity of database*/
+        if (compareMAC(MACdBFileSignedWith, MACdBFileGenerates, MACSize) != 0) {
+            /*Return error status before proceeding and clean up sensitive data*/
+            printMACErrMessage(0);
+
+            if (fclose(dbFile) == EOF) {
+                printFileError(dbFileName, errno);
+                free(verificationBuffer);
+                exit(EXIT_FAILURE);
+            }
+
+            free(verificationBuffer);
+
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    /*Create a backup after verification of MAC so that user can recover database if something went wrong in the last modification*/
+    backupDatabase();
 
     /*Copy verificationBuffer to encryptedBuffer without the header information or MACs*/
     encryptedBuffer = calloc(sizeof(char), evpDataSize);
@@ -1583,7 +1582,7 @@ int openDatabase()
 
 void backupDatabase()
 {
-	/*Before anything else, back up the password database*/
+    /*Before anything else, back up the password database*/
     if (condition.databaseBeingInitalized == false && condition.readingPass == false && condition.printingDbInfo == false) {
         strncpy(backupFileName, dbFileName, NAME_MAX);
         strncat(backupFileName, ".autobak", NAME_MAX);
@@ -1764,23 +1763,23 @@ int writePass()
     printf("Added \"%s\" to database.\n", entryName);
 
     if (condition.sendToClipboard == true) {
-		free(infoBuffer);
-		free(decryptedBuffer);
-		free(ctx);
+        free(infoBuffer);
+        free(decryptedBuffer);
+        free(ctx);
         if (sendToClipboard(entryPass) == 0) {
             printf("New password sent to clipboard. Paste with middle-click.\n");
-            #ifdef HAVE_LIBX11
-			printf("clipboard will be cleared after pasting\n");
-			#endif
-			#ifndef HAVE_LIBX11
-			printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
-			#endif
+#ifdef HAVE_LIBX11
+            printf("clipboard will be cleared after pasting\n");
+#endif
+#ifndef HAVE_LIBX11
+            printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
+#endif
         }
     } else {
-	    free(infoBuffer);
-	    free(decryptedBuffer);
-	    free(ctx);
-	}
+        free(infoBuffer);
+        free(decryptedBuffer);
+        free(ctx);
+    }
 
     return 0;
 }
@@ -1847,24 +1846,24 @@ int printPasses(char *searchString)
                 if (condition.sendToClipboard == true) {
                     printf("Matched \"%s\" to \"%s\"\n", searchString, entryBuffer);
                     if (entriesMatched == 1 && condition.sendToClipboard == true) {
-						OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
-						OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * evpOutputLength + EVP_MAX_BLOCK_LENGTH);
+                        OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
+                        OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * evpOutputLength + EVP_MAX_BLOCK_LENGTH);
 
-						free(entryBuffer);
-						free(decryptedBuffer);
-						free(ctx);
+                        free(entryBuffer);
+                        free(decryptedBuffer);
+                        free(ctx);
                         if (sendToClipboard(passBuffer) == 0) {
                             if (strcmp(searchString, entryName) == 0) {
                                 printf("Sent the entry's password to clipboard. Paste with middle-click.\n");
                             } else {
                                 printf("Sent the first matched entry's password to clipboard. Paste with middle-click.\n(Note: There may be more entries that matched your search string)\n");
                             }
-                            #ifdef HAVE_LIBX11
+#ifdef HAVE_LIBX11
                             printf("clipboard will be cleared after pasting\n");
-                            #endif
-                            #ifndef HAVE_LIBX11
+#endif
+#ifndef HAVE_LIBX11
                             printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
-                            #endif
+#endif
                         }
                         OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
                         free(passBuffer);
@@ -1878,21 +1877,20 @@ int printPasses(char *searchString)
             printf("%s : %s\n", entryBuffer, passBuffer);
     }
 
-    if (entriesMatched == 0 && searchString != NULL)
-    {
+    if (entriesMatched == 0 && searchString != NULL) {
         printf("Nothing matched \"%s\"\n", searchString);
     }
 
-	if(condition.sendToClipboard == false) {
-	    OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
-	    OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
-	    OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * evpOutputLength + EVP_MAX_BLOCK_LENGTH);
-	
-	    free(entryBuffer);
-	    free(passBuffer);
-	    free(decryptedBuffer);
-	    free(ctx);
-	}
+    if (condition.sendToClipboard == false) {
+        OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
+        OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
+        OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * evpOutputLength + EVP_MAX_BLOCK_LENGTH);
+
+        free(entryBuffer);
+        free(passBuffer);
+        free(decryptedBuffer);
+        free(ctx);
+    }
 
     return 0;
 }
@@ -2337,34 +2335,33 @@ int updateEntry(char *searchString)
         printf("If you updated more than you intended to, restore from %s.autobak\n", dbFileName);
     }
     if (condition.sendToClipboard == true) {
-		free(entryBuffer);
-	    free(passBuffer);
-	    free(decryptedBuffer);
-	    free(fileBuffer);
-	    free(ctx);
+        free(entryBuffer);
+        free(passBuffer);
+        free(decryptedBuffer);
+        free(fileBuffer);
+        free(ctx);
         if (sendToClipboard(newEntryPass) == 0) {
             printf("\nSent new password to clipboard. Paste with middle-click.\n");
-            #ifdef HAVE_LIBX11
-			printf("clipboard will be cleared after pasting\n");
-			#endif
-			#ifndef HAVE_LIBX11
-			printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
-			#endif
+#ifdef HAVE_LIBX11
+            printf("clipboard will be cleared after pasting\n");
+#endif
+#ifndef HAVE_LIBX11
+            printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
+#endif
             if (entriesMatched > 1)
                 printf("(Note: Multiple entries matched, only updated and sent fist entry's password to clipboard)\n");
         }
         OPENSSL_cleanse(newEntryPass, sizeof(char) * UI_BUFFERS_SIZE);
 
-	    
     } else {
-	    OPENSSL_cleanse(newEntryPass, sizeof(char) * UI_BUFFERS_SIZE);
-	
-	    free(entryBuffer);
-	    free(passBuffer);
-	    free(decryptedBuffer);
-	    free(fileBuffer);
-	    free(ctx);
-	}
+        OPENSSL_cleanse(newEntryPass, sizeof(char) * UI_BUFFERS_SIZE);
+
+        free(entryBuffer);
+        free(passBuffer);
+        free(decryptedBuffer);
+        free(fileBuffer);
+        free(ctx);
+    }
 
     return 0;
 }
@@ -2568,7 +2565,7 @@ int sendToClipboard(char *textToSend)
     strncpy(passBuffer, textToSend, passLength);
 
     sendWithXclip(passBuffer);
-    
+
     OPENSSL_cleanse(passBuffer, passLength);
 
     return 0;
@@ -2705,74 +2702,74 @@ int compareMAC(const void *in_a, const void *in_b, size_t len)
 
 void printDbInfo()
 {
-	printf("Number of entries in database: %i\n", evpDataSize / (UI_BUFFERS_SIZE * 2));
-	printf("PBKDF2 configuration:\n");
-	printf("\tDigest Algorithm: %s\n", messageDigestName);
-	printf("\tSalt:");
-	for(int i=0; i < EVP_SALT_SIZE; i++) {
-		printf("%02x", evpSalt[i] & 0xff);
-	}
-	printf("\n");
-	printf("\tIterations: %i\n", PBKDF2Iterations);
-	printf("\tDigest size: %i bits\n", EVP_MD_size(EVP_get_digestbyname(messageDigestName)) * 8);
-	printf("\tBlock size: %i bits\n", EVP_MD_block_size(EVP_get_digestbyname(messageDigestName)) * 8);
-	printf("Encryption configuration: %s \n\tAlgorithm: ", encCipherName);
-	if(strncmp(encCipherName,"aes",3) == 0)
-		printf("AES\n");
-	else if(strncmp(encCipherName,"bf",2) == 0 || strcmp(encCipherName,"blowfish") == 0)
-		printf("Blowfish\n");
-	else if(strncmp(encCipherName,"rc2",3) == 0)
-		printf("RC2\n");
-	else if(strncmp(encCipherName,"rc4",3) == 0)
-		printf("RC4\n");
-	else if(strncmp(encCipherName,"sm4",3) == 0)
-		printf("SM4\n");
-	else if(strncmp(encCipherName,"des",3) == 0)
-		printf("DES\n");
-	else if(strncmp(encCipherName,"cast",4) == 0)
-		printf("CAST\n");
-	else if(strncmp(encCipherName,"aria",4) == 0)
-		printf("Aria\n");
-	else if(strncmp(encCipherName,"camellia",8) == 0)
-		printf("Camellia\n");
-	else if(strncmp(encCipherName,"chacha20",8) == 0)
-		printf("Cha-Cha20\n");
-	switch(EVP_CIPHER_mode(EVP_get_cipherbyname(encCipherName))) {
-		case EVP_CIPH_CBC_MODE :
-			printf("\tMode: Cipher Block Chaining\n");
-			break;
-		case EVP_CIPH_ECB_MODE :
-			printf("\tMode: Electronic Code Book\n");
-			break;
-		case EVP_CIPH_CTR_MODE :
-			printf("\tMode: Counter\n");
-			break;
-		case EVP_CIPH_OFB_MODE :
-			printf("\tMode: Output Feedback\n");
-			break;
-		case EVP_CIPH_CFB_MODE :
-			printf("\tMode: Cipher Feedback\n");
-			break;
-		case EVP_CIPH_STREAM_CIPHER :
-			printf("\tMode: Sream\n");
-			break;
-		default:
-			printf("\tMode: Unkonwn\n");
-			break;
-	}
-	printf("\tBlock Size: %i bits\n", EVP_CIPHER_block_size(EVP_get_cipherbyname(encCipherName)) * 8);
-	printf("\tKey Size: %i bits\n", EVP_CIPHER_key_length(EVP_get_cipherbyname(encCipherName)) * 8);
-	printf("\tIV Size: %i bits\n", EVP_CIPHER_iv_length(EVP_get_cipherbyname(encCipherName)) * 8);
-	printf("Database MAC:\n\t");
-	for(int i=0; i < SHA512_DIGEST_LENGTH; i++) {
-		printf("%02x", MACdBFileSignedWith[i] & 0xff);
-	}
-	printf("\n");
-	printf("Ciphertext+IV MAC:\n\t");
-	for(int i=0; i < SHA512_DIGEST_LENGTH; i++) {
-		printf("%02x", MACcipherTextSignedWith[i] & 0xff);
-	}
-	printf("\n");
+    printf("Number of entries in database: %i\n", evpDataSize / (UI_BUFFERS_SIZE * 2));
+    printf("PBKDF2 configuration:\n");
+    printf("\tDigest Algorithm: %s\n", messageDigestName);
+    printf("\tSalt:");
+    for (int i = 0; i < EVP_SALT_SIZE; i++) {
+        printf("%02x", evpSalt[i] & 0xff);
+    }
+    printf("\n");
+    printf("\tIterations: %i\n", PBKDF2Iterations);
+    printf("\tDigest size: %i bits\n", EVP_MD_size(EVP_get_digestbyname(messageDigestName)) * 8);
+    printf("\tBlock size: %i bits\n", EVP_MD_block_size(EVP_get_digestbyname(messageDigestName)) * 8);
+    printf("Encryption configuration: %s \n\tAlgorithm: ", encCipherName);
+    if (strncmp(encCipherName, "aes", 3) == 0)
+        printf("AES\n");
+    else if (strncmp(encCipherName, "bf", 2) == 0 || strcmp(encCipherName, "blowfish") == 0)
+        printf("Blowfish\n");
+    else if (strncmp(encCipherName, "rc2", 3) == 0)
+        printf("RC2\n");
+    else if (strncmp(encCipherName, "rc4", 3) == 0)
+        printf("RC4\n");
+    else if (strncmp(encCipherName, "sm4", 3) == 0)
+        printf("SM4\n");
+    else if (strncmp(encCipherName, "des", 3) == 0)
+        printf("DES\n");
+    else if (strncmp(encCipherName, "cast", 4) == 0)
+        printf("CAST\n");
+    else if (strncmp(encCipherName, "aria", 4) == 0)
+        printf("Aria\n");
+    else if (strncmp(encCipherName, "camellia", 8) == 0)
+        printf("Camellia\n");
+    else if (strncmp(encCipherName, "chacha20", 8) == 0)
+        printf("Cha-Cha20\n");
+    switch (EVP_CIPHER_mode(EVP_get_cipherbyname(encCipherName))) {
+    case EVP_CIPH_CBC_MODE:
+        printf("\tMode: Cipher Block Chaining\n");
+        break;
+    case EVP_CIPH_ECB_MODE:
+        printf("\tMode: Electronic Code Book\n");
+        break;
+    case EVP_CIPH_CTR_MODE:
+        printf("\tMode: Counter\n");
+        break;
+    case EVP_CIPH_OFB_MODE:
+        printf("\tMode: Output Feedback\n");
+        break;
+    case EVP_CIPH_CFB_MODE:
+        printf("\tMode: Cipher Feedback\n");
+        break;
+    case EVP_CIPH_STREAM_CIPHER:
+        printf("\tMode: Sream\n");
+        break;
+    default:
+        printf("\tMode: Unkonwn\n");
+        break;
+    }
+    printf("\tBlock Size: %i bits\n", EVP_CIPHER_block_size(EVP_get_cipherbyname(encCipherName)) * 8);
+    printf("\tKey Size: %i bits\n", EVP_CIPHER_key_length(EVP_get_cipherbyname(encCipherName)) * 8);
+    printf("\tIV Size: %i bits\n", EVP_CIPHER_iv_length(EVP_get_cipherbyname(encCipherName)) * 8);
+    printf("Database MAC:\n\t");
+    for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
+        printf("%02x", MACdBFileSignedWith[i] & 0xff);
+    }
+    printf("\n");
+    printf("Ciphertext+IV MAC:\n\t");
+    for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
+        printf("%02x", MACcipherTextSignedWith[i] & 0xff);
+    }
+    printf("\n");
 }
 
 void cleanUpBuffers()
@@ -2882,8 +2879,8 @@ int printSyntax(char *arg)
 \n-H digest - Specify 'list' for a list of methods available to OpenSSL. Default: sha512. \
 \n-i iterations - Specify amount of PBKDF2 to be iterations. Default: 500000\
 \n-P - In Update entry or Update database mode (-u and -U respectively) this option enables updating the entry password or database password via prompt instead of as command line argument \
-\n-C - end entry password directly to clipboard. Clipboard is cleared 30 seconds afterward. (needs xclip) \
-\n-s seconds - clear clipboard seconds after instead of default 30 \
+\n-C - end entry password directly to clipboard. Clipboard is cleared 30 seconds afterward if using xclip binary, or automatically after pasting if using integrated xclip code. \
+\n-s seconds - clear clipboard seconds after instead of default 30. Only applies if using xclip as a binary. \
 \n-x database password - To supply database password as command-line argument (not reccomended) \
 \n-f - database file ( must be specified ) \
 \n-h - Quick usage help \
@@ -2896,11 +2893,11 @@ int printSyntax(char *arg)
 \n     \t-H 'digest' - Derives keys for 'cipher' with digest 'digest'.\
 \n     \t-i 'iterations' - Specify PBKDF2 iteration amount as iterations. \
 \n     \t-C send new entry's password to clipboard (useful if randomly generated)\
-\n     \t-s seconds - clear clipboard seconds after instead of default 30\
+\n     \t-s seconds - clear clipboard seconds after instead of default 30. Only applies if using xclip as a binary.\
 \n-r - Read mode \
 \n     \t-x 'database password'\
 \n     \t-C  send a specified entry's password directly to clipboard \
-\n     \t-s seconds - clear clipboard seconds after instead of default 30\
+\n     \t-s seconds - clear clipboard seconds after instead of default 30. Only applies if using xclip as a binary.\
 \n-d - Delete mode \
 \n     \t-x 'database password'\
 \n-u - Update entry mode \
@@ -2910,14 +2907,14 @@ int printSyntax(char *arg)
 \n     \t-n 'entry' - update the entry's name to 'entry'. Without this its assumed you're only changing entry's password. \
 \n     \t-x 'database password'\
 \n     \t-C send entry's new password directly to clipboard\
-\n     \t-s seconds - clear clipboard seconds after instead of default 30\
+\n     \t-s seconds - clear clipboard seconds after instead of default 30. Only applies if using xclip as a binary.\
 \n-U - Update database mode \
 \n     \t-P  updates database password. Read via prompt. Cannot be supplied via commandline. \
 \n     \t-x 'database password' (the current database password to decrypt/with) \
 \n     \t-c 'cipher' - Update encryption algorithm  \
 \n     \t-H 'digest' - Update digest used for algorithms' KDFs \
 \n     \t-i 'iterations' - Update iteration amount used by PBKDF2 to 'iterations'\
-\nVersion 3.2.7\
+\nVersion 3.2.8\
 \n\
 ",
            arg);

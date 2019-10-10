@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([passmanager], [2.2.2])
+AC_INIT([passmanager], [3.2.8])
 AC_CONFIG_SRCDIR([src/passmanager.c])
 AM_INIT_AUTOMAKE([subdir-objects foreign])
 AC_CONFIG_HEADERS([config.h])
@@ -17,9 +17,9 @@ AC_PROG_CC
 #AC_CHECK_LIB(cap,[main], [], [AC_MSG_ERROR(libcap not found)])
 #AC_CHECK_LIB(X11,[main], [], [AC_MSG_ERROR(libX11 not found)])
 
-AC_ARG_WITH([xclip],
-            [AS_HELP_STRING([--without-xclip],
-              [disable support for xclip])],
+AC_ARG_WITH([xclip-integrated],
+            [AS_HELP_STRING([--without-xclip-integrated],
+              [use xclip binary instead of integrated xclip code])],
             [],
             [with_xclip=yes])
           
@@ -31,7 +31,7 @@ AC_ARG_WITH([xclip],
                          [Define if you have libX11])
               ],
               [AC_MSG_FAILURE(
-                 [xclip test failed (--without-xclip to disable)])])])
+                 [x11 test failed (--without-xclip-integrated to disable)])])])
 
 dnl Order matters!
   if test "$PORTNAME" != "win32"; then

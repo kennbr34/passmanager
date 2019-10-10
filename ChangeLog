@@ -2,6 +2,11 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+2019-10-10
+(+ver 3.2.8)
+	Integrated xclip code into source so binary not needed
+	Added option to use xclip binary or integrated code with ./configure script
+	Put database backup routine into a function and made it run only if database MAC was verified
 2019-10-1
 (+ver 3.2.7)
 	Got rid of libcap capabilities functions because they are not needed
