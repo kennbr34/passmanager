@@ -2556,7 +2556,6 @@ int evpEncrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, un
 int sendToClipboard(char *textToSend)
 {
     int passLength = strlen(textToSend);
-    char wipeOutBuffer[passLength];
     char passBuffer[passLength];
     
     pid_t pid = getpid(), cid;
@@ -2565,15 +2564,12 @@ int sendToClipboard(char *textToSend)
 	if(cid == -1)
 		printSysError(errno);
 
-    /*Using openssl_cleanse instead of memset so optimization won't wipe it out*/
-    OPENSSL_cleanse(wipeOutBuffer, passLength);
-
     strncpy(passBuffer, textToSend, passLength);
 
     if(getpid() != pid)
-		sendWithXclip(passBuffer, pid);
-	else if (getpid() == pid)
-		OPENSSL_cleanse(passBuffer, passLength);
+		sendWithXclip(passBuffer, passLength);
+		
+	OPENSSL_cleanse(passBuffer, passLength);
 
     return 0;
 }

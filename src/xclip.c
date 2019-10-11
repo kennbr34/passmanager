@@ -130,10 +130,8 @@ int xcin(Display *dpy,
     return 1;
 }
 
-int sendWithXclip(char *textToSend, pid_t ppid)
+int sendWithXclip(char *textToSend, int textLength)
 {
-	if(getpid() == ppid)
-		exit(EXIT_SUCCESS);
 
     Window win;
     Display *dpy;
@@ -164,9 +162,9 @@ int sendWithXclip(char *textToSend, pid_t ppid)
 
     requestor = get_requestor(evt.xselectionrequest.requestor);
 
-    finished = xcin(dpy, &(requestor->cwin), evt, &(requestor->pty), target, (unsigned char *)textToSend, strlen(textToSend));
+    finished = xcin(dpy, &(requestor->cwin), evt, &(requestor->pty), target, (unsigned char *)textToSend, textLength);
     
-    OPENSSL_cleanse(textToSend,strlen(textToSend));
+    OPENSSL_cleanse(textToSend,textLength);
 
     if (finished) {
         del_requestor(requestor);
