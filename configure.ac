@@ -32,7 +32,7 @@ AC_ARG_ENABLE([x11],
                          [Define if you have libX11])
               ],
               [AC_MSG_FAILURE(
-                 [x11 test failed (--disable-x11 to disable)])])])
+                 [x11 development files needed for clipboard functions (--disable-x11 to disable)])])])
 
 dnl Order matters!
   if test "$PORTNAME" != "win32"; then
