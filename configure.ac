@@ -15,23 +15,24 @@ AC_PROG_CC
 
 # Checks for libraries.
 #AC_CHECK_LIB(cap,[main], [], [AC_MSG_ERROR(libcap not found)])
+#AC_CHECK_LIB(Xmu,[main], [], [AC_MSG_ERROR(libXmu not found)])
 #AC_CHECK_LIB(X11,[main], [], [AC_MSG_ERROR(libX11 not found)])
 
-AC_ARG_WITH([xclip-integrated],
-            [AS_HELP_STRING([--without-xclip-integrated],
-              [use xclip binary instead of integrated xclip code])],
-            [],
-            [with_xclip=yes])
+AC_ARG_ENABLE([x11],
+            [AS_HELP_STRING([--disable-x11],
+              [use xclip binary instead of integrated X11 code to send passwords to clipboard])],
+            [with_x11=no],
+            [with_x11=yes])
           
           LIBS=
-          AS_IF([test "x$with_xclip" != xno],
+          AS_IF([test "x$with_x11" != xno],
             [AC_CHECK_LIB([X11], [main],
               [AC_SUBST([LIBS], ["-lX11"])
                AC_DEFINE([HAVE_LIBX11], [1],
                          [Define if you have libX11])
               ],
               [AC_MSG_FAILURE(
-                 [x11 test failed (--without-xclip-integrated to disable)])])])
+                 [x11 test failed (--disable-x11 to disable)])])])
 
 dnl Order matters!
   if test "$PORTNAME" != "win32"; then
