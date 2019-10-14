@@ -319,20 +319,20 @@ int main(int argc, char *argv[])
             condition.updatingDbEnc = true;
             break;
         case 'C':
-			#ifndef HAVE_LIBX11
-			if(xclipIsInstalled() == true)
-				condition.sendToClipboard = true;
-			else {
-				printf("Program wasn't compiled with X11 headers and no executable xclip binary found. Will now quit to prevent password from being printed to screen.\n");
-				/*Sanitize argv and argc of any sensitive information*/
-				for (i = 1; i < argc; i++)
-					OPENSSL_cleanse(argv[i], strlen(argv[i]));
-				exit(EXIT_FAILURE);
-			}
-			#endif
-			#ifdef HAVE_LIBX11
-				condition.sendToClipboard = true;
-			#endif
+#ifndef HAVE_LIBX11
+            if (xclipIsInstalled() == true)
+                condition.sendToClipboard = true;
+            else {
+                printf("Program wasn't compiled with X11 headers and no executable xclip binary found. Will now quit to prevent password from being printed to screen.\n");
+                /*Sanitize argv and argc of any sensitive information*/
+                for (i = 1; i < argc; i++)
+                    OPENSSL_cleanse(argv[i], strlen(argv[i]));
+                exit(EXIT_FAILURE);
+            }
+#endif
+#ifdef HAVE_LIBX11
+            condition.sendToClipboard = true;
+#endif
             break;
         case 'I':
             condition.printingDbInfo = true;
@@ -2569,21 +2569,21 @@ int sendToClipboard(char *textToSend)
 {
     int passLength = strlen(textToSend);
     char passBuffer[passLength];
-    
+
     pid_t pid = getpid(), cid;
-	
-	cid = fork();
-	if(cid == -1)
-		printSysError(errno);
+
+    cid = fork();
+    if (cid == -1)
+        printSysError(errno);
 
     strncpy(passBuffer, textToSend, passLength);
 
-    if(getpid() != pid) {
-		sendWithXlib(passBuffer, passLength);
-		exit(EXIT_SUCCESS);
-	}
-		
-	OPENSSL_cleanse(passBuffer, passLength);
+    if (getpid() != pid) {
+        sendWithXlib(passBuffer, passLength);
+        exit(EXIT_SUCCESS);
+    }
+
+    OPENSSL_cleanse(passBuffer, passLength);
 
     return 0;
 }
@@ -2837,34 +2837,34 @@ bool xclipIsInstalled(void)
     struct stat sb;
 
     pathBuffer = (char *)getenv("PATH");
-    
-    strncpy(pathString,pathBuffer,NAME_MAX);
-    
-	token = strtok(pathString, ":");
-        if (token == NULL) {
-            printf("Could not parse $PATH\n");
-            exit(EXIT_FAILURE);
-        }
+
+    strncpy(pathString, pathBuffer, NAME_MAX);
+
+    token = strtok(pathString, ":");
+    if (token == NULL) {
+        printf("Could not parse $PATH\n");
+        exit(EXIT_FAILURE);
+    }
 
     while (1) {
         token = strtok(NULL, ":");
         if (token == NULL)
-			break;
+            break;
         strncpy(pathToCheck, token, NAME_MAX);
         strncat(pathToCheck, "/xclip", NAME_MAX);
 
         if (stat(pathToCheck, &sb) == 0 && sb.st_mode & S_IXUSR) {
-			xclipInstalled = true;
+            xclipInstalled = true;
             break;
         } else {
             continue;
         }
     }
-        
-	if(xclipInstalled == true)
-		return true;
-	else
-		return false;
+
+    if (xclipInstalled == true)
+        return true;
+    else
+        return false;
 }
 
 bool fileNonExistant(const char *filename)
