@@ -31,8 +31,6 @@
 #define XA_STRING 31
 #define XA_ATOM 4
 
-#define DO_TARGET_METHOD 1
-
 int passSentCount;
 int passSendLimit = 1;
 
@@ -69,6 +67,8 @@ int targetWinHandler(Display *xDisplay,
 		XChangeProperty(xDisplay,
 						*targetWindow,
 						*windowProperty, targetProperty, 8, PropModeReplace, (unsigned char *)passToSend, (int)passLength);
+        /*Only increment the passSentCount once we get here because some windows will use the targets method first*/
+        passSentCount++;
 	}
 
 	/* Set values for the response event */
@@ -83,12 +83,6 @@ int targetWinHandler(Display *xDisplay,
 	/* Send the response event */
 	XSendEvent(xDisplay, XAeventStruct.xselectionrequest.requestor, 0, 0, &eventResponseStruct);
 	XFlush(xDisplay);
-	
-	if (XAeventStruct.xselectionrequest.target == targetsAtm) {
-	    return DO_TARGET_METHOD;
-	}
-	
-	passSentCount++;
 
     return 0;
 }
@@ -117,30 +111,23 @@ int sendWithXlib(char *passToSend, int passLength)
     }
 
     /* At this point we are executing as the child process */
-		for(;;)
-		{
-		    static Window targetWindow;
-		    static Atom windowProperty;
-		    int targetWinHandleResult;
-	
-		    XNextEvent(xDisplay, &XAeventStruct);
-	
-		    targetWinHandleResult = targetWinHandler(xDisplay, &targetWindow, XAeventStruct, &windowProperty, targetAtm, (unsigned char *)passToSend, passLength);
-				
-			if (XAeventStruct.type == SelectionClear) {
-				OPENSSL_cleanse(passToSend, sizeof(char) * passLength); /*Zero out password if selection was cleared and return out of loop*/
-				return EXIT_SUCCESS;
-			}
-			
-			if(targetWinHandleResult == DO_TARGET_METHOD) {
-				if(passSentCount > passSendLimit)
-					break;
-			}
-			else {
-				if(passSentCount >= passSendLimit)
-					break;
-			}
-		}
+    for(;;)
+    {
+        static Window targetWindow;
+        static Atom windowProperty;
+
+        XNextEvent(xDisplay, &XAeventStruct);
+            
+        targetWinHandler(xDisplay, &targetWindow, XAeventStruct, &windowProperty, targetAtm, (unsigned char *)passToSend, passLength);
+            
+        if (XAeventStruct.type == SelectionClear) {
+            OPENSSL_cleanse(passToSend, sizeof(char) * passLength); /*Zero out password if selection was cleared and return out of loop*/
+            return EXIT_SUCCESS;
+        }			
+
+        if(passSentCount == passSendLimit)
+            break;
+    }
 
 	OPENSSL_cleanse(passToSend, sizeof(char) * passLength);
 
