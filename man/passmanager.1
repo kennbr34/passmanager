@@ -238,6 +238,12 @@ Two MACs are generated and appended to the database file for authentication of b
 
 The program will attempt to "lock" all memory, which will prevent it from accidentally being swapped out to disk.  It also prevents process tracing, and core dump upon crash.  In order to do this, the program needs root priveleges, but drops them after these settings have been made. The executable is installed with the SETUID and SETGID bits and with root as the owner, so the user need not execute it as root or with sudo.
 
+.SS Clipboard Functionality
+
+Automatically sending passwords to the clipboard is handled by X library calls, or by piping out to a xlip binary installed on the system. The former should be preferred for best security, but the latter is more portable, and both options can be choosen at compile time with autoconf's configuration script.
+
+The internal X library calls offer better security because passwords are cleared from memory and from the clipboard selection immediately after pasting once.  On the contrary, with xclip, passwords are not cleared from memory, and the selection is cleared according to a timer.  Xclip however is far more portable as it is available on most distributions in package repositories, whereas the X library calls require X development files to be installed, and are not compatible with the X development files on BSD distributions.
+
 .SH EXAMPLES
 
 Initialize a new password database using blowfish encryption, whirlpool for key digest, and 750000 PBKDF2 iterations, and save it to the file 'passwords'.  Also randomly generate a password of 32 characters for the new entry, and send that new password to the clipboard, clearing it from  memory in 5 seconds

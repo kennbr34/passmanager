@@ -140,6 +140,7 @@ int fwriteWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream);
 int compareMAC(const void *in_a, const void *in_b, size_t len);
 void printDbInfo();
 void backupDatabase();
+bool xclipIsInstalled(void);
 
 const EVP_CIPHER *evpCipher, *evpCipherOld;
 unsigned char evpKey[EVP_MAX_KEY_LENGTH], evpKeyOld[EVP_MAX_KEY_LENGTH];
@@ -318,7 +319,20 @@ int main(int argc, char *argv[])
             condition.updatingDbEnc = true;
             break;
         case 'C':
-            condition.sendToClipboard = true;
+			#ifndef HAVE_LIBX11
+			if(xclipIsInstalled() == true)
+				condition.sendToClipboard = true;
+			else {
+				printf("Program wasn't compiled with X11 headers and no executable xclip binary found. Will now quit to prevent password from being printed to screen.\n");
+				/*Sanitize argv and argc of any sensitive information*/
+				for (i = 1; i < argc; i++)
+					OPENSSL_cleanse(argv[i], strlen(argv[i]));
+				exit(EXIT_FAILURE);
+			}
+			#endif
+			#ifdef HAVE_LIBX11
+				condition.sendToClipboard = true;
+			#endif
             break;
         case 'I':
             condition.printingDbInfo = true;
@@ -455,7 +469,6 @@ int main(int argc, char *argv[])
             if (strcmp(optarg, "genalpha") == 0)
                 condition.generateEntryPassAlpha = true;
             strncpy(entryPass, optarg, UI_BUFFERS_SIZE);
-            OPENSSL_cleanse(optarg, strlen(optarg));
             break;
         case 'x':
             condition.dbPassGivenasArg = true;
@@ -464,7 +477,6 @@ int main(int argc, char *argv[])
                 printf("Option -x requires an argument\n");
             }
             strncpy(dbPass, optarg, UI_BUFFERS_SIZE);
-            OPENSSL_cleanse(optarg, strlen(optarg));
             break;
         case ':':
             printf("Option -%c requires an argument\n", optopt);
@@ -2816,6 +2828,45 @@ void cleanUpBuffers()
     free(encryptedBuffer);
 }
 
+bool xclipIsInstalled(void)
+{
+    char *pathBuffer;
+    char pathString[NAME_MAX], pathToCheck[NAME_MAX];
+    char *token;
+    bool xclipInstalled = false;
+    struct stat sb;
+
+    pathBuffer = (char *)getenv("PATH");
+    
+    strncpy(pathString,pathBuffer,NAME_MAX);
+    
+	token = strtok(pathString, ":");
+        if (token == NULL) {
+            printf("Could not parse $PATH\n");
+            exit(EXIT_FAILURE);
+        }
+
+    while (1) {
+        token = strtok(NULL, ":");
+        if (token == NULL)
+			break;
+        strncpy(pathToCheck, token, NAME_MAX);
+        strncat(pathToCheck, "/xclip", NAME_MAX);
+
+        if (stat(pathToCheck, &sb) == 0 && sb.st_mode & S_IXUSR) {
+			xclipInstalled = true;
+            break;
+        } else {
+            continue;
+        }
+    }
+        
+	if(xclipInstalled == true)
+		return true;
+	else
+		return false;
+}
+
 bool fileNonExistant(const char *filename)
 {
     struct stat st;
@@ -2885,7 +2936,7 @@ int printSyntax(char *arg)
 \n-i iterations - Specify amount of PBKDF2 to be iterations. Default: 500000\
 \n-P - In Update entry or Update database mode (-u and -U respectively) this option enables updating the entry password or database password via prompt instead of as command line argument \
 \n-C - end entry password directly to clipboard. Clipboard is cleared automatically after pasting, or in 30 seconds if using xclip. \
-\n-s seconds - if using xclip binary, clear clipboard \fIseconds\fI\fR after instead of default 30. \
+\n-s seconds - if using xclip binary, clear clipboard seconds after instead of default 30. \
 \n-x database password - To supply database password as command-line argument (not reccomended) \
 \n-f - database file ( must be specified ) \
 \n-h - Quick usage help \
