@@ -48,7 +48,7 @@
 #include <sys/resource.h>
 #include <sys/time.h>
 #ifdef HAVE_LIBX11
-#    include "sendpasswithxlib.c"
+#include "sendpasswithxlib.c"
 #endif
 
 #define printSysError(errCode) \

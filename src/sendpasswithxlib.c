@@ -31,10 +31,6 @@
 #define XA_STRING 31
 #define XA_ATOM 4
 
-int passSentCount;
-int passSendLimit = 1;
-
-
 int targetWinHandler(Display *xDisplay,
          Window *targetWindow,
          XEvent XAeventStruct,
@@ -67,8 +63,6 @@ int targetWinHandler(Display *xDisplay,
 		XChangeProperty(xDisplay,
 						*targetWindow,
 						*windowProperty, targetProperty, 8, PropModeReplace, (unsigned char *)passToSend, (int)passLength);
-        /*Only increment the passSentCount once we get here because some windows will use the targets method first*/
-        passSentCount++;
 	}
 
 	/* Set values for the response event */
@@ -96,6 +90,9 @@ int sendWithXlib(char *passToSend, int passLength)
     Atom selectionAtm = XA_PRIMARY;
     Atom targetAtm = XA_STRING;
     pid_t pid;
+    int X11fileDescriptor;                 /* File descriptor on which XEvents appear */
+    fd_set inputFileDescriptors;
+    struct timeval timeVariable;
 
     char *defaultDisplay = NULL;
 
@@ -103,18 +100,39 @@ int sendWithXlib(char *passToSend, int passLength)
     rootWindow = XCreateSimpleWindow(xDisplay, DefaultRootWindow(xDisplay), 0, 0, 1, 1, 0, 0, 0);
     XSetSelectionOwner(xDisplay, selectionAtm, rootWindow, CurrentTime);
     
+    /* ConnectionNumber is a macro, it can't fail */
+    X11fileDescriptor = ConnectionNumber(xDisplay);
+    
     pid = fork();
 	/* Exit the parent process; */
 	if (pid) {
-		memset(passToSend,0,passLength); /*Zero out memory where password was stored*/
+		OPENSSL_cleanse(passToSend, sizeof(char) * passLength); /*Zero out memory where password was stored*/
 	    exit(EXIT_SUCCESS);
     }
+    
+    goto loopHeadSkip;
 
     /* At this point we are executing as the child process */
     for(;;)
     {
         static Window targetWindow;
         static Atom windowProperty;
+        
+        /*Clear selection 1ms after it has been pasted*/
+        if (!XPending(xDisplay)) {
+            timeVariable.tv_sec = 1/1000;
+            timeVariable.tv_usec = (1%1000)*1000;
+
+            /* Build file descriptors */
+            FD_ZERO(&inputFileDescriptors);
+            FD_SET(X11fileDescriptor, &inputFileDescriptors);
+            if (!select(X11fileDescriptor + 1, &inputFileDescriptors, 0, 0, &timeVariable)) {
+                OPENSSL_cleanse(passToSend, sizeof(char) * passLength);
+                return EXIT_SUCCESS;
+            }
+        }
+        
+loopHeadSkip:
 
         XNextEvent(xDisplay, &XAeventStruct);
             
@@ -123,10 +141,7 @@ int sendWithXlib(char *passToSend, int passLength)
         if (XAeventStruct.type == SelectionClear) {
             OPENSSL_cleanse(passToSend, sizeof(char) * passLength); /*Zero out password if selection was cleared and return out of loop*/
             return EXIT_SUCCESS;
-        }			
-
-        if(passSentCount == passSendLimit)
-            break;
+        }
     }
 
 	OPENSSL_cleanse(passToSend, sizeof(char) * passLength);
