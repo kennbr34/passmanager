@@ -81,7 +81,7 @@ int targetWinHandler(Display *xDisplay,
     return 0;
 }
 
-int sendWithXlib(char *passToSend, int passLength)
+int sendWithXlib(char *passToSend, int passLength, int clearTime)
 {
 
     Window rootWindow;
@@ -89,7 +89,6 @@ int sendWithXlib(char *passToSend, int passLength)
     XEvent XAeventStruct;
     Atom selectionAtm = XA_PRIMARY;
     Atom targetAtm = XA_STRING;
-    pid_t pid;
     int X11fileDescriptor;                 /* File descriptor on which XEvents appear */
     fd_set inputFileDescriptors;
     struct timeval timeVariable;
@@ -103,13 +102,6 @@ int sendWithXlib(char *passToSend, int passLength)
     /* ConnectionNumber is a macro, it can't fail */
     X11fileDescriptor = ConnectionNumber(xDisplay);
     
-    pid = fork();
-	/* Exit the parent process; */
-	if (pid) {
-		OPENSSL_cleanse(passToSend, sizeof(char) * passLength); /*Zero out memory where password was stored*/
-	    exit(EXIT_SUCCESS);
-    }
-    
     goto loopHeadSkip;
 
     /* At this point we are executing as the child process */
@@ -120,14 +112,16 @@ int sendWithXlib(char *passToSend, int passLength)
         
         /*Clear selection 1ms after it has been pasted*/
         if (!XPending(xDisplay)) {
-            timeVariable.tv_sec = 1/1000;
-            timeVariable.tv_usec = (1%1000)*1000;
+            timeVariable.tv_sec = (clearTime * 1000)/1000;
+            timeVariable.tv_usec = ((clearTime * 1000)%1000)*1000;
 
             /* Build file descriptors */
             FD_ZERO(&inputFileDescriptors);
             FD_SET(X11fileDescriptor, &inputFileDescriptors);
             if (!select(X11fileDescriptor + 1, &inputFileDescriptors, 0, 0, &timeVariable)) {
                 OPENSSL_cleanse(passToSend, sizeof(char) * passLength);
+                munmap(passToSend,passLength);
+                XCloseDisplay(xDisplay);
                 return EXIT_SUCCESS;
             }
         }
@@ -144,9 +138,5 @@ loopHeadSkip:
         }
     }
 
-	OPENSSL_cleanse(passToSend, sizeof(char) * passLength);
-
-    XCloseDisplay(xDisplay);
-
-    exit(EXIT_SUCCESS);
+    
 }

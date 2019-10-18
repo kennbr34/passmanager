@@ -240,9 +240,11 @@ The program will attempt to "lock" all memory, which will prevent it from accide
 
 .SS Clipboard Functionality
 
-Automatically sending passwords to the clipboard is handled by X library calls, or by piping out to a xlip binary installed on the system. The former should be preferred for best security, but the latter is more portable, and both options can be choosen at compile time with autoconf's configuration script.
+Automatically sending passwords to the clipboard is handled by X library calls, or by piping out to a xlip binary installed on the system. The former should be preferred for best security and functionality, but the latter is more portable, and both options can be choosen at compile time with autoconf's configuration script.
 
-The internal X library calls offer better security because passwords are cleared from memory and from the clipboard selection immediately after pasting once.  On the contrary, with xclip, passwords are not cleared from memory, and the selection is cleared according to a timer.  Xclip however is far more portable as it is available on most distributions in package repositories, whereas the X library calls require X development files to be installed, and are not compatible with the X development files on BSD distributions.
+The internal X library calls offer better security because passwords are cleared from memory and from the clipboard selection at a specified amount of seconds after pasting (defaults to 30).  The countdown does not begin until a password is pasted, and if a password is pasted again, the countdown restarts again to faciliatate multiple pastings.
+
+On the contrary, with piping to an external xclip binary, passwords are not cleared from memory, and the countdown to clear the password is began regardless of whether the password was pasted or not. However, piping to an xclip binary is far more portable as a user can control where the password is piped to. The program will simply pipe to any binary or alias that can be invoked by 'xclip'.  If for example, a user is on a system using Wayland instead, 'xclip' could be aliased to 'xclip -selection c' or be a symbolic link pointing to something like 'wl-clipboard'.
 
 .SH EXAMPLES
 

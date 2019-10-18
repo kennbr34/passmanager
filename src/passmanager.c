@@ -187,7 +187,7 @@ unsigned char *encryptedBuffer;
 unsigned char dbInitBuffer[(UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH];
 int evpDataSize;
 
-int xclipClearTimeSeconds = 30;
+int clipboardClearTimeSeconds = 30;
 
 int genPassLength;
 
@@ -292,7 +292,7 @@ int main(int argc, char *argv[])
                 printf("Option -s requires an argument\n");
                 errflg++;
             }
-            xclipClearTimeSeconds = atoi(optarg);
+            clipboardClearTimeSeconds = atoi(optarg);
             condition.userChoseXclipClearTime = true;
             break;
         case 'i':
@@ -1781,10 +1781,10 @@ int writePass()
         if (sendToClipboard(entryPass) == 0) {
             printf("New password sent to clipboard. Paste with middle-click.\n");
 #ifdef HAVE_LIBX11
-            printf("clipboard will be cleared after pasting\n");
+            printf("clipboard will be cleared %i seconds after pasting\n", clipboardClearTimeSeconds);
 #endif
 #ifndef HAVE_LIBX11
-            printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
+            printf("%i seconds before password is cleared from clipboard\n", clipboardClearTimeSeconds);
 #endif
         }
     } else {
@@ -1871,10 +1871,10 @@ int printPasses(char *searchString)
                                 printf("Sent the first matched entry's password to clipboard. Paste with middle-click.\n(Note: There may be more entries that matched your search string)\n");
                             }
 #ifdef HAVE_LIBX11
-                            printf("clipboard will be cleared after pasting\n");
+                            printf("clipboard will be cleared %i seconds after pasting\n", clipboardClearTimeSeconds);
 #endif
 #ifndef HAVE_LIBX11
-                            printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
+                            printf("%i seconds before password is cleared from clipboard\n", clipboardClearTimeSeconds);
 #endif
                         }
                         OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
@@ -2355,10 +2355,10 @@ int updateEntry(char *searchString)
         if (sendToClipboard(newEntryPass) == 0) {
             printf("\nSent new password to clipboard. Paste with middle-click.\n");
 #ifdef HAVE_LIBX11
-            printf("clipboard will be cleared after pasting\n");
+            printf("clipboard will be cleared %i seconds after pasting\n", clipboardClearTimeSeconds);
 #endif
 #ifndef HAVE_LIBX11
-            printf("%i seconds before password is cleared from clipboard\n", xclipClearTimeSeconds);
+            printf("%i seconds before password is cleared from clipboard\n", clipboardClearTimeSeconds);
 #endif
             if (entriesMatched > 1)
                 printf("(Note: Multiple entries matched, only updated and sent fist entry's password to clipboard)\n");
@@ -2568,7 +2568,7 @@ int evpEncrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, un
 int sendToClipboard(char *textToSend)
 {
     int passLength = strlen(textToSend);
-    char passBuffer[passLength];
+    char *passBuffer = mmap(NULL,passLength,PROT_READ | PROT_WRITE,MAP_SHARED | MAP_ANONYMOUS,-1,0);
 
     pid_t pid = getpid(), cid;
 
@@ -2579,11 +2579,11 @@ int sendToClipboard(char *textToSend)
     strncpy(passBuffer, textToSend, passLength);
 
     if (getpid() != pid) {
-        sendWithXlib(passBuffer, passLength);
+        sendWithXlib(passBuffer, passLength, clipboardClearTimeSeconds);
+        if(condition.readingPass == true)
+            free(textToSend);
         exit(EXIT_SUCCESS);
     }
-
-    OPENSSL_cleanse(passBuffer, passLength);
 
     return 0;
 }
@@ -2592,8 +2592,8 @@ int sendToClipboard(char *textToSend)
 int sendToClipboard(char *textToSend)
 {
     int passLength = strlen(textToSend);
-    char xclipCommand[] = "xclip -in";
-    char wipeCommand[] = "xclip -in";
+    char xclipCommand[] = "xclip";
+    char wipeCommand[] = "xclip";
     char wipeOutBuffer[passLength];
     char passBuffer[passLength];
 
@@ -2647,7 +2647,7 @@ int sendToClipboard(char *textToSend)
 
     /* Create a new SID for the child process */
 
-    sleep(xclipClearTimeSeconds);
+    sleep(clipboardClearTimeSeconds);
 
     FILE *wipeFile = popen(wipeCommand, "w");
 
