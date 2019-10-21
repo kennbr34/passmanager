@@ -145,7 +145,7 @@ configure:4026: $? = 0
 configure:4035: result: yes
 configure:4041: checking for SSL_library_init in -lssl
 configure:4066: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-self-assign   conftest.c -lssl  -lcrypto -lX11 >&5
-/tmp/cc3sLFqi.o: In function `main':
+/tmp/ccsmDfhO.o: In function `main':
 /home/ken/passmanager/conftest.c:24: undefined reference to `SSL_library_init'
 collect2: error: ld returned 1 exit status
 configure:4066: $? = 1

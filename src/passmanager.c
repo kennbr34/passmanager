@@ -2935,8 +2935,8 @@ int printSyntax(char *arg)
 \n-H digest - Specify 'list' for a list of methods available to OpenSSL. Default: sha512. \
 \n-i iterations - Specify amount of PBKDF2 to be iterations. Default: 500000\
 \n-P - In Update entry or Update database mode (-u and -U respectively) this option enables updating the entry password or database password via prompt instead of as command line argument \
-\n-C - end entry password directly to clipboard. Clipboard is cleared automatically after pasting, or in 30 seconds if using xclip. \
-\n-s seconds - if using xclip binary, clear clipboard seconds after instead of default 30. \
+\n-C - end entry password directly to clipboard. Clipboard is cleared automatically after pasting, or in 30 seconds. \
+\n-s seconds - clear clipboard seconds after instead of default 30. \
 \n-x database password - To supply database password as command-line argument (not reccomended) \
 \n-f - database file ( must be specified ) \
 \n-h - Quick usage help \
@@ -2949,11 +2949,11 @@ int printSyntax(char *arg)
 \n     \t-H 'digest' - Derives keys for 'cipher' with digest 'digest'.\
 \n     \t-i 'iterations' - Specify PBKDF2 iteration amount as iterations. \
 \n     \t-C send new entry's password to clipboard (useful if randomly generated)\
-\n     \t-s seconds - clear clipboard seconds after instead of default 30. (Only applies if using xclip binary)\
+\n     \t-s seconds - clear clipboard seconds after instead of default 30.\
 \n-r - Read mode \
 \n     \t-x 'database password'\
 \n     \t-C  send a specified entry's password directly to clipboard \
-\n     \t-s seconds - clear clipboard seconds after instead of default 30. (Only applies if using xclip binary).\
+\n     \t-s seconds - clear clipboard seconds after instead of default 30.\
 \n-d - Delete mode \
 \n     \t-x 'database password'\
 \n-u - Update entry mode \
@@ -2963,7 +2963,7 @@ int printSyntax(char *arg)
 \n     \t-n 'entry' - update the entry's name to 'entry'. Without this its assumed you're only changing entry's password. \
 \n     \t-x 'database password'\
 \n     \t-C send entry's new password directly to clipboard\
-\n     \t-s seconds - clear clipboard seconds after instead of default 30. (Only applies if using xclip binary)\
+\n     \t-s seconds - clear clipboard seconds after instead of default 30.\
 \n-U - Update database mode \
 \n     \t-P  updates database password. Read via prompt. Cannot be supplied via commandline. \
 \n     \t-x 'database password' (the current database password to decrypt/with) \
