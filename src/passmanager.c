@@ -18,7 +18,7 @@
   for use in the OpenSSL Toolkit (http://www.openssl.org/)
 */
 
-#include "config.h"
+#include "config"
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
