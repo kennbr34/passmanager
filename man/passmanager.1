@@ -37,7 +37,7 @@ Options may have different implications depending on operating mode
 .PP
 \fB\-C\fR - send \fIentry password\fI\fR directly to clipboard. Clipboard is cleared automatically after pasting, or in 30 seconds if using xclip for xclipboard functions.
 .PP
-\fB-s\fB\fR \fIseconds\fI\fR - if using xclip binary, clear clipboard \fIseconds\fI\fR after instead of default 30.
+\fB-s\fB\fR \fIseconds\fI\fR - clear clipboard \fIseconds\fI\fR after instead of default 30.
 .PP
 \fB\-x\fR \fIdatabase password\fI\fR \- To supply database password as command-line argument (not reccomended)
 .PP
@@ -116,7 +116,7 @@ Applicable options
 .HP
 \fB\-i\fR \fIiterations\fI\fR - Specify PBKDF2 iteration amount as \fIiterations\fI\fR.
 .HP
-\fB-s\fB\fR \fIseconds\fI\fR - clear clipboard \fIseconds\fI\fR after instead of default 30 (Only applies if using xclip binary)
+\fB-s\fB\fR \fIseconds\fI\fR - clear clipboard \fIseconds\fI\fR after instead of default 30
 .RE
 .PP
 .SS \fBRead mode\fR
@@ -135,7 +135,7 @@ Applicable options
 .HP
 \fB\-C\fR send \fIentry name\fI\fR password directly to clipboard (useful to avoid displaying passwords on screen)
 .HP
-\fB-s\fB\fR \fIseconds\fI\fR - clear clipboard \fIseconds\fI\fR after instead of default 30 (Only applies if using xclip binary)
+\fB-s\fB\fR \fIseconds\fI\fR - clear clipboard \fIseconds\fI\fR after instead of default 30
 .RE
 .PP
 .SS \fBDelete mode\fR
@@ -174,7 +174,7 @@ updates \fIentry name\fI\fR and \fIentry password\fI\fR, getting \fInew entry pa
 .HP
 \fB\-C\fR send \fInew entry password\fI\fR directly to clipboard after updating \fIentry name\fI\fR
 .HP
-\fB-s\fB\fR \fIseconds\fI\fR - clear clipboard \fIseconds\fI\fR after instead of default 30 (Only applies if using xclip binary)
+\fB-s\fB\fR \fIseconds\fI\fR - clear clipboard \fIseconds\fI\fR after instead of default 30
 .RE
 .PP
 .SS \fBUpdate database mode\fR
@@ -242,9 +242,9 @@ The program will attempt to "lock" all memory, which will prevent it from accide
 
 Automatically sending passwords to the clipboard is handled by X library calls, or by piping out to a xlip binary installed on the system. The former should be preferred for best security and functionality, but the latter is more portable, and both options can be choosen at compile time with autoconf's configuration script.
 
-The internal X library calls offer better security because passwords are cleared from memory and from the clipboard selection at a specified amount of seconds after pasting (defaults to 30).  The countdown does not begin until a password is pasted, and if a password is pasted again, the countdown restarts again to faciliatate multiple pastings.
+The internal X library calls offer better security because passwords are cleared from memory and from the clipboard selection at a specified amount of seconds after pasting (defaults to 30).  The countdown does not begin until a password is pasted, and if a password is pasted again, the countdown resets again to faciliatate multiple pastings.
 
-On the contrary, with piping to an external xclip binary, passwords are not cleared from memory, and the countdown to clear the password is began regardless of whether the password was pasted or not. However, piping to an xclip binary is far more portable as a user can control where the password is piped to. The program will simply pipe to any binary or alias that can be invoked by 'xclip'.  If for example, a user is on a system using Wayland instead, 'xclip' could be aliased to 'xclip -selection c' or be a symbolic link pointing to something like 'wl-clipboard'.
+On the contrary, with piping to an external xclip binary, passwords are not cleared from memory, and the countdown to clear the password is began regardless of whether the password was pasted or not, and does not reset. However, piping to an xclip binary is far more portable as a user can control where the password is piped to. The program will simply pipe to any binary or alias that can be invoked by 'xclip'.  If for example, a user is on a system using Wayland instead, 'xclip' could be aliased to 'xclip -selection c' or be a symbolic link pointing to something like 'wl-clipboard'.
 
 .SH EXAMPLES
 
