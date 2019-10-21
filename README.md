@@ -23,8 +23,11 @@ Confirmed Operational On:
 OpenSSL development files (1.0.1.g or higher)
 
 (Optional)
+
 X11 development files
+
 ...or
+
 xclip (to pipe password to)
 
 # INSTALL
@@ -36,13 +39,17 @@ To install, run these commands from the current working directory:
 'make install' must be ran as root to install the binary with SUID permission and to install the man file
 
 $ ./configure
+
 $ make
+
 \# make install
 
 If you would rather use xclip for clipboard functions (or to disable them all together if xclip is not installed)...
 
 $ ./configure --disable-x11
+
 $ make
+
 \# make install
 
 # COMPILATION
