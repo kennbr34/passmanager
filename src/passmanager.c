@@ -18,7 +18,7 @@
   for use in the OpenSSL Toolkit (http://www.openssl.org/)
 */
 
-#include "config"
+#include "config.h"
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
@@ -1597,7 +1597,7 @@ void backupDatabase()
     /*Before anything else, back up the password database*/
     if (condition.databaseBeingInitalized == false && condition.readingPass == false && condition.printingDbInfo == false) {
         strncpy(backupFileName, dbFileName, NAME_MAX);
-        strncat(backupFileName, ".autobak", NAME_MAX);
+        strncat(backupFileName, ".autobak", NAME_MAX - 1);
         FILE *backUpFile = fopen(backupFileName, "w");
         if (backUpFile == NULL) {
             printf("Couldn't make a backup file. Be careful...\n");
@@ -2851,7 +2851,7 @@ bool xclipIsInstalled(void)
         if (token == NULL)
             break;
         strncpy(pathToCheck, token, NAME_MAX);
-        strncat(pathToCheck, "/xclip", NAME_MAX);
+        strncat(pathToCheck, "/xclip", NAME_MAX - 1);
 
         if (stat(pathToCheck, &sb) == 0 && sb.st_mode & S_IXUSR) {
             xclipInstalled = true;
