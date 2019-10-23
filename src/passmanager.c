@@ -48,12 +48,12 @@
 #include <sys/resource.h>
 #include <sys/time.h>
 #ifdef HAVE_LIBX11
-#include <X11/Xlib.h>
+#    include <X11/Xlib.h>
 /*These are defined here so including and linking Xmu.h/Atoms.h is not needed*/
 /*If problems arise just comment out and include and link Xmu/Atoms.h*/
-#define XA_PRIMARY 1 /*Paste with middle click, and erase with selection*/
-#define XA_STRING 31
-#define XA_ATOM 4
+#    define XA_PRIMARY 1 /*Paste with middle click, and erase with selection*/
+#    define XA_STRING 31
+#    define XA_ATOM 4
 #endif
 
 #define printSysError(errCode) \
@@ -148,9 +148,9 @@ void backupDatabase();
 bool xclipIsInstalled(void);
 #ifdef HAVE_LIBX11
 int targetWinHandler(Display *xDisplay,
-         Window *targetWindow,
-         XEvent XAeventStruct,
-         Atom *windowProperty, Atom targetProperty, unsigned char *passToSend, unsigned long passLength);
+                     Window *targetWindow,
+                     XEvent XAeventStruct,
+                     Atom *windowProperty, Atom targetProperty, unsigned char *passToSend, unsigned long passLength);
 int sendWithXlib(char *passToSend, int passLength, int clearTime);
 #endif
 
@@ -2580,7 +2580,7 @@ int evpEncrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, un
 int sendToClipboard(char *textToSend)
 {
     int passLength = strlen(textToSend);
-    char *passBuffer = mmap(NULL,passLength,PROT_READ | PROT_WRITE,MAP_SHARED | MAP_ANONYMOUS,-1,0);
+    char *passBuffer = mmap(NULL, passLength, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
     pid_t pid = getpid(), cid;
 
@@ -2592,7 +2592,7 @@ int sendToClipboard(char *textToSend)
 
     if (getpid() != pid) {
         sendWithXlib(passBuffer, passLength, clipboardClearTimeSeconds);
-        if(condition.readingPass == true)
+        if (condition.readingPass == true)
             free(textToSend);
         exit(EXIT_SUCCESS);
     }
@@ -2601,51 +2601,49 @@ int sendToClipboard(char *textToSend)
 }
 
 int targetWinHandler(Display *xDisplay,
-         Window *targetWindow,
-         XEvent XAeventStruct,
-         Atom *windowProperty, Atom targetProperty, unsigned char *passToSend, unsigned long passLength)
+                     Window *targetWindow,
+                     XEvent XAeventStruct,
+                     Atom *windowProperty, Atom targetProperty, unsigned char *passToSend, unsigned long passLength)
 {
     XEvent eventResponseStruct;
     static Atom targetsAtm;
 
-	targetsAtm = XInternAtom(xDisplay, "TARGETS", False);
+    targetsAtm = XInternAtom(xDisplay, "TARGETS", False);
 
-	/* Set the window and property that is being used */
-	*targetWindow = XAeventStruct.xselectionrequest.requestor;
-	*windowProperty = XAeventStruct.xselectionrequest.property;
-	
-	if (XAeventStruct.xselectionrequest.target == targetsAtm) {
-	    Atom dataTypes[2] = { targetsAtm, targetProperty };
+    /* Set the window and property that is being used */
+    *targetWindow = XAeventStruct.xselectionrequest.requestor;
+    *windowProperty = XAeventStruct.xselectionrequest.property;
 
-	    /* Send pass with targets */
-	    XChangeProperty(xDisplay,
-			    *targetWindow,
-			    *windowProperty,
-			    XA_ATOM,
-			    32, PropModeReplace, (unsigned char *) dataTypes,
-			    (int) (sizeof(dataTypes) / sizeof(Atom))
-		);
-	}
-	else {
-	
-		/* Send pass  */
-		XChangeProperty(xDisplay,
-						*targetWindow,
-						*windowProperty, targetProperty, 8, PropModeReplace, (unsigned char *)passToSend, (int)passLength);
-	}
+    if (XAeventStruct.xselectionrequest.target == targetsAtm) {
+        Atom dataTypes[2] = {targetsAtm, targetProperty};
 
-	/* Set values for the response event */
-	eventResponseStruct.xselection.property = *windowProperty;
-	eventResponseStruct.xselection.type = SelectionNotify;
-	eventResponseStruct.xselection.display = XAeventStruct.xselectionrequest.display;
-	eventResponseStruct.xselection.requestor = *targetWindow;
-	eventResponseStruct.xselection.selection = XAeventStruct.xselectionrequest.selection;
-	eventResponseStruct.xselection.target = XAeventStruct.xselectionrequest.target;
-	eventResponseStruct.xselection.time = XAeventStruct.xselectionrequest.time;
+        /* Send pass with targets */
+        XChangeProperty(xDisplay,
+                        *targetWindow,
+                        *windowProperty,
+                        XA_ATOM,
+                        32, PropModeReplace, (unsigned char *)dataTypes,
+                        (int)(sizeof(dataTypes) / sizeof(Atom)));
+    } else {
 
-	/* Send the response event */
-	XSendEvent(xDisplay, XAeventStruct.xselectionrequest.requestor, 0, 0, &eventResponseStruct);
-	XFlush(xDisplay);
+        /* Send pass  */
+        XChangeProperty(xDisplay,
+                        *targetWindow,
+                        *windowProperty, targetProperty, 8, PropModeReplace, (unsigned char *)passToSend, (int)passLength);
+    }
+
+    /* Set values for the response event */
+    eventResponseStruct.xselection.property = *windowProperty;
+    eventResponseStruct.xselection.type = SelectionNotify;
+    eventResponseStruct.xselection.display = XAeventStruct.xselectionrequest.display;
+    eventResponseStruct.xselection.requestor = *targetWindow;
+    eventResponseStruct.xselection.selection = XAeventStruct.xselectionrequest.selection;
+    eventResponseStruct.xselection.target = XAeventStruct.xselectionrequest.target;
+    eventResponseStruct.xselection.time = XAeventStruct.xselectionrequest.time;
+
+    /* Send the response event */
+    XSendEvent(xDisplay, XAeventStruct.xselectionrequest.requestor, 0, 0, &eventResponseStruct);
+    XFlush(xDisplay);
 
     return 0;
 }
@@ -2658,7 +2656,7 @@ int sendWithXlib(char *passToSend, int passLength, int clearTime)
     XEvent XAeventStruct;
     Atom selectionAtm = XA_PRIMARY;
     Atom targetAtm = XA_STRING;
-    int X11fileDescriptor;                 /* File descriptor on which XEvents appear */
+    int X11fileDescriptor; /* File descriptor on which XEvents appear */
     fd_set inputFileDescriptors;
     struct timeval timeVariable;
 
@@ -2667,47 +2665,40 @@ int sendWithXlib(char *passToSend, int passLength, int clearTime)
     xDisplay = XOpenDisplay(defaultDisplay);
     rootWindow = XCreateSimpleWindow(xDisplay, DefaultRootWindow(xDisplay), 0, 0, 1, 1, 0, 0, 0);
     XSetSelectionOwner(xDisplay, selectionAtm, rootWindow, CurrentTime);
-    
+
     /* ConnectionNumber is a macro, it can't fail */
     X11fileDescriptor = ConnectionNumber(xDisplay);
-    
-    goto loopHeadSkip;
 
     /* At this point we are executing as the child process */
-    for(;;)
-    {
+    for (;;) {
         static Window targetWindow;
         static Atom windowProperty;
+
+        XNextEvent(xDisplay, &XAeventStruct);
+
+        targetWinHandler(xDisplay, &targetWindow, XAeventStruct, &windowProperty, targetAtm, (unsigned char *)passToSend, passLength);
+
+        if (XAeventStruct.type == SelectionClear) {
+            OPENSSL_cleanse(passToSend, sizeof(char) * passLength); /*Zero out password if selection was cleared and return out of loop*/
+            return EXIT_SUCCESS;
+        }
         
-        /*Clear selection 1ms after it has been pasted*/
+        /*Clear selection 'clearTime' seconds after it has been pasted*/
         if (!XPending(xDisplay)) {
-            timeVariable.tv_sec = (clearTime * 1000)/1000;
-            timeVariable.tv_usec = ((clearTime * 1000)%1000)*1000;
+            timeVariable.tv_sec = (clearTime * 1000) / 1000;
+            timeVariable.tv_usec = ((clearTime * 1000) % 1000) * 1000;
 
             /* Build file descriptors */
             FD_ZERO(&inputFileDescriptors);
             FD_SET(X11fileDescriptor, &inputFileDescriptors);
             if (!select(X11fileDescriptor + 1, &inputFileDescriptors, 0, 0, &timeVariable)) {
                 OPENSSL_cleanse(passToSend, sizeof(char) * passLength);
-                munmap(passToSend,passLength);
+                munmap(passToSend, passLength);
                 XCloseDisplay(xDisplay);
                 return EXIT_SUCCESS;
             }
         }
-        
-loopHeadSkip:
-
-        XNextEvent(xDisplay, &XAeventStruct);
-            
-        targetWinHandler(xDisplay, &targetWindow, XAeventStruct, &windowProperty, targetAtm, (unsigned char *)passToSend, passLength);
-            
-        if (XAeventStruct.type == SelectionClear) {
-            OPENSSL_cleanse(passToSend, sizeof(char) * passLength); /*Zero out password if selection was cleared and return out of loop*/
-            return EXIT_SUCCESS;
-        }
     }
-
-    
 }
 #endif
 

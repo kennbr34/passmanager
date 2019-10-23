@@ -122,7 +122,9 @@ src/passmanager.o: src/passmanager.c /usr/include/stdc-predef.h config.h \
  /usr/include/x86_64-linux-gnu/sys/resource.h \
  /usr/include/x86_64-linux-gnu/bits/resource.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_rusage.h \
- /usr/include/x86_64-linux-gnu/sys/time.h
+ /usr/include/x86_64-linux-gnu/sys/time.h /usr/include/X11/Xlib.h \
+ /usr/include/X11/X.h /usr/include/X11/Xfuncproto.h \
+ /usr/include/X11/Xosdefs.h
 
 /usr/include/stdc-predef.h:
 
@@ -439,3 +441,11 @@ config.h:
 /usr/include/x86_64-linux-gnu/bits/types/struct_rusage.h:
 
 /usr/include/x86_64-linux-gnu/sys/time.h:
+
+/usr/include/X11/Xlib.h:
+
+/usr/include/X11/X.h:
+
+/usr/include/X11/Xfuncproto.h:
+
+/usr/include/X11/Xosdefs.h:
