@@ -154,6 +154,7 @@ int targetWinHandler(Display *xDisplay,
 int sendWithXlib(char *passToSend, int passLength, int clearTime);
 #endif
 
+
 const EVP_CIPHER *evpCipher, *evpCipherOld;
 unsigned char evpKey[EVP_MAX_KEY_LENGTH], evpKeyOld[EVP_MAX_KEY_LENGTH];
 unsigned char evpIv[EVP_MAX_IV_LENGTH], evpIvOld[EVP_MAX_KEY_LENGTH];
@@ -1610,6 +1611,7 @@ void backupDatabase()
     if (condition.databaseBeingInitalized == false && condition.readingPass == false && condition.printingDbInfo == false) {
         strncpy(backupFileName, dbFileName, NAME_MAX);
         strncat(backupFileName, ".autobak", NAME_MAX - 1);
+      
         FILE *backUpFile = fopen(backupFileName, "w");
         if (backUpFile == NULL) {
             printf("Couldn't make a backup file. Be careful...\n");
