@@ -2208,7 +2208,7 @@ int updateEntry(char *searchString)
 
             entriesMatched++;
 
-            if (condition.sendToClipboard == true && condition.updateAllPasses == false && entriesMatched >= 1) {
+            if ((condition.sendToClipboard == true && entriesMatched >= 1) || (condition.updateAllPasses == false && condition.sendToClipboard == true)) {
                 if (entriesMatched > 1)
                     /*Need to skip to the writeBackLoop so updates aren't written to other matches, but those matches are written back unmodifed*/
                     /*Do this after entriesMatched is greater than 1 so that only one password is sent to the clipboard*/
