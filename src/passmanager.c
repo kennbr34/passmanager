@@ -2208,81 +2208,84 @@ int updateEntry(char *searchString)
 
             entriesMatched++;
 
-            if ((condition.sendToClipboard == true && entriesMatched > 1) || (condition.updateAllPasses == true && condition.sendToClipboard == true && entriesMatched > 1)) {
-                /*Need to skip to the writeBackLoop so updates aren't written to other matches, but those matches are written back unmodifed*/
-                /*Do this after entriesMatched is greater than 1 so that only one password is sent to the clipboard*/
-                goto writeBackLoop;
-            }
-
-            //Update content in entryName before encrypting back
-            if (condition.entryGiven == true) {
-                memcpy(entryBuffer, newEntry, UI_BUFFERS_SIZE);
-            }
-
-            /*This will preserve the alphanumeric nature of a password if it has no symbols*/
-            if (condition.updateAllPasses == true) {
-                passLength = strlen(passWord);
-                for (i = 0; i < passLength; i++) {
-                    if (isupper(passBuffer[i]) == 0 && islower(passBuffer[i]) == 0 && isdigit(passBuffer[i]) == 0)
-                        numberOfSymbols++;
+            if (! ((condition.sendToClipboard == true && entriesMatched > 1) || (condition.updateAllPasses == true && condition.sendToClipboard == true && entriesMatched > 1)) ) {
+                
+                //Update content in entryName before encrypting back
+                if (condition.entryGiven == true) {
+                    memcpy(entryBuffer, newEntry, UI_BUFFERS_SIZE);
                 }
-
-                if (numberOfSymbols == 0) {
-                    condition.generateEntryPassAlpha = true;
-                    condition.generateEntryPass = false;
-                } else {
-                    condition.generateEntryPassAlpha = false;
-                    condition.generateEntryPass = true;
+        
+                /*This will preserve the alphanumeric nature of a password if it has no symbols*/
+                if (condition.updateAllPasses == true) {
+                    passLength = strlen(passWord);
+                    for (i = 0; i < passLength; i++) {
+                        if (isupper(passBuffer[i]) == 0 && islower(passBuffer[i]) == 0 && isdigit(passBuffer[i]) == 0)
+                            numberOfSymbols++;
+                    }
+        
+                    if (numberOfSymbols == 0) {
+                        condition.generateEntryPassAlpha = true;
+                        condition.generateEntryPass = false;
+                    } else {
+                        condition.generateEntryPassAlpha = false;
+                        condition.generateEntryPass = true;
+                    }
+                    numberOfSymbols = 0;
                 }
-                numberOfSymbols = 0;
-            }
-
-            /*Generate random passwords if gen was given, and for all if allpasses was given*/
-            /*If allpasses was given, they will be random regardless if gen is not set.*/
-            if (condition.updatingEntryPass == true && (condition.generateEntryPass == true || condition.updateAllPasses == true)) {
-
-                /*This will generate a new pass for each entry during a bulk update*/
-                if (condition.genPassLengthGiven == true) {
-                    genPassWord(genPassLength);
-                    /*Have to copy over entryPass to newEntryPass since genPassWord() operates on entryPass buffer*/
-                    strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
-                } else {
-                    genPassWord(DEFAULT_GENPASS_LENGTH);
-                    strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
+        
+                /*Generate random passwords if gen was given, and for all if allpasses was given*/
+                /*If allpasses was given, they will be random regardless if gen is not set.*/
+                if (condition.updatingEntryPass == true && (condition.generateEntryPass == true || condition.updateAllPasses == true)) {
+        
+                    /*This will generate a new pass for each entry during a bulk update*/
+                    if (condition.genPassLengthGiven == true) {
+                        genPassWord(genPassLength);
+                        /*Have to copy over entryPass to newEntryPass since genPassWord() operates on entryPass buffer*/
+                        strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
+                    } else {
+                        genPassWord(DEFAULT_GENPASS_LENGTH);
+                        strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
+                    }
+        
+                    memcpy(passBuffer, newEntryPass, UI_BUFFERS_SIZE);
+                    /*Do the same as above but if an alphanumeric pass was specified*/
+                } else if (condition.updatingEntryPass == true && (condition.generateEntryPassAlpha == true || condition.updateAllPasses == true)) {
+                    if (condition.genPassLengthGiven == true) {
+                        genPassWord(genPassLength);
+                        strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
+                    } else {
+                        genPassWord(DEFAULT_GENPASS_LENGTH);
+                        strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
+                    }
+        
+                    memcpy(passBuffer, newEntryPass, UI_BUFFERS_SIZE);
                 }
-
-                memcpy(passBuffer, newEntryPass, UI_BUFFERS_SIZE);
-                /*Do the same as above but if an alphanumeric pass was specified*/
-            } else if (condition.updatingEntryPass == true && (condition.generateEntryPassAlpha == true || condition.updateAllPasses == true)) {
-                if (condition.genPassLengthGiven == true) {
-                    genPassWord(genPassLength);
-                    strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
-                } else {
-                    genPassWord(DEFAULT_GENPASS_LENGTH);
-                    strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
+        
+                if (condition.updatingEntryPass == true) {
+                    memcpy(passBuffer, newEntryPass, UI_BUFFERS_SIZE);
                 }
-
-                memcpy(passBuffer, newEntryPass, UI_BUFFERS_SIZE);
-            }
-
-            if (condition.updatingEntryPass == true) {
-                memcpy(passBuffer, newEntryPass, UI_BUFFERS_SIZE);
-            }
-
-            /*Copy the entryBuffer and passBuffer out to fileBuffer*/
-            for (i = 0; i < UI_BUFFERS_SIZE * 2; i++) {
-                if (i < UI_BUFFERS_SIZE)
-                    fileBuffer[ii + i] = entryBuffer[i];
+        
+                /*Copy the entryBuffer and passBuffer out to fileBuffer*/
+                for (i = 0; i < UI_BUFFERS_SIZE * 2; i++) {
+                    if (i < UI_BUFFERS_SIZE)
+                        fileBuffer[ii + i] = entryBuffer[i];
+                    else
+                        fileBuffer[(ii + UI_BUFFERS_SIZE) + (i - UI_BUFFERS_SIZE)] = passBuffer[i - UI_BUFFERS_SIZE];
+                }
+                if (condition.entryGiven == true)
+                    printf("Updating \"%s\" to \"%s\" ...\n", searchString, entryBuffer);
                 else
-                    fileBuffer[(ii + UI_BUFFERS_SIZE) + (i - UI_BUFFERS_SIZE)] = passBuffer[i - UI_BUFFERS_SIZE];
+                    printf("Matched \"%s\" to \"%s\" (Updating...)\n", searchString, entryBuffer);
+            } else { /*Write back the original entry and pass if if alraeady matched one entry and sendToClipboard is true*/
+                for (i = 0; i < UI_BUFFERS_SIZE * 2; i++) {
+                    if (i < UI_BUFFERS_SIZE)
+                        fileBuffer[ii + i] = entryBuffer[i];
+                    else
+                        fileBuffer[(ii + UI_BUFFERS_SIZE) + (i - UI_BUFFERS_SIZE)] = passBuffer[i - UI_BUFFERS_SIZE];
+                }
             }
-            if (condition.entryGiven == true)
-                printf("Updating \"%s\" to \"%s\" ...\n", searchString, entryBuffer);
-            else
-                printf("Matched \"%s\" to \"%s\" (Updating...)\n", searchString, entryBuffer);
 
         } else { /*Write back the original entry and pass if nothing matched searchString*/
-        writeBackLoop:
             for (i = 0; i < UI_BUFFERS_SIZE * 2; i++) {
                 if (i < UI_BUFFERS_SIZE)
                     fileBuffer[ii + i] = entryBuffer[i];
