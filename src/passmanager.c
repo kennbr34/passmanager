@@ -3056,6 +3056,7 @@ int printSyntax(char *arg)
 \n-C - end entry password directly to clipboard. Clipboard is cleared automatically after pasting, or in 30 seconds. \
 \n-s seconds - clear clipboard seconds after instead of default 30. \
 \n-x database password - To supply database password as command-line argument (not reccomended) \
+\n-I - print database information \
 \n-f - database file ( must be specified ) \
 \n-h - Quick usage help \
 \nEach functioning mode has a subset of applicable options \
