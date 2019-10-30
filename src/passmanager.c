@@ -2965,9 +2965,6 @@ bool xclipIsInstalled(void)
     }
 
     while (1) {
-        token = strtok(NULL, ":");
-        if (token == NULL)
-            break;
         strncpy(pathToCheck, token, NAME_MAX);
         strncat(pathToCheck, "/xclip", NAME_MAX - 1);
 
@@ -2975,6 +2972,9 @@ bool xclipIsInstalled(void)
             xclipInstalled = true;
             break;
         } else {
+            token = strtok(NULL, ":");
+            if (token == NULL)
+                break;
             continue;
         }
     }
