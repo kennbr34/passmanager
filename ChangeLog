@@ -7,6 +7,9 @@
 	Wrote function to send password to X11 password with Xlib code instead of piping to xclip binary
 	Added option to use xclip binary or integrated Xlib code with ./configure script
 	Put database backup routine into a function and made it run only if database MAC was verified
+    Added '-I' switch to print information about database
+    Fixed conditional tests in updateEntry for use with -C option
+    https://github.com/kennbr34/passmanager/pull/29
 2019-10-1
 (+ver 3.2.7)
 	Got rid of libcap capabilities functions because they are not needed
