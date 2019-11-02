@@ -2591,7 +2591,7 @@ int sendToClipboard(char *textToSend)
     if (cid == -1)
         printSysError(errno);
 
-    snprintf(passBuffer,passLength,"%s",textToSend);
+    snprintf(passBuffer,passLength + 1,"%s",textToSend);
 
     if (getpid() != pid) {
         sendWithXlib(passBuffer, passLength, clipboardClearTimeSeconds);
@@ -2720,7 +2720,7 @@ int sendToClipboard(char *textToSend)
     FILE *xclipFile = popen(xclipCommand, "w");
     pid_t pid;
 
-    snprintf(passBuffer,passLength,"%s",textToSend);
+    snprintf(passBuffer,passLength + 1,"%s",textToSend);
 
     if (xclipFile == NULL) {
         printSysError(errno);
