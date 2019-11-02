@@ -323,8 +323,8 @@ int main(int argc, char *argv[])
                 errflg++;
             }
             genPassLength = atoi(optarg);
-            if (UI_BUFFERS_SIZE < genPassLength) {
-                genPassLength = UI_BUFFERS_SIZE;
+            if ((UI_BUFFERS_SIZE - 1) < genPassLength) {
+                genPassLength = (UI_BUFFERS_SIZE - 1);
             }
             condition.genPassLengthGiven = true;
             break;
@@ -359,7 +359,7 @@ int main(int argc, char *argv[])
                 errflg++;
             } else
                 condition.addingPass = true;
-            if (strlen(optarg) > UI_BUFFERS_SIZE) {
+            if (strlen(optarg) > (UI_BUFFERS_SIZE - 1)) {
                 printf("\nentry name too long\n");
                 return 1;
             }
@@ -373,7 +373,7 @@ int main(int argc, char *argv[])
                 errflg++;
             } else
                 condition.searchForEntry = true;
-            if (strlen(optarg) > UI_BUFFERS_SIZE) {
+            if (strlen(optarg) > (UI_BUFFERS_SIZE - 1)) {
                 printf("\nentry name too long\n");
                 return 1;
             }
@@ -388,7 +388,7 @@ int main(int argc, char *argv[])
                 errflg++;
             } else
                 condition.deletingPass = true;
-            if (strlen(optarg) > UI_BUFFERS_SIZE) {
+            if (strlen(optarg) > (UI_BUFFERS_SIZE - 1)) {
                 printf("\nentry name too long\n");
                 exit(EXIT_FAILURE);
             }
@@ -446,7 +446,7 @@ int main(int argc, char *argv[])
                 errflg++;
             } else
                 condition.searchForEntry = true;
-            if (strlen(optarg) > UI_BUFFERS_SIZE) {
+            if (strlen(optarg) > (UI_BUFFERS_SIZE - 1)) {
                 printf("\nentry name too long\n");
                 exit(EXIT_FAILURE);
             }
@@ -459,7 +459,7 @@ int main(int argc, char *argv[])
                 errflg++;
             } else
                 condition.updatingEntry = true;
-            if (strlen(optarg) > UI_BUFFERS_SIZE) {
+            if (strlen(optarg) > (UI_BUFFERS_SIZE - 1)) {
                 printf("\nentry name too long\n");
                 exit(EXIT_FAILURE);
             }
@@ -473,7 +473,7 @@ int main(int argc, char *argv[])
                 printf("Option -p requires an argument\n");
                 errflg++;
             }
-            if (strlen(optarg) > UI_BUFFERS_SIZE) {
+            if (strlen(optarg) > (UI_BUFFERS_SIZE - 1)) {
                 printf("\npassword too long\n");
                 exit(EXIT_FAILURE);
             }
@@ -1079,7 +1079,7 @@ void allocateBuffers()
 void genPassWord(int stringLength)
 {
     unsigned char randomByte;
-    char tempPassString[stringLength];
+    char *tempPassString = calloc(sizeof(char),stringLength + 1);
     int i = 0;
 
     /*Go until i has iterated over the length of the pass requested*/
@@ -1107,10 +1107,8 @@ void genPassWord(int stringLength)
         }
     }
 
-    /*Insert a null byte at the end of the random bytes since the buffer is padded*/
-    /*Then send that to entryPass*/
-    tempPassString[stringLength] = '\0';
     snprintf(entryPass,UI_BUFFERS_SIZE,"%s",tempPassString);
+    free(tempPassString);
 }
 
 char *getPass(const char *prompt, char *paddedPass)
@@ -1151,7 +1149,7 @@ char *getPass(const char *prompt, char *paddedPass)
     nread = getline(&pass, &len, stdin);
     if (nread == -1)
         exit(EXIT_FAILURE);
-    else if (nread > UI_BUFFERS_SIZE) {
+    else if (nread > (UI_BUFFERS_SIZE -1)) {
         /* Restore terminal. */
         (void)tcsetattr(fileno(stdin), TCSAFLUSH, &termisOld);
         OPENSSL_cleanse(pass, sizeof(char) * nread);

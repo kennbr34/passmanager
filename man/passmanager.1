@@ -21,9 +21,9 @@ Options may have different implications depending on operating mode
 .PP
 \fB\-U - \fBUpdate database\fB\fR mode
 .PP
-\fB\-n\fR \fInew name\fI\fR\ - entry name up to 512 characters (can contain white space or special characters)
+\fB\-n\fR \fInew name\fI\fR\ - entry name up to 511 characters (can contain white space or special characters)
 .PP
-\fB\-p\fR \fInew entry password\fI\fR \- entry password up to 512 characters (don't call to be prompted instead) ('gen' will generate a random password, 'genalpha' will generate a random password with no symbols)
+\fB\-p\fR \fInew entry password\fI\fR \- entry password up to 511 characters (don't call to be prompted instead) ('gen' will generate a random password, 'genalpha' will generate a random password with no symbols)
 .PP
 \fB\-l\fR \fIrandom password length\fI\fR \- makes 'gen' or 'genalpha' generate a password \fIrandom password length\fI\fR digits long (defaults to 16 without this option)
 .PP
@@ -218,7 +218,7 @@ The EVP library also provides access to OpenSSL's CSPRNG as described in \fIRAND
 
 .SS Input Padding
 
-Input buffers will accept any amount of whitespace or special characters up to 512 characters in length.  The buffers are padded with pseudo-random data from a Cryptographically Strong Pseudo Random Number Generator (CSPRNG). This was done with more consideration than simply providing ample memory for user input. The extra space being padded with pseudo-random data also helps suppress natural-language frequencies, making frequency analysis of the cipher-text less useful.
+Input buffers will accept any amount of whitespace or special characters up to 511 characters in length.  The buffers are padded with pseudo-random data from a Cryptographically Strong Pseudo Random Number Generator (CSPRNG). This was done with more consideration than simply providing ample memory for user input. The extra space being padded with pseudo-random data also helps suppress natural-language frequencies, making frequency analysis of the cipher-text less useful.
 
 .SS Database Creation and Modification
 
