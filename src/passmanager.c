@@ -363,7 +363,7 @@ int main(int argc, char *argv[])
                 printf("\nentry name too long\n");
                 return 1;
             }
-            strncpy(entryName, optarg, UI_BUFFERS_SIZE);
+            snprintf(entryName,UI_BUFFERS_SIZE,"%s", optarg);
             condition.entryGiven = true;
             break;
         case 'r':
@@ -379,7 +379,7 @@ int main(int argc, char *argv[])
             }
             if (strcmp(optarg, "allpasses") == 0)
                 condition.printAllPasses = true;
-            strncpy(entryName, optarg, UI_BUFFERS_SIZE);
+            snprintf(entryName,UI_BUFFERS_SIZE,"%s",optarg);
             condition.entryGiven = true;
             break;
         case 'd':
@@ -392,7 +392,7 @@ int main(int argc, char *argv[])
                 printf("\nentry name too long\n");
                 exit(EXIT_FAILURE);
             }
-            strncpy(entryName, optarg, UI_BUFFERS_SIZE);
+            snprintf(entryName,UI_BUFFERS_SIZE,"%s",optarg);
             condition.entryGiven = true;
             condition.searchForEntry = true;
             break;
@@ -411,8 +411,8 @@ int main(int argc, char *argv[])
 
             /*Copy optarg into both variables because openDatabase() will replace what's in messageDigestName afer reading the header
 			But only if the database is being initialized. This way the program doesn't need extra code for both conditions*/
-            strncpy(messageDigestName, optarg, NAME_MAX);
-            strncpy(messageDigestNameFromCmdLine, messageDigestName, NAME_MAX);
+            snprintf(messageDigestName,NAME_MAX,"%s",optarg);
+            snprintf(messageDigestNameFromCmdLine,NAME_MAX,"%s", messageDigestName);
 
             condition.userChoseDigest = true;
             break;
@@ -427,8 +427,8 @@ int main(int argc, char *argv[])
             }
             condition.userChoseCipher = true;
 
-            strncpy(encCipherName, optarg, NAME_MAX);
-            strncpy(encCipherNameFromCmdLine, encCipherName, NAME_MAX);
+            snprintf(encCipherName,NAME_MAX,"%s",optarg);
+            snprintf(encCipherNameFromCmdLine,NAME_MAX,"%s",encCipherName);
 
             condition.userChoseCipher = true;
             break;
@@ -438,7 +438,7 @@ int main(int argc, char *argv[])
                 errflg++;
             } else
                 condition.fileGiven = true;
-            strncpy(dbFileName, optarg, NAME_MAX);
+            snprintf(dbFileName,NAME_MAX,"%s",optarg);
             break;
         case 'n':
             if (optarg[0] == '-' && strlen(optarg) == 2) {
@@ -450,7 +450,7 @@ int main(int argc, char *argv[])
                 printf("\nentry name too long\n");
                 exit(EXIT_FAILURE);
             }
-            strncpy(entryName, optarg, UI_BUFFERS_SIZE);
+            snprintf(entryName,UI_BUFFERS_SIZE,"%s",optarg);
             condition.entryGiven = true;
             break;
         case 'u':
@@ -465,7 +465,7 @@ int main(int argc, char *argv[])
             }
             if (strcmp(optarg, "allpasses") == 0)
                 condition.updateAllPasses = true;
-            strncpy(entryNameToFind, optarg, UI_BUFFERS_SIZE);
+            snprintf(entryNameToFind,UI_BUFFERS_SIZE,"%s",optarg);
             break;
         case 'p':
             condition.entryPassGivenasArg = true;
@@ -481,7 +481,7 @@ int main(int argc, char *argv[])
                 condition.generateEntryPass = true;
             if (strcmp(optarg, "genalpha") == 0)
                 condition.generateEntryPassAlpha = true;
-            strncpy(entryPass, optarg, UI_BUFFERS_SIZE);
+            snprintf(entryPass,UI_BUFFERS_SIZE,"%s",optarg);
             break;
         case 'x':
             condition.dbPassGivenasArg = true;
@@ -489,7 +489,7 @@ int main(int argc, char *argv[])
                 errflg++;
                 printf("Option -x requires an argument\n");
             }
-            strncpy(dbPass, optarg, UI_BUFFERS_SIZE);
+            snprintf(dbPass,UI_BUFFERS_SIZE,"%s",optarg);
             break;
         case ':':
             printf("Option -%c requires an argument\n", optopt);
@@ -717,10 +717,10 @@ int main(int argc, char *argv[])
 
         /*Get new entry*/
         if (condition.entryGiven == true) {
-            strncpy(newEntry, entryName, UI_BUFFERS_SIZE);
+            snprintf(newEntry,UI_BUFFERS_SIZE,"%s",entryName);
         } else {
             /*If no new entry was specified then just update the password*/
-            strncpy(newEntry, entryNameToFind, UI_BUFFERS_SIZE);
+            snprintf(newEntry,UI_BUFFERS_SIZE,"%s",entryNameToFind);
             condition.updatingEntryPass = true;
         }
 
@@ -736,20 +736,20 @@ int main(int argc, char *argv[])
                     condition.generateEntryPass = true;
                     genPassWord(genPassLength);
                     /*Have to copy over passWord to newEntryPass since genPassWord() operates on entryPass buffer*/
-                    strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
+                    snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
                 } else {
                     genPassWord(DEFAULT_GENPASS_LENGTH);
-                    strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
+                    snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
                 }
             } else if (strcmp(entryPass, "genalpha") == 0) {
                 condition.generateEntryPassAlpha = true;
                 if (condition.genPassLengthGiven == true) {
                     genPassWord(genPassLength);
                     /*Have to copy over passWord to newEntryPass since genPassWord() operates on entryPass buffer*/
-                    strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
+                    snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
                 } else {
                     genPassWord(DEFAULT_GENPASS_LENGTH);
-                    strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
+                    snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
                 }
             } else if (condition.entryPassGivenasArg == false) {
                 getPass("Enter entry password to be saved: ", newEntryPass);
@@ -761,10 +761,10 @@ int main(int argc, char *argv[])
                     if (condition.genPassLengthGiven == true) {
                         genPassWord(genPassLength);
                         /*Have to copy over entryPass to newEntryPass since genPassWord() operates on entryPass buffer*/
-                        strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
+                        snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
                     } else {
                         genPassWord(DEFAULT_GENPASS_LENGTH);
-                        strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
+                        snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
                     }
                 } else if (strcmp(newEntryPass, "genalpha") == 0) {
                     condition.generateEntryPassAlpha = true;
@@ -772,10 +772,10 @@ int main(int argc, char *argv[])
                     if (condition.genPassLengthGiven == true) {
                         genPassWord(genPassLength);
                         /*Have to copy over entryPass to newEntryPass since genPassWord() operates on entryPass buffer*/
-                        strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
+                        snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
                     } else {
                         genPassWord(DEFAULT_GENPASS_LENGTH);
-                        strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
+                        snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
                     }
                 } else {
                     /*If retrieved password was not gen/genalpha verify it was not mistyped*/
@@ -788,7 +788,7 @@ int main(int argc, char *argv[])
                 }
             } else if (condition.entryPassGivenasArg == true) /*This condition is true if the user DID supply a password but it isn't 'gen'*/
             {
-                strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
+                snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
             }
         }
 
@@ -815,7 +815,7 @@ int main(int argc, char *argv[])
         openDatabase();
 
         /*Must store old EVP key data to decrypt database before new key material is generated*/
-        strncpy(dbPassOld, dbPass, UI_BUFFERS_SIZE);
+        snprintf(dbPassOld,UI_BUFFERS_SIZE,"%s",dbPass);
         memcpy(HMACKeyOld, HMACKey, sizeof(char) * SHA512_DIGEST_LENGTH);
 
         /*If -i was given along with nothing else*/
@@ -832,7 +832,7 @@ int main(int argc, char *argv[])
             if (strcmp(dbPass, dbPassToVerify) != 0) {
                 printf("Passwords don't match, not changing.\n");
                 /*If not changing, replace old dbPass back into dbPass*/
-                strncpy(dbPass, dbPassOld, UI_BUFFERS_SIZE);
+                snprintf(dbPass,UI_BUFFERS_SIZE,"%s",dbPassOld);
                 cleanUpBuffers();
                 return 1;
             } else {
@@ -846,22 +846,22 @@ int main(int argc, char *argv[])
 
             /*Change cipher and digest if specified*/
             if (condition.userChoseCipher == true) {
-                strncpy(encCipherName, encCipherNameFromCmdLine, NAME_MAX);
+                snprintf(encCipherName,NAME_MAX,"%s",encCipherNameFromCmdLine);
                 printf("Changing cipher to %s\n", encCipherNameFromCmdLine);
             }
             if (condition.userChoseDigest == true) {
-                strncpy(messageDigestName, messageDigestNameFromCmdLine, NAME_MAX);
+                snprintf(messageDigestName,NAME_MAX,"%s",messageDigestNameFromCmdLine);
                 printf("Changing digest to %s\n", messageDigestNameFromCmdLine);
             }
         }
         /*-U was given but not -P and -c and/or -H might be there*/
         else if (condition.updatingDbEnc == true && condition.updatingEntryPass == false) {
             if (condition.userChoseCipher == true) {
-                strncpy(encCipherName, encCipherNameFromCmdLine, NAME_MAX);
+                snprintf(encCipherName,NAME_MAX,"%s",encCipherNameFromCmdLine);
                 printf("Changing cipher to %s\n", encCipherNameFromCmdLine);
             }
             if (condition.userChoseDigest == true) {
-                strncpy(messageDigestName, messageDigestNameFromCmdLine, NAME_MAX);
+                snprintf(messageDigestName,NAME_MAX,"%s",messageDigestNameFromCmdLine);
                 printf("Changing digest to %s\n", messageDigestNameFromCmdLine);
             }
             memcpy(HMACKeyNew, HMACKey, sizeof(char) * SHA512_DIGEST_LENGTH);
@@ -874,7 +874,7 @@ int main(int argc, char *argv[])
             getPass("Verify password:", dbPassToVerify);
             if (strcmp(dbPass, dbPassToVerify) != 0) {
                 printf("Passwords don't match, not changing.\n");
-                strncpy(dbPass, dbPassOld, UI_BUFFERS_SIZE);
+                snprintf(dbPass,UI_BUFFERS_SIZE,"%s",dbPassOld);
                 exit(EXIT_FAILURE);
             } else {
                 printf("Changed password.\n");
@@ -887,11 +887,11 @@ int main(int argc, char *argv[])
 
             /*Change crypto settings*/
             if (condition.userChoseCipher == true) {
-                strncpy(encCipherName, encCipherNameFromCmdLine, NAME_MAX);
+                snprintf(encCipherName,NAME_MAX,"%s",encCipherNameFromCmdLine);
                 printf("Changing cipher to %s\n", encCipherNameFromCmdLine);
             }
             if (condition.userChoseDigest == true) {
-                strncpy(messageDigestName, messageDigestNameFromCmdLine, NAME_MAX);
+                snprintf(messageDigestName,NAME_MAX,"%s",messageDigestNameFromCmdLine);
                 printf("Changing digest to %s\n", messageDigestNameFromCmdLine);
             }
         }
@@ -1110,7 +1110,7 @@ void genPassWord(int stringLength)
     /*Insert a null byte at the end of the random bytes since the buffer is padded*/
     /*Then send that to entryPass*/
     tempPassString[stringLength] = '\0';
-    strncpy(entryPass, tempPassString, UI_BUFFERS_SIZE);
+    snprintf(entryPass,UI_BUFFERS_SIZE,"%s",tempPassString);
 }
 
 char *getPass(const char *prompt, char *paddedPass)
@@ -1565,7 +1565,7 @@ int openDatabase()
         printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
         exit(EXIT_FAILURE);
     }
-    strncpy(encCipherName, token, NAME_MAX);
+    snprintf(encCipherName,NAME_MAX,"%s",token);
 
     token = strtok(NULL, ":");
     if (token == NULL) {
@@ -1574,7 +1574,7 @@ int openDatabase()
     }
 
     /*Then the message digest*/
-    strncpy(messageDigestName, token, NAME_MAX);
+    snprintf(messageDigestName,NAME_MAX,"%s",token);
 
     /*Check the strings read are valid cipher and digest names*/
     evpCipher = EVP_get_cipherbyname(encCipherName);
@@ -1609,8 +1609,7 @@ void backupDatabase()
 {
     /*Before anything else, back up the password database*/
     if (condition.databaseBeingInitalized == false && condition.readingPass == false && condition.printingDbInfo == false) {
-        strncpy(backupFileName, dbFileName, NAME_MAX);
-        strncat(backupFileName, ".autobak", NAME_MAX - 1);
+        snprintf(backupFileName,NAME_MAX,"%s.autobak", dbFileName);
       
         FILE *backUpFile = fopen(backupFileName, "w");
         if (backUpFile == NULL) {
@@ -2241,10 +2240,10 @@ int updateEntry(char *searchString)
                     if (condition.genPassLengthGiven == true) {
                         genPassWord(genPassLength);
                         /*Have to copy over entryPass to newEntryPass since genPassWord() operates on entryPass buffer*/
-                        strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
+                        snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
                     } else {
                         genPassWord(DEFAULT_GENPASS_LENGTH);
-                        strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
+                        snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
                     }
         
                     memcpy(passBuffer, newEntryPass, UI_BUFFERS_SIZE);
@@ -2252,10 +2251,10 @@ int updateEntry(char *searchString)
                 } else if (condition.updatingEntryPass == true && (condition.generateEntryPassAlpha == true || condition.updateAllPasses == true)) {
                     if (condition.genPassLengthGiven == true) {
                         genPassWord(genPassLength);
-                        strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
+                        snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
                     } else {
                         genPassWord(DEFAULT_GENPASS_LENGTH);
-                        strncpy(newEntryPass, entryPass, UI_BUFFERS_SIZE);
+                        snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
                     }
         
                     memcpy(passBuffer, newEntryPass, UI_BUFFERS_SIZE);
@@ -2592,7 +2591,7 @@ int sendToClipboard(char *textToSend)
     if (cid == -1)
         printSysError(errno);
 
-    strncpy(passBuffer, textToSend, passLength);
+    snprintf(passBuffer,passLength,"%s",textToSend);
 
     if (getpid() != pid) {
         sendWithXlib(passBuffer, passLength, clipboardClearTimeSeconds);
@@ -2721,7 +2720,7 @@ int sendToClipboard(char *textToSend)
     FILE *xclipFile = popen(xclipCommand, "w");
     pid_t pid;
 
-    strncpy(passBuffer, textToSend, passLength);
+    snprintf(passBuffer,passLength,"%s",textToSend);
 
     if (xclipFile == NULL) {
         printSysError(errno);
@@ -2956,7 +2955,7 @@ bool xclipIsInstalled(void)
 
     pathBuffer = (char *)getenv("PATH");
 
-    strncpy(pathString, pathBuffer, NAME_MAX);
+    snprintf(pathString,NAME_MAX,"%s",pathBuffer);
 
     token = strtok(pathString, ":");
     if (token == NULL) {
@@ -2965,8 +2964,7 @@ bool xclipIsInstalled(void)
     }
 
     while (1) {
-        strncpy(pathToCheck, token, NAME_MAX);
-        strncat(pathToCheck, "/xclip", NAME_MAX - 1);
+        snprintf(pathToCheck,NAME_MAX,"%s/xclip",token);
 
         if (stat(pathToCheck, &sb) == 0 && sb.st_mode & S_IXUSR) {
             xclipInstalled = true;

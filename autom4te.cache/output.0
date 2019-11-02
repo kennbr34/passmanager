@@ -2844,7 +2844,7 @@ fi
   
 
 
-: ${CFLAGS="-g -Wall -Wextra -pedantic -Wno-self-assign"}
+: ${CFLAGS="-g -Wall -Wextra -pedantic -Wno-self-assign -fsanitize=undefined"}
 
 # Checks for programs.
 ac_ext=c
