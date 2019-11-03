@@ -111,6 +111,9 @@ struct conditionsStruct {
     bool printAllPasses;
     bool updateAllPasses;
     bool printingDbInfo;
+    bool selectionIsPrimary;
+    bool selectionIsClipboard;
+    bool selectionGiven;
 };
 
 struct conditionsStruct condition = {0};
@@ -148,6 +151,7 @@ int freadWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream);
 int fwriteWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream);
 int compareMAC(const void *in_a, const void *in_b, size_t len);
 void printDbInfo();
+void printClipboardMessage(int entriesMatched);
 void backupDatabase();
 bool xclipIsInstalled(void);
 #ifdef HAVE_LIBX11
@@ -298,11 +302,30 @@ int main(int argc, char *argv[])
     int i;
 
     /*Process through arguments*/
-    while ((opt = getopt(argc, argv, "i:s:l:f:u:n:d:a:r:p:x:H:c:hUPCI")) != -1) {
+    while ((opt = getopt(argc, argv, "S:i:s:l:f:u:n:d:a:r:p:x:H:c:hUPCI")) != -1) {
         switch (opt) {
         case 'h':
             printSyntax("passmanager");
             return 1;
+            break;
+        case 'S':
+            if (optarg[0] == '-' && strlen(optarg) == 2) {
+                printf("Option -S requires an argument\n");
+                errflg++;
+            }
+            if(strcmp("primary",optarg) == 0)
+                condition.selectionIsPrimary = true;
+            else if(strcmp("clipboard",optarg) == 0) {
+                condition.selectionIsClipboard = true;
+#ifdef HAVE_LIBX11
+#ifndef HAVE_LIBXMU
+                printf("Need libXmu to send pass to 'clipboard' selection\nSetting to 'primary' instead\n");
+                condition.selectionIsClipboard = false;
+                condition.selectionIsPrimary = true;
+#endif
+#endif
+            }
+            condition.selectionGiven = true;
             break;
         case 's':
             if (optarg[0] == '-' && strlen(optarg) == 2) {
@@ -1794,13 +1817,7 @@ int writePass()
         free(decryptedBuffer);
         free(ctx);
         if (sendToClipboard(entryPass) == 0) {
-            printf("New password sent to clipboard. Paste with middle-click.\n");
-#ifdef HAVE_LIBX11
-            printf("clipboard will be cleared %i seconds after pasting\n", clipboardClearTimeSeconds);
-#endif
-#ifndef HAVE_LIBX11
-            printf("%i seconds before password is cleared from clipboard\n", clipboardClearTimeSeconds);
-#endif
+            printClipboardMessage(0);
         }
     } else {
         free(infoBuffer);
@@ -1881,16 +1898,11 @@ int printPasses(char *searchString)
                         free(ctx);
                         if (sendToClipboard(passBuffer) == 0) {
                             if (strcmp(searchString, entryName) == 0) {
-                                printf("Sent the entry's password to clipboard. Paste with middle-click.\n");
+                                printClipboardMessage(1);
                             } else {
-                                printf("Sent the first matched entry's password to clipboard. Paste with middle-click.\n(Note: There may be more entries that matched your search string)\n");
+                                printClipboardMessage(0);
                             }
-#ifdef HAVE_LIBX11
-                            printf("clipboard will be cleared %i seconds after pasting\n", clipboardClearTimeSeconds);
-#endif
-#ifndef HAVE_LIBX11
-                            printf("%i seconds before password is cleared from clipboard\n", clipboardClearTimeSeconds);
-#endif
+                            
                         }
                         OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
                         free(passBuffer);
@@ -2370,15 +2382,10 @@ int updateEntry(char *searchString)
         free(fileBuffer);
         free(ctx);
         if (sendToClipboard(newEntryPass) == 0) {
-            printf("\nSent new password to clipboard. Paste with middle-click.\n");
-#ifdef HAVE_LIBX11
-            printf("clipboard will be cleared %i seconds after pasting\n", clipboardClearTimeSeconds);
-#endif
-#ifndef HAVE_LIBX11
-            printf("%i seconds before password is cleared from clipboard\n", clipboardClearTimeSeconds);
-#endif
             if (entriesMatched > 1)
-                printf("(Note: Multiple entries matched, only updated and sent fist entry's password to clipboard)\n");
+                printClipboardMessage(entriesMatched);
+            else
+                printClipboardMessage(1);
         }
         OPENSSL_cleanse(newEntryPass, sizeof(char) * UI_BUFFERS_SIZE);
 
@@ -2660,12 +2667,15 @@ int sendWithXlib(char *passToSend, int passLength, int clearTime)
     char *defaultDisplay = NULL;
     Display *xDisplay = XOpenDisplay(defaultDisplay);
     XEvent XAeventStruct;
-    #ifdef HAVE_LIBXMU
-    Atom selectionAtm = XA_CLIPBOARD(xDisplay);
-    printf("XA_CLIPBOARD equals %li\n", XA_CLIPBOARD(xDisplay));
-    #elif HAVE_LIBX11
-    Atom selectionAtm = XA_PRIMARY;
-    #endif
+    Atom selectionAtm;
+#ifdef HAVE_LIBXMU
+    if(condition.selectionGiven == true && condition.selectionIsClipboard == true)
+        selectionAtm = XA_CLIPBOARD(xDisplay);
+    else if(condition.selectionGiven == false || condition.selectionIsPrimary == true)
+        selectionAtm = XA_PRIMARY;
+#elif HAVE_LIBX11
+    selectionAtm = XA_PRIMARY;
+#endif
     Atom targetAtm = XA_STRING;
     int X11fileDescriptor; /* File descriptor on which XEvents appear */
     fd_set inputFileDescriptors;
@@ -2714,8 +2724,17 @@ int sendWithXlib(char *passToSend, int passLength, int clearTime)
 int sendToClipboard(char *textToSend)
 {
     int passLength = strlen(textToSend);
-    char xclipCommand[] = "xclip";
-    char wipeCommand[] = "xclip";
+    char xclipCommand[27];
+    char wipeCommand[27];
+    if(condition.selectionGiven == false || condition.selectionIsPrimary == true) {
+        strcpy(xclipCommand,"xclip");
+        strcpy(wipeCommand,"xclip");
+    }
+    else if(condition.selectionGiven == true && condition.selectionIsClipboard == true) {
+        strcpy(xclipCommand,"xclip -selection clipboard");
+        strcpy(wipeCommand,"xclip -selection clipboard");
+    }
+
     char wipeOutBuffer[passLength];
     char passBuffer[passLength];
 
@@ -2837,6 +2856,39 @@ int compareMAC(const void *in_a, const void *in_b, size_t len)
         x |= a[i] ^ b[i];
 
     return x;
+}
+
+void printClipboardMessage(int entriesMatched)
+{
+    if(condition.addingPass == true) {
+        printf("New password sent to clipboard.");
+        if(condition.selectionGiven == false || condition.selectionIsPrimary == true)
+            printf("\nPaste with middle-click\n");
+        else if(condition.selectionIsClipboard == true)
+            printf("\nPaste with Ctrl+V or Right-Click->Paste\n");
+    }
+    else if(condition.readingPass == true) {
+        if (entriesMatched == 1) {
+            printf("\nSent the entry's password to clipboard.");
+        } else {
+            printf("\nSent the first matched entry's password to clipboard. (Note: There may be more entries that matched your search string)");
+        }
+        if(condition.selectionGiven == false || condition.selectionIsPrimary == true)
+            printf("\nPaste with middle-click\n");
+        else if(condition.selectionIsClipboard == true)
+            printf("\nPaste with Ctrl+V or Right-Click->Paste\n");
+    }
+    else if(condition.updatingEntry == true) {
+        printf("\nSent new password to clipboard.");
+        if (entriesMatched > 1)
+            printf(" (Note: Multiple entries matched, only updated and sent fist entry's password to clipboard)");
+        if(condition.selectionGiven == false || condition.selectionIsPrimary == true)
+            printf("\nPaste with middle-click\n");
+        else if(condition.selectionIsClipboard == true)
+            printf("\nPaste with Ctrl+V or Right-Click->Paste\n");
+    }
+        
+    printf("%i seconds before password is cleared from clipboard\n", clipboardClearTimeSeconds);
 }
 
 void printDbInfo()
