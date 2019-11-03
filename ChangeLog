@@ -2,6 +2,16 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+2019-11-03
+(+ver 3.2.9)
+    Changed strncpy() calls to snprintf() to fix undefined behavior
+    Changed input limits and documentation to reflect that
+    Added undefined-behavior sanitizer to makefile calls
+    Added ability to choose 'primary' or 'clipboard' X selection
+    Added ability to specify '0' seconds of clipboard clear time to clear password immediately after pasting
+    Fixed false-negative when testing if 'xclip' in $PATH and if executable
+    Updated documentation and information prompts
+    Removed extra cleanUpBuffer calls that would cause double-free errors
 2019-10-10
 (+ver 3.2.8)
 	Wrote function to send password to X11 password with Xlib code instead of piping to xclip binary
