@@ -808,7 +808,6 @@ int main(int argc, char *argv[])
                     getPass("Veryify password:", newEntryPassToVerify);
                     if (strcmp(newEntryPass, newEntryPassToVerify) != 0) {
                         printf("\nPasswords do not match.  Nothing done.\n\n");
-                        cleanUpBuffers();
                         return 1;
                     }
                 }
@@ -859,7 +858,6 @@ int main(int argc, char *argv[])
                 printf("Passwords don't match, not changing.\n");
                 /*If not changing, replace old dbPass back into dbPass*/
                 snprintf(dbPass, UI_BUFFERS_SIZE, "%s", dbPassOld);
-                cleanUpBuffers();
                 return 1;
             } else {
                 printf("Changed password.\n");
