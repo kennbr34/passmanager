@@ -2708,8 +2708,8 @@ int sendWithXlib(char *passToSend, int passLength, int clearTime)
         /*Clear selection 'clearTime' seconds after it has been pasted*/
         /*If 'clearTime' is 0 clear password 50 ms after pasting*/
         if (!XPending(xDisplay)) {
-            timeVariable.tv_sec = clearTime != 0 ? (clearTime * 1000) / 1000 : 50 / 1000;
-            timeVariable.tv_usec = clearTime != 0 ? ((clearTime * 1000) % 1000) * 1000 : (50 % 1000) * 1000;
+            timeVariable.tv_sec = clearTime <= -1 ? (clearTime * 2) / 1000 : (clearTime * 1000) / 1000;
+            timeVariable.tv_usec = clearTime <= -1 ? ((clearTime * 2) % 1000) * 1000 : ((clearTime * 1000) % 1000) * 1000;
 
             /* Build file descriptors */
             FD_ZERO(&inputFileDescriptors);
