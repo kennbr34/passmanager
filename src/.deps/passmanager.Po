@@ -122,7 +122,15 @@ src/passmanager.o: src/passmanager.c /usr/include/stdc-predef.h config.h \
  /usr/include/x86_64-linux-gnu/sys/resource.h \
  /usr/include/x86_64-linux-gnu/bits/resource.h \
  /usr/include/x86_64-linux-gnu/bits/types/struct_rusage.h \
- /usr/include/x86_64-linux-gnu/sys/time.h
+ /usr/include/x86_64-linux-gnu/sys/time.h /usr/include/X11/Xatom.h \
+ /usr/include/X11/Xlib.h /usr/include/X11/X.h \
+ /usr/include/X11/Xfuncproto.h /usr/include/X11/Xosdefs.h \
+ /usr/include/X11/Xmu/Atoms.h /usr/include/X11/Intrinsic.h \
+ /usr/include/X11/Xutil.h /usr/include/X11/keysym.h \
+ /usr/include/X11/keysymdef.h /usr/include/X11/Xresource.h \
+ /usr/include/X11/Core.h /usr/include/X11/Composite.h \
+ /usr/include/X11/Constraint.h /usr/include/X11/Object.h \
+ /usr/include/X11/RectObj.h
 
 /usr/include/stdc-predef.h:
 
@@ -439,3 +447,35 @@ config.h:
 /usr/include/x86_64-linux-gnu/bits/types/struct_rusage.h:
 
 /usr/include/x86_64-linux-gnu/sys/time.h:
+
+/usr/include/X11/Xatom.h:
+
+/usr/include/X11/Xlib.h:
+
+/usr/include/X11/X.h:
+
+/usr/include/X11/Xfuncproto.h:
+
+/usr/include/X11/Xosdefs.h:
+
+/usr/include/X11/Xmu/Atoms.h:
+
+/usr/include/X11/Intrinsic.h:
+
+/usr/include/X11/Xutil.h:
+
+/usr/include/X11/keysym.h:
+
+/usr/include/X11/keysymdef.h:
+
+/usr/include/X11/Xresource.h:
+
+/usr/include/X11/Core.h:
+
+/usr/include/X11/Composite.h:
+
+/usr/include/X11/Constraint.h:
+
+/usr/include/X11/Object.h:
+
+/usr/include/X11/RectObj.h:

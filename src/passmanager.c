@@ -3128,7 +3128,7 @@ int printSyntax(char *arg)
 \n-l random password length - makes 'gen' or 'genalpha' generate a password random password length digits long (defaults to 16 without this option) \
 \n-c cipher - Specify 'list' for a list of methods available to OpenSSL. Default: aes-256-ctr. \
 \n-H digest - Specify 'list' for a list of methods available to OpenSSL. Default: sha512. \
-\n-i iterations - Specify amount of PBKDF2 to be iterations. Default: 500000\
+\n-i iterations - Specify amount of PBKDF2 to be iterations. Default: 1000000\
 \n-P - In Update entry or Update database mode (-u and -U respectively) this option enables updating the entry password or database password via prompt instead of as command line argument \
 \n-C - end entry password directly to clipboard. Clipboard is cleared automatically after pasting, or in 30 seconds. \
 \n-s seconds - clear clipboard seconds after instead of default 30. \
