@@ -24,15 +24,32 @@ AC_ARG_ENABLE([x11],
             [with_x11=no],
             [with_x11=yes])
           
-          LIBS=
+          X11LIB=
           AS_IF([test "x$with_x11" != xno],
             [AC_CHECK_LIB([X11], [main],
-              [AC_SUBST([LIBS], ["-lX11"])
+              [AC_SUBST([X11LIB], ["-lX11"])
                AC_DEFINE([HAVE_LIBX11], [1],
                          [Define if you have libX11])
               ],
               [AC_MSG_FAILURE(
                  [x11 development files needed for clipboard functions (--disable-x11 to disable)])])])
+                 
+AC_ARG_ENABLE([xmu],
+            [AS_HELP_STRING([--disable-xmu],
+              [disable ability to send to clipboard instead of primary selection])],
+            [with_xmu=no],
+            [with_xmu=yes])
+          
+          XMULIB=
+          AS_IF([test "x$with_xmu" != xno],
+            [AC_CHECK_LIB([Xmu], [main],
+              [AC_SUBST([XMULIB], ["-lXmu"])
+               AC_DEFINE([HAVE_LIBXMU], [1],
+                         [Define if you have libXmu])
+              ],
+              [AC_MSG_FAILURE(
+                 [Xmu development files needed for some xclipboard functions (--disable-xmu to disable)])])])
+LIBS="$X11LIB $XMULIB"
 
 dnl Order matters!
   if test "$PORTNAME" != "win32"; then

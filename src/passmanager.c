@@ -47,8 +47,12 @@
 #include <stdbool.h>
 #include <sys/resource.h>
 #include <sys/time.h>
-#ifdef HAVE_LIBX11
-#    include <X11/Xlib.h>
+#ifdef HAVE_LIBXMU
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include <X11/Xmu/Atoms.h>
+#elif HAVE_LIBX11
+#include <X11/Xlib.h>
 /*These are defined here so including and linking Xmu.h/Atoms.h is not needed*/
 /*If problems arise just comment out and include and link Xmu/Atoms.h*/
 #    define XA_PRIMARY 1 /*Paste with middle click, and erase with selection*/
@@ -2653,17 +2657,20 @@ int sendWithXlib(char *passToSend, int passLength, int clearTime)
 {
 
     Window rootWindow;
-    Display *xDisplay;
+    char *defaultDisplay = NULL;
+    Display *xDisplay = XOpenDisplay(defaultDisplay);
     XEvent XAeventStruct;
+    #ifdef HAVE_LIBXMU
+    Atom selectionAtm = XA_CLIPBOARD(xDisplay);
+    printf("XA_CLIPBOARD equals %li\n", XA_CLIPBOARD(xDisplay));
+    #elif HAVE_LIBX11
     Atom selectionAtm = XA_PRIMARY;
+    #endif
     Atom targetAtm = XA_STRING;
     int X11fileDescriptor; /* File descriptor on which XEvents appear */
     fd_set inputFileDescriptors;
     struct timeval timeVariable;
 
-    char *defaultDisplay = NULL;
-
-    xDisplay = XOpenDisplay(defaultDisplay);
     rootWindow = XCreateSimpleWindow(xDisplay, DefaultRootWindow(xDisplay), 0, 0, 1, 1, 0, 0, 0);
     XSetSelectionOwner(xDisplay, selectionAtm, rootWindow, CurrentTime);
 

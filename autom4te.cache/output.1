@@ -626,6 +626,8 @@ LIB@&t@OBJS
 EGREP
 GREP
 CPP
+XMULIB
+X11LIB
 am__fastdepCC_FALSE
 am__fastdepCC_TRUE
 CCDEPMODE
@@ -719,6 +721,7 @@ enable_silent_rules
 enable_maintainer_mode
 enable_dependency_tracking
 enable_x11
+enable_xmu
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1365,6 +1368,8 @@ Optional Features:
                           speeds up one-time build
   --disable-x11           use xclip binary instead of integrated X11 code to
                           send passwords to clipboard
+  --disable-xmu           disable ability to send to clipboard instead of
+                          primary selection
 
 Some influential environment variables:
   CC          C compiler command
@@ -3900,7 +3905,7 @@ else
 fi
 
           
-          LIBS=
+          X11LIB=
           
 if test "x$with_x11" != xno; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -lX11" >&5
@@ -3934,7 +3939,7 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_X11_main" >&5
 $as_echo "$ac_cv_lib_X11_main" >&6; }
 if test "x$ac_cv_lib_X11_main" = xyes; then :
-  LIBS="-lX11"
+  X11LIB="-lX11"
 
                
 $as_echo "@%:@define HAVE_LIBX11 1" >>confdefs.h
@@ -3948,6 +3953,63 @@ See \`config.log' for more details" "$LINENO" 5; }
 fi
 
 fi
+                 
+@%:@ Check whether --enable-xmu was given.
+if test "${enable_xmu+set}" = set; then :
+  enableval=$enable_xmu; with_xmu=no
+else
+  with_xmu=yes
+fi
+
+          
+          XMULIB=
+          if test "x$with_xmu" != xno; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for main in -lXmu" >&5
+$as_echo_n "checking for main in -lXmu... " >&6; }
+if ${ac_cv_lib_Xmu_main+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lXmu  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+
+int
+main ()
+{
+return main ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_Xmu_main=yes
+else
+  ac_cv_lib_Xmu_main=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_Xmu_main" >&5
+$as_echo "$ac_cv_lib_Xmu_main" >&6; }
+if test "x$ac_cv_lib_Xmu_main" = xyes; then :
+  XMULIB="-lXmu"
+
+               
+$as_echo "@%:@define HAVE_LIBXMU 1" >>confdefs.h
+
+              
+else
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "Xmu development files needed for some xclipboard functions (--disable-xmu to disable)
+See \`config.log' for more details" "$LINENO" 5; }
+fi
+
+fi
+LIBS="$X11LIB $XMULIB"
 
   if test "$PORTNAME" != "win32"; then
      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CRYPTO_new_ex_data in -lcrypto" >&5
