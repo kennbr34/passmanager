@@ -114,6 +114,7 @@ struct conditionsStruct {
     bool selectionIsPrimary;
     bool selectionIsClipboard;
     bool selectionGiven;
+    bool allowOnePasting;
 };
 
 struct conditionsStruct condition = {0};
@@ -207,7 +208,7 @@ unsigned char *encryptedBuffer;
 unsigned char dbInitBuffer[(UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH];
 int evpDataSize;
 
-int clipboardClearTimeSeconds = 30;
+int clipboardClearTimeMiliSeconds = 30000;
 
 int genPassLength;
 
@@ -301,13 +302,17 @@ int main(int argc, char *argv[])
     int i;
 
     /*Process through arguments*/
-    while ((opt = getopt(argc, argv, "S:i:s:l:f:u:n:d:a:r:p:x:H:c:hUPCI")) != -1) {
+    while ((opt = getopt(argc, argv, "Os:i:t:l:f:u:n:d:a:r:p:x:H:c:hUPCI")) != -1) {
         switch (opt) {
         case 'h':
             printSyntax("passmanager");
             return 1;
             break;
-        case 'S':
+        case 'O':
+            clipboardClearTimeMiliSeconds = 55;
+            condition.allowOnePasting = true;
+            break;
+        case 's':
             if (optarg[0] == '-' && strlen(optarg) == 2) {
                 printf("Option -S requires an argument\n");
                 errflg++;
@@ -326,12 +331,36 @@ int main(int argc, char *argv[])
             }
             condition.selectionGiven = true;
             break;
-        case 's':
+        case 't':
             if (optarg[0] == '-' && strlen(optarg) == 2) {
                 printf("Option -s requires an argument\n");
                 errflg++;
             }
-            clipboardClearTimeSeconds = atoi(optarg);
+            for(unsigned int i=0; i < strlen(optarg); i++) {
+                if(isdigit(optarg[i]))
+                    break;
+                printf("Time specified needs a number\n");
+                exit(EXIT_FAILURE);
+            }
+            if(optarg[strlen(optarg) - 1] == 's' && optarg[strlen(optarg) - 2] == 'm') {
+                optarg[strlen(optarg) - 2] = '\0';
+                clipboardClearTimeMiliSeconds = atoi(optarg);
+            }
+            else if(optarg[strlen(optarg) - 1] == 's' && optarg[strlen(optarg) - 2] != 'm') {
+                optarg[strlen(optarg) - 1] = '\0';
+                clipboardClearTimeMiliSeconds = atoi(optarg) * 1000;
+            }
+            else if(isdigit(optarg[strlen(optarg) - 1])){
+                clipboardClearTimeMiliSeconds = atoi(optarg) * 1000;
+            }
+            else if(isalpha(optarg[strlen(optarg) - 1])) {
+                printf("Only 's' for seconds or 'ms' for miliseconds can be specified. Defaulting to seconds.\n");
+                clipboardClearTimeMiliSeconds = atoi(optarg) * 1000;
+            }
+            else {
+                printf("Don't understand time format.\n");
+                exit(EXIT_FAILURE);
+            }
             condition.userChoseXclipClearTime = true;
             break;
         case 'i':
@@ -2603,11 +2632,11 @@ int sendToClipboard(char *textToSend)
         /*For some reason the timer method only works with the 'primary' selection*/
         /*The password would be cleared immediately regardless if the user pasted it*/
         /*Set selection to 'primary' instead*/
-        if (condition.selectionIsClipboard && clipboardClearTimeSeconds == 0) {
+        if (condition.selectionIsClipboard && clipboardClearTimeMiliSeconds <= 5000) {
             condition.selectionIsClipboard = false;
             condition.selectionIsPrimary = true;
         }
-        sendWithXlib(passBuffer, passLength, clipboardClearTimeSeconds);
+        sendWithXlib(passBuffer, passLength, clipboardClearTimeMiliSeconds);
         if (condition.readingPass == true)
             free(textToSend);
         exit(EXIT_SUCCESS);
@@ -2708,8 +2737,8 @@ int sendWithXlib(char *passToSend, int passLength, int clearTime)
         /*Clear selection 'clearTime' seconds after it has been pasted*/
         /*If 'clearTime' is 0 clear password 50 ms after pasting*/
         if (!XPending(xDisplay)) {
-            timeVariable.tv_sec = clearTime <= -1 ? (clearTime * 2) / 1000 : (clearTime * 1000) / 1000;
-            timeVariable.tv_usec = clearTime <= -1 ? ((clearTime * 2) % 1000) * 1000 : ((clearTime * 1000) % 1000) * 1000;
+            timeVariable.tv_sec = clearTime / 1000;
+            timeVariable.tv_usec = (clearTime % 1000) * 1000;
 
             /* Build file descriptors */
             FD_ZERO(&inputFileDescriptors);
@@ -2789,10 +2818,13 @@ int sendToClipboard(char *textToSend)
 
     /* At this point we are executing as the child process */
     /* Don't return 1 on error after this point*/
+    
+    struct timespec ts;
 
-    /* Create a new SID for the child process */
-
-    sleep(clipboardClearTimeSeconds);
+    ts.tv_sec = clipboardClearTimeMiliSeconds / 1000;
+    ts.tv_nsec = (clipboardClearTimeMiliSeconds % 1000) * 1000000;
+    
+    nanosleep(&ts, &ts);
 
     FILE *wipeFile = popen(wipeCommand, "w");
 
@@ -2868,7 +2900,7 @@ void printClipboardMessage(int entriesMatched)
     /*For some reason the timer method only works with the 'primary' selection*/
     /*The password would be cleared immediately regardless if the user pasted it*/
     /*Set selection to 'primary' instead and inform user*/
-    if (condition.selectionIsClipboard && clipboardClearTimeSeconds == 0) {
+    if (condition.selectionIsClipboard && clipboardClearTimeMiliSeconds <= 5000) {
         condition.selectionIsClipboard = false;
         condition.selectionIsPrimary = true;
         printf("Using 'primary' selection instead because password will be cleared before being able to paste if using 'clipboard'\n");
@@ -2900,13 +2932,13 @@ void printClipboardMessage(int entriesMatched)
             printf("\nPaste with Ctrl+V or Right-Click->Paste\n");
     }
 #ifndef HAVE_LIBX11
-    printf("%i seconds before password is cleared\n", clipboardClearTimeSeconds);
+    printf("%.2f seconds before password is cleared\n", (float)clipboardClearTimeMiliSeconds / 1000);
 #elif HAVE_LIBX11
     if (condition.selectionIsClipboard == true)
-        printf("%i seconds before password is cleared\n", clipboardClearTimeSeconds);
+        printf("%.2f seconds before password is cleared\n", (float)clipboardClearTimeMiliSeconds / 1000);
     else {
-        if (clipboardClearTimeSeconds != 0)
-            printf("Password will be cleared %i seconds after it is pasted\n", clipboardClearTimeSeconds);
+        if (clipboardClearTimeMiliSeconds != 0)
+            printf("Password will be cleared %.2f seconds after it is pasted\n", (float)clipboardClearTimeMiliSeconds / 1000);
         else
             printf("Password will be cleared immediately after it is pasted\n");
     }
@@ -3121,7 +3153,7 @@ int printSyntax(char *arg)
 {
     printf("\
 \nReccomend Syntax: \
-\n\n%s passmanager  -a entry name | -r entry name | -d entry name | -u entry name | -U  [-n new name ] [-p new entry password] [-l random password length] [-c cipher] [-H digest] [-i iterations ] [ -P ] [-x database password] [ -C ] [ -s seconds ] -f database file\
+\n\n%s passmanager  -a entry name | -r entry name | -d entry name | -u entry name | -U  [-n new name ] [-p new entry password] [-l random password length] [-c cipher] [-H digest] [-i iterations ] [ -P ] [-x database password] [ -C ] [ -O ] [ -s selection ] [ -t seconds or miliseconds ] -f database file\
 \nOptions: \
 \n-n new name - entry name up to 512 characters (can contain white space or special characters) \
 \n-p new entry password - entry password up to 512 characters (don't call to be prompted instead) ('gen' will generate a random password, 'genalpha' will generate a random password with no symbols)\
@@ -3131,8 +3163,9 @@ int printSyntax(char *arg)
 \n-i iterations - Specify amount of PBKDF2 to be iterations. Default: 1000000\
 \n-P - In Update entry or Update database mode (-u and -U respectively) this option enables updating the entry password or database password via prompt instead of as command line argument \
 \n-C - end entry password directly to clipboard. Clipboard is cleared automatically after pasting, or in 30 seconds. \
-\n-s seconds - clear clipboard seconds after instead of default 30. \
-\n-S selection - use either the 'primary' or 'clipboard' X selection. (Defaults to 'primary')\
+\n-t 'n'ms or 'n's - clear password from clipboard in the specified amount of miliseconds or seconds instead of default 30 seconds. \
+\n-O - implies '-t 55ms' to allow only one pasting of pssword before its cleared \
+\n-s selection - use either the 'primary' or 'clipboard' X selection. (Defaults to 'primary')\
 \n-x database password - To supply database password as command-line argument (not reccomended) \
 \n-I - print database information \
 \n-f - database file ( must be specified ) \
@@ -3146,13 +3179,15 @@ int printSyntax(char *arg)
 \n     \t-H 'digest' - Derives keys for 'cipher' with digest 'digest'.\
 \n     \t-i 'iterations' - Specify PBKDF2 iteration amount as iterations. \
 \n     \t-C send new entry's password to clipboard (useful if randomly generated)\
-\n     \t-s seconds - clear clipboard seconds after instead of default 30.\
-\n     \t-S selection - use either the 'primary' or 'clipboard' X selection. (Defaults to 'primary')\
+\n     \t-t 'n'ms or 'n's - clear password from clipboard in the specified amount of miliseconds or seconds instead of default 30 seconds.\
+\n     \t-O implies '-t 55ms' to allow only one pasting of pssword before its cleared \
+\n     \t-s 'selection' - use either the 'primary' or 'clipboard' X selection. (Defaults to 'primary')\
 \n-r - Read mode \
 \n     \t-x 'database password'\
 \n     \t-C  send a specified entry's password directly to clipboard \
-\n     \t-s seconds - clear clipboard seconds after instead of default 30.\
-\n     \t-S selection - use either the 'primary' or 'clipboard' X selection.(Defaults to 'primary')\
+\n     \t-t 'n'ms or 'n's - clear password from clipboard in the specified amount of miliseconds or seconds instead of default 30 seconds.\
+\n     \t-O implies '-t 55ms' to allow only one pasting of pssword before its cleared \
+\n     \t-s 'selection' - use either the 'primary' or 'clipboard' X selection.(Defaults to 'primary')\
 \n-d - Delete mode \
 \n     \t-x 'database password'\
 \n-u - Update entry mode \
@@ -3162,8 +3197,9 @@ int printSyntax(char *arg)
 \n     \t-n 'entry' - update the entry's name to 'entry'. Without this its assumed you're only changing entry's password. \
 \n     \t-x 'database password'\
 \n     \t-C send entry's new password directly to clipboard\
-\n     \t-s seconds - clear clipboard seconds after instead of default 30.\
-\n     \t-S selection - use either the 'primary' or 'clipboard' X selection. (Defaults to 'primary')\
+\n     \t-t 'n'ms or 'n's - clear password from clipboard in the specified amount of miliseconds or seconds instead of default 30 seconds.\
+\n     \t-O implies '-t 55ms' to allow only one pasting of pssword before its cleared \
+\n     \t-s 'selection' - use either the 'primary' or 'clipboard' X selection. (Defaults to 'primary')\
 \n-U - Update database mode \
 \n     \t-P  updates database password. Read via prompt. Cannot be supplied via commandline. \
 \n     \t-x 'database password' (the current database password to decrypt/with) \

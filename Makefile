@@ -228,7 +228,7 @@ AUTOMAKE = ${SHELL} /home/ken/passmanager/missing automake-1.15
 AWK = gawk
 CC = gcc
 CCDEPMODE = depmode=gcc3
-CFLAGS = -g -Wall -Wextra -pedantic -Wno-self-assign -fsanitize=undefined
+CFLAGS = -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined
 CPP = gcc -E
 CPPFLAGS = 
 CYGPATH_W = echo
@@ -256,15 +256,15 @@ OBJEXT = o
 PACKAGE = passmanager
 PACKAGE_BUGREPORT = 
 PACKAGE_NAME = passmanager
-PACKAGE_STRING = passmanager 3.2.8
+PACKAGE_STRING = passmanager 3.2.9
 PACKAGE_TARNAME = passmanager
 PACKAGE_URL = 
-PACKAGE_VERSION = 3.2.8
+PACKAGE_VERSION = 3.2.9
 PATH_SEPARATOR = :
 SET_MAKE = 
 SHELL = /bin/bash
 STRIP = 
-VERSION = 3.2.8
+VERSION = 3.2.9
 X11LIB = -lX11
 XMULIB = -lXmu
 abs_builddir = /home/ken/passmanager

@@ -4,7 +4,7 @@
 passmanager \- manual page for passmanager 3.2.9
 .SH SYNOPSIS
 .PP
-passmanager \fB\-a\fR \fIentry name\fI\fR | \fB\-r\fR \fIentry name\fI\fR | \fB\-d\fR \fIentry name\fI\fR | \fB\-u\fR \fIentry name\fI\fR | \fB\-U\fR [-n \fInew name\fI\fR ] [\-p \fInew entry password\fI\fR] [\-l \fIrandom password length\fI\fR] [\-c \fIcipher\fI\fR] [\-H \fIdigest\fI\fR] [\-i \fIiterations\fI\fR ] [ \-P ] [ \-C ] [ \-s \fIseconds\fI\fR ] [\-x \fIdatabase password\fI\fR] \fB\-f\fR \fIdatabase file\fI\fR
+passmanager \fB\-a\fR \fIentry name\fI\fR | \fB\-r\fR \fIentry name\fI\fR | \fB\-d\fR \fIentry name\fI\fR | \fB\-u\fR \fIentry name\fI\fR | \fB\-U\fR [-n \fInew name\fI\fR ] [\-p \fInew entry password\fI\fR] [\-l \fIrandom password length\fI\fR] [\-c \fIcipher\fI\fR] [\-H \fIdigest\fI\fR] [\-i \fIiterations\fI\fR ] [ \-P ] [ \-C ] [ \-O ] [ \-s \fIselection\fI\fR ] [ \-t \fI seconds\fI\fR or \fImiliseconds\fI\fR ] [\-x \fIdatabase password\fI\fR] \fB\-f\fR \fIdatabase file\fI\fR
 
 .PP
 .SH OPTIONS SUMMARY
@@ -37,9 +37,11 @@ Options may have different implications depending on operating mode
 .PP
 \fB\-C\fR - send \fIentry password\fI\fR directly to clipboard. Clipboard is cleared automatically after pasting, or in 30 seconds if using xclip for xclipboard functions.
 .PP
-\fB-s\fB\fR \fIseconds\fI\fR - clear clipboard \fIseconds\fI\fR after instead of default 30.
+\fB-t\fB\fR \fIn\fI\fRms or \fIn\fI\fRs - clear password from clipboard in \fIn\fI\fR miliseconds or seconds instead of default 30 seconds.
 .PP
-\fB-S\fB\fR \fIselection\fI\fR - use either \fIprimary\fI\fR or \fIclipboard\fI\fR X selection (Defaults to 'primary').
+\fB-O\fB\fR - implies '-t 55ms' to allow only one pasting of password before its cleared
+.PP
+\fB-s\fB\fR \fIselection\fI\fR - use either \fIprimary\fI\fR or \fIclipboard\fI\fR X selection (Defaults to 'primary').
 .PP
 \fB\-x\fR \fIdatabase password\fI\fR \- To supply database password as command-line argument (not reccomended)
 .PP
@@ -120,9 +122,11 @@ Applicable options
 .HP
 \fB\-i\fR \fIiterations\fI\fR - Specify PBKDF2 iteration amount as \fIiterations\fI\fR.
 .HP
-\fB-s\fB\fR \fIseconds\fI\fR - clear clipboard \fIseconds\fI\fR after instead of default 30
+\fB-t\fB\fR \fIn\fI\fRms or \fIn\fI\fRs - clear password from clipboard in \fIn\fI\fR miliseconds or seconds instead of default 30 seconds.
 .HP
-\fB-S\fB\fR \fIselection\fI\fR - use either \fIprimary\fI\fR or \fIclipboard\fI\fR X selection (Defaults to 'primary').
+\fB-O\fB\fR - implies '-t 55ms' to allow only one pasting of password before its cleared
+.HP
+\fB-s\fB\fR \fIselection\fI\fR - use either \fIprimary\fI\fR or \fIclipboard\fI\fR X selection (Defaults to 'primary').
 .RE
 .PP
 .SS \fBRead mode\fR
@@ -141,9 +145,11 @@ Applicable options
 .HP
 \fB\-C\fR send \fIentry name\fI\fR password directly to clipboard (useful to avoid displaying passwords on screen)
 .HP
-\fB-s\fB\fR \fIseconds\fI\fR - clear clipboard \fIseconds\fI\fR after instead of default 30
+\fB-t\fB\fR \fIn\fI\fRms or \fIn\fI\fRs - clear password from clipboard in \fIn\fI\fR miliseconds or seconds instead of default 30 seconds.
 .HP
-\fB-S\fB\fR \fIselection\fI\fR - use either \fIprimary\fI\fR or \fIclipboard\fI\fR X selection (Defaults to 'primary').
+\fB-O\fB\fR - implies '-t 55ms' to allow only one pasting of password before its cleared
+.HP
+\fB-s\fB\fR \fIselection\fI\fR - use either \fIprimary\fI\fR or \fIclipboard\fI\fR X selection (Defaults to 'primary').
 .RE
 .PP
 .SS \fBDelete mode\fR
@@ -182,9 +188,11 @@ updates \fIentry name\fI\fR and \fIentry password\fI\fR, getting \fInew entry pa
 .HP
 \fB\-C\fR send \fInew entry password\fI\fR directly to clipboard after updating \fIentry name\fI\fR
 .HP
-\fB-s\fB\fR \fIseconds\fI\fR - clear clipboard \fIseconds\fI\fR after instead of default 30
+\fB-t\fB\fR \fIn\fI\fRms or \fIn\fI\fRs - clear password from clipboard in \fIn\fI\fR miliseconds or seconds instead of default 30 seconds.
 .HP
-\fB-S\fB\fR \fIselection\fI\fR - use either \fIprimary\fI\fR or \fIclipboard\fI\fR X selection (Defaults to 'primary').
+\fB-O\fB\fR - implies '-t 55ms' to allow only one pasting of password before its cleared
+.HP
+\fB-s\fR \fIselection\fI\fR - use either \fIprimary\fI\fR or \fIclipboard\fI\fR X selection (Defaults to 'primary').
 .RE
 .PP
 .SS \fBUpdate database mode\fR
@@ -250,11 +258,11 @@ The program will attempt to "lock" all memory, which will prevent it from accide
 
 .SS Clipboard Functionality
 
-Automatically sending passwords to the clipboard is handled by X library calls, or by piping out to a xclip binary installed on the system. The former should be preferred for best security and functionality, but the latter is more portable, and both options can be chosen at compile time with autoconf's configuration script.
+Automatically sending passwords to the clipboard is handled by X library calls, or by piping out to a xclip binary installed on the system. The former should be preferred for best security and functionality, but the latter is more portable, and both options can be chosen at compile time with autoconf's configuration script.  The 'primary' X selection can be used to paste the password with a middle-click (or both right and left buttons at once), and the 'clipboard' selection can be usd to paste with Ctrl+V or Right-Click->Paste. If text is subsequently highlighted, it will overwrite the 'primary' selection (and thus the password as well).
 
-The internal X library calls offer better security because passwords are cleared from memory at exit and from the 'primary' selection at a specified amount of seconds after pasting.  The countdown does not begin until a password is pasted, and if a password is pasted again, the countdown resets again to faciliatate multiple pastings. A clear time of 0 seconds can be used to specify that the password should be cleared from the primary buffer after just one paste; technically it is a 50 ms delay, so a race condition may be caused, and the time may need to be set higher if pasting fails. If using the 'clipboard' selection, the timer will not be delayed until the password is pasted but will begin to countdown immediately, so the program will enforce use of the 'primary' buffer if a clear time of 0 seconds is specified.
+The internal X library calls offer better security because passwords are cleared from memory at exit and from the 'primary' selection at a specified amount of seconds/miliseconds after pasting; they are also stored in locked-memory to prevent swapping of this data to disk.  The countdown does not begin until a password is pasted, and if a password is pasted again, the countdown resets again to faciliatate multiple pastings. A clear time of miliseconds can be used to specify that the password should be cleared from the primary buffer after just one paste. Technically it is a milisecond delay, so a race condition between the password being pasted and cleared may be caused, and the time may need to be set higher if pasting fails; a setting of 55 ms is usually enough, as with option \fI'-O'\fI\fR. If using the 'clipboard' selection, the timer will not be delayed until the password is pasted, but instead will begin to countdown immediately, so the program will enforce use of the 'primary' buffer if a clear time less than 5 seconds is specified.
 
-On the contrary, with piping to an external xclip binary, passwords are not cleared from memory at exit, the countdown to clear the password from xclip's selection buffer is began regardless of whether the password was pasted or not, and does not reset. However, piping to an xclip binary is far more portable as a user can control where the password is piped to. The program will simply pipe to any binary or shell-script that can be invoked by 'xclip'; this also makes it less secure. If for example, a user is on a system using Wayland instead of X, 'xclip' could be sent to a shell-script to handle the data instead.  If the 'primary' selection is used, the program will invoke 'xclip' with no arguments, but if the 'clipboard' selection is specified, it will invoke 'xclip -selection clipboard'.
+On the contrary, with piping to an external xclip binary, passwords are not cleared from memory at exit or stored in locked memory, the countdown to clear the password from xclip's selection buffer is began immediately without pasting, and the countdown timer does not reset upon subsequent pastes. However, piping to an xclip binary is far more portable as a user can control where the password is piped to. The program will simply pipe to any binary or shell-script that can be invoked by 'xclip'; this also makes it less secure. If for example, a user is on a system using Wayland instead of X, 'xclip' could be sent to a shell-script to handle the data instead.  If the 'primary' selection is used, the program will invoke 'xclip' with no arguments, but if the 'clipboard' selection is specified, it will invoke 'xclip -selection clipboard'.
 
 .SH EXAMPLES
 
