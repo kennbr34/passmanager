@@ -11,10 +11,10 @@
 #define HAVE_LIBCRYPTO 1
 
 /* Define if you have libX11 */
-#define HAVE_LIBX11 1
+/* #undef HAVE_LIBX11 */
 
 /* Define if you have libXmu */
-#define HAVE_LIBXMU 1
+/* #undef HAVE_LIBXMU */
 
 /* Define to 1 if you have the <limits.h> header file. */
 #define HAVE_LIMITS_H 1

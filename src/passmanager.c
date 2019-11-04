@@ -103,7 +103,7 @@ struct conditionsStruct {
     bool userChoseCipher;
     bool genPassLengthGiven;
     bool sendToClipboard;
-    bool userChoseXclipClearTime;
+    bool userChoseClipboardClearTime;
     bool userChosePBKDF2Iterations;
     bool databaseBeingInitalized;
     bool generateEntryPass;
@@ -154,7 +154,7 @@ int compareMAC(const void *in_a, const void *in_b, size_t len);
 void printDbInfo();
 void printClipboardMessage(int entriesMatched);
 void backupDatabase();
-bool xclipIsInstalled(void);
+bool xselIsInstalled(void);
 #ifdef HAVE_LIBX11
 int targetWinHandler(Display *xDisplay,
                      Window *targetWindow,
@@ -361,7 +361,7 @@ int main(int argc, char *argv[])
                 printf("Don't understand time format.\n");
                 exit(EXIT_FAILURE);
             }
-            condition.userChoseXclipClearTime = true;
+            condition.userChoseClipboardClearTime = true;
             break;
         case 'i':
             if (optarg[0] == '-' && strlen(optarg) == 2) {
@@ -388,10 +388,10 @@ int main(int argc, char *argv[])
             break;
         case 'C':
 #ifndef HAVE_LIBX11
-            if (xclipIsInstalled() == true)
+            if (xselIsInstalled() == true)
                 condition.sendToClipboard = true;
             else {
-                printf("Program wasn't compiled with X11 headers and no executable xclip binary found. Will now quit to prevent password from being printed to screen.\n");
+                printf("Program wasn't compiled with X11 headers and no executable xsel binary found. Will now quit to prevent password from being printed to screen.\n");
                 /*Sanitize argv and argc of any sensitive information*/
                 for (i = 1; i < argc; i++)
                     OPENSSL_cleanse(argv[i], strlen(argv[i]));
@@ -2758,38 +2758,34 @@ int sendWithXlib(char *passToSend, int passLength, int clearTime)
 int sendToClipboard(char *textToSend)
 {
     int passLength = strlen(textToSend);
-    char xclipCommand[27];
+    char xselCommand[27];
     char wipeCommand[27];
     if (condition.selectionGiven == false || condition.selectionIsPrimary == true) {
-        strcpy(xclipCommand, "xclip");
-        strcpy(wipeCommand, "xclip");
+        strcpy(xselCommand, "xsel");
+        strcpy(wipeCommand, "xsel -c");
     } else if (condition.selectionGiven == true && condition.selectionIsClipboard == true) {
-        strcpy(xclipCommand, "xclip -selection clipboard");
-        strcpy(wipeCommand, "xclip -selection clipboard");
+        strcpy(xselCommand, "xsel -b");
+        strcpy(wipeCommand, "xsel -b -c");
     }
 
-    char wipeOutBuffer[passLength];
     char passBuffer[passLength];
 
-    /*Using openssl_cleanse instead of memset so optimization won't wipe it out*/
-    OPENSSL_cleanse(wipeOutBuffer, passLength);
-
-    FILE *xclipFile = popen(xclipCommand, "w");
+    FILE *xselFile = popen(xselCommand, "w");
     pid_t pid;
 
     snprintf(passBuffer, passLength + 1, "%s", textToSend);
 
-    if (xclipFile == NULL) {
+    if (xselFile == NULL) {
         printSysError(errno);
         return 1;
     }
 
-    if (fwriteWErrCheck(passBuffer, sizeof(char), passLength, xclipFile) != 0) {
+    if (fwriteWErrCheck(passBuffer, sizeof(char), passLength, xselFile) != 0) {
         printSysError(returnVal);
         return 1;
     }
 
-    if (pclose(xclipFile) == -1) {
+    if (pclose(xselFile) == -1) {
         printSysError(errno);
         return 1;
     }
@@ -2797,7 +2793,7 @@ int sendToClipboard(char *textToSend)
     OPENSSL_cleanse(passBuffer, passLength);
     OPENSSL_cleanse(textToSend, passLength);
 
-    /*Going to fork off the application into the background, and wait 30 seconds to send zeroes to the xclip clipboard*/
+    /*Going to fork off the application into the background, and wait 30 seconds to send zeroes to the xsel clipboard*/
 
     /*Stops the child process from exiting when the parent does*/
     if (signal(SIGHUP, SIG_IGN) == SIG_ERR) {
@@ -2826,20 +2822,7 @@ int sendToClipboard(char *textToSend)
     
     nanosleep(&ts, &ts);
 
-    FILE *wipeFile = popen(wipeCommand, "w");
-
-    if (wipeFile == NULL) {
-        printSysError(errno);
-    }
-
-    if (fwriteWErrCheck(wipeOutBuffer, sizeof(char), passLength, wipeFile) != 0) {
-        printSysError(returnVal);
-    }
-
-    if (pclose(wipeFile) == -1) {
-        fprintf(stderr, "Line %i: %s\n", __LINE__, strerror(errno));
-        exit(EXIT_FAILURE);
-    }
+    system(wipeCommand);
 
     /*Leave this as 1 otherwise messages about what was sent to clipboard will be repeated*/
     /*The child process will return to calling function, and a conditional tests if this function returns 0*/
@@ -3056,12 +3039,12 @@ void cleanUpBuffers()
     free(encryptedBuffer);
 }
 
-bool xclipIsInstalled(void)
+bool xselIsInstalled(void)
 {
     char *pathBuffer;
     char pathString[NAME_MAX], pathToCheck[NAME_MAX];
     char *token;
-    bool xclipInstalled = false;
+    bool xselInstalled = false;
     struct stat sb;
 
     pathBuffer = (char *)getenv("PATH");
@@ -3075,10 +3058,10 @@ bool xclipIsInstalled(void)
     }
 
     while (1) {
-        snprintf(pathToCheck, NAME_MAX, "%s/xclip", token);
+        snprintf(pathToCheck, NAME_MAX, "%s/xsel", token);
 
         if (stat(pathToCheck, &sb) == 0 && sb.st_mode & S_IXUSR) {
-            xclipInstalled = true;
+            xselInstalled = true;
             break;
         } else {
             token = strtok(NULL, ":");
@@ -3088,7 +3071,7 @@ bool xclipIsInstalled(void)
         }
     }
 
-    if (xclipInstalled == true)
+    if (xselInstalled == true)
         return true;
     else
         return false;
