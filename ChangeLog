@@ -10,7 +10,8 @@
     Added ability to choose 'primary' or 'clipboard' X selection
     Added ability to specify time to clear password from clipboard in seconds or miliseconds
     Added '-O' option to imply a clear time of 55ms to clear password from clipboard immediately after one paste
-    Fixed false-negative when testing if 'xclip' in $PATH and if executable
+    Switched to using xsel instead of xclip instead of native X library calls
+    Fixed false-negative when testing if 'xsel' in $PATH and if executable
     Updated documentation and information prompts
     Removed extra cleanUpBuffer calls that would cause double-free errors
 2019-10-10
