@@ -1366,7 +1366,7 @@ Optional Features:
                           do not reject slow dependency extractors
   --disable-dependency-tracking
                           speeds up one-time build
-  --disable-x11           use xclip binary instead of integrated X11 code to
+  --disable-x11           use xsel binary instead of integrated X11 code to
                           send passwords to clipboard
   --disable-xmu           disable ability to send to clipboard instead of
                           primary selection
@@ -4004,7 +4004,7 @@ $as_echo "#define HAVE_LIBXMU 1" >>confdefs.h
 else
   { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
 $as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
-as_fn_error $? "Xmu development files needed for some xclipboard functions (--disable-xmu to disable)
+as_fn_error $? "Xmu development files needed for some clipboard functions (--disable-xmu to disable)
 See \`config.log' for more details" "$LINENO" 5; }
 fi
 

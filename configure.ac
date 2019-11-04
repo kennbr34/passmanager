@@ -20,7 +20,7 @@ AC_PROG_CC
 
 AC_ARG_ENABLE([x11],
             [AS_HELP_STRING([--disable-x11],
-              [use xclip binary instead of integrated X11 code to send passwords to clipboard])],
+              [use xsel binary instead of integrated X11 code to send passwords to clipboard])],
             [with_x11=no],
             [with_x11=yes])
           
@@ -48,7 +48,7 @@ AC_ARG_ENABLE([xmu],
                          [Define if you have libXmu])
               ],
               [AC_MSG_FAILURE(
-                 [Xmu development files needed for some xclipboard functions (--disable-xmu to disable)])])])
+                 [Xmu development files needed for some clipboard functions (--disable-xmu to disable)])])])
 LIBS="$X11LIB $XMULIB"
 
 dnl Order matters!
