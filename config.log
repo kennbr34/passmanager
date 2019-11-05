@@ -42,33 +42,33 @@ PATH: /snap/bin
 ## Core tests. ##
 ## ----------- ##
 
-configure:2263: checking for a BSD-compatible install
-configure:2331: result: /usr/bin/install -c
-configure:2342: checking whether build environment is sane
-configure:2397: result: yes
-configure:2548: checking for a thread-safe mkdir -p
-configure:2587: result: /bin/mkdir -p
-configure:2594: checking for gawk
-configure:2610: found /usr/bin/gawk
-configure:2621: result: gawk
-configure:2632: checking whether make sets $(MAKE)
-configure:2654: result: yes
-configure:2683: checking whether make supports nested variables
-configure:2700: result: yes
-configure:2829: checking whether to enable maintainer-specific portions of Makefiles
-configure:2838: result: no
-configure:2903: checking for gcc
-configure:2919: found /usr/bin/gcc
-configure:2930: result: gcc
-configure:3159: checking for C compiler version
-configure:3168: gcc --version >&5
+configure:2259: checking for a BSD-compatible install
+configure:2327: result: /usr/bin/install -c
+configure:2338: checking whether build environment is sane
+configure:2393: result: yes
+configure:2544: checking for a thread-safe mkdir -p
+configure:2583: result: /bin/mkdir -p
+configure:2590: checking for gawk
+configure:2606: found /usr/bin/gawk
+configure:2617: result: gawk
+configure:2628: checking whether make sets $(MAKE)
+configure:2650: result: yes
+configure:2679: checking whether make supports nested variables
+configure:2696: result: yes
+configure:2825: checking whether to enable maintainer-specific portions of Makefiles
+configure:2834: result: no
+configure:2899: checking for gcc
+configure:2915: found /usr/bin/gcc
+configure:2926: result: gcc
+configure:3155: checking for C compiler version
+configure:3164: gcc --version >&5
 gcc (Ubuntu 7.4.0-1ubuntu1~18.04.1) 7.4.0
 Copyright (C) 2017 Free Software Foundation, Inc.
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
-configure:3179: $? = 0
-configure:3168: gcc -v >&5
+configure:3175: $? = 0
+configure:3164: gcc -v >&5
 Using built-in specs.
 COLLECT_GCC=gcc
 COLLECT_LTO_WRAPPER=/usr/lib/gcc/x86_64-linux-gnu/7/lto-wrapper
@@ -78,81 +78,77 @@ Target: x86_64-linux-gnu
 Configured with: ../src/configure -v --with-pkgversion='Ubuntu 7.4.0-1ubuntu1~18.04.1' --with-bugurl=file:///usr/share/doc/gcc-7/README.Bugs --enable-languages=c,ada,c++,go,brig,d,fortran,objc,obj-c++ --prefix=/usr --with-gcc-major-version-only --program-suffix=-7 --program-prefix=x86_64-linux-gnu- --enable-shared --enable-linker-build-id --libexecdir=/usr/lib --without-included-gettext --enable-threads=posix --libdir=/usr/lib --enable-nls --with-sysroot=/ --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --with-default-libstdcxx-abi=new --enable-gnu-unique-object --disable-vtable-verify --enable-libmpx --enable-plugin --enable-default-pie --with-system-zlib --with-target-system-zlib --enable-objc-gc=auto --enable-multiarch --disable-werror --with-arch-32=i686 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --enable-multilib --with-tune=generic --enable-offload-targets=nvptx-none --without-cuda-driver --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu
 Thread model: posix
 gcc version 7.4.0 (Ubuntu 7.4.0-1ubuntu1~18.04.1) 
-configure:3179: $? = 0
-configure:3168: gcc -V >&5
+configure:3175: $? = 0
+configure:3164: gcc -V >&5
 gcc: error: unrecognized command line option '-V'
 gcc: fatal error: no input files
 compilation terminated.
-configure:3179: $? = 1
-configure:3168: gcc -qversion >&5
+configure:3175: $? = 1
+configure:3164: gcc -qversion >&5
 gcc: error: unrecognized command line option '-qversion'; did you mean '--version'?
 gcc: fatal error: no input files
 compilation terminated.
-configure:3179: $? = 1
-configure:3199: checking whether the C compiler works
-configure:3221: gcc -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c  >&5
-configure:3225: $? = 0
-configure:3273: result: yes
-configure:3276: checking for C compiler default output file name
-configure:3278: result: a.out
-configure:3284: checking for suffix of executables
-configure:3291: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c  >&5
-configure:3295: $? = 0
-configure:3317: result: 
-configure:3339: checking whether we are cross compiling
-configure:3347: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c  >&5
-configure:3351: $? = 0
-configure:3358: ./conftest
-configure:3362: $? = 0
-configure:3377: result: no
-configure:3382: checking for suffix of object files
-configure:3404: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
-configure:3408: $? = 0
-configure:3429: result: o
-configure:3433: checking whether we are using the GNU C compiler
-configure:3452: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
-configure:3452: $? = 0
-configure:3461: result: yes
-configure:3470: checking whether gcc accepts -g
-configure:3490: gcc -c -g  conftest.c >&5
-configure:3490: $? = 0
-configure:3531: result: yes
-configure:3548: checking for gcc option to accept ISO C89
-configure:3611: gcc  -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
-configure:3611: $? = 0
-configure:3624: result: none needed
-configure:3649: checking whether gcc understands -c and -o together
-configure:3671: gcc -c conftest.c -o conftest2.o
-configure:3674: $? = 0
-configure:3671: gcc -c conftest.c -o conftest2.o
-configure:3674: $? = 0
-configure:3686: result: yes
-configure:3714: checking for style of include used by make
-configure:3742: result: GNU
-configure:3768: checking dependency style of gcc
-configure:3879: result: gcc3
-configure:3911: checking for main in -lX11
-configure:3930: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c -lX11   >&5
-configure:3930: $? = 0
-configure:3939: result: yes
-configure:3967: checking for main in -lXmu
-configure:3986: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c -lXmu   >&5
-configure:3986: $? = 0
-configure:3995: result: yes
-configure:4015: checking for CRYPTO_new_ex_data in -lcrypto
-configure:4040: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c -lcrypto  -lX11 -lXmu >&5
-configure:4040: $? = 0
-configure:4049: result: yes
-configure:4063: checking for OPENSSL_init_ssl in -lssl
-configure:4088: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c -lssl  -lcrypto -lX11 -lXmu >&5
-configure:4088: $? = 0
-configure:4097: result: yes
-configure:4103: checking for SSL_library_init in -lssl
-configure:4128: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c -lssl  -lcrypto -lX11 -lXmu >&5
-/tmp/ccq5PFl7.o: In function `main':
-/home/ken/passmanager/conftest.c:25: undefined reference to `SSL_library_init'
+configure:3175: $? = 1
+configure:3195: checking whether the C compiler works
+configure:3217: gcc -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c  >&5
+configure:3221: $? = 0
+configure:3269: result: yes
+configure:3272: checking for C compiler default output file name
+configure:3274: result: a.out
+configure:3280: checking for suffix of executables
+configure:3287: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c  >&5
+configure:3291: $? = 0
+configure:3313: result: 
+configure:3335: checking whether we are cross compiling
+configure:3343: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c  >&5
+configure:3347: $? = 0
+configure:3354: ./conftest
+configure:3358: $? = 0
+configure:3373: result: no
+configure:3378: checking for suffix of object files
+configure:3400: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
+configure:3404: $? = 0
+configure:3425: result: o
+configure:3429: checking whether we are using the GNU C compiler
+configure:3448: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
+configure:3448: $? = 0
+configure:3457: result: yes
+configure:3466: checking whether gcc accepts -g
+configure:3486: gcc -c -g  conftest.c >&5
+configure:3486: $? = 0
+configure:3527: result: yes
+configure:3544: checking for gcc option to accept ISO C89
+configure:3607: gcc  -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
+configure:3607: $? = 0
+configure:3620: result: none needed
+configure:3645: checking whether gcc understands -c and -o together
+configure:3667: gcc -c conftest.c -o conftest2.o
+configure:3670: $? = 0
+configure:3667: gcc -c conftest.c -o conftest2.o
+configure:3670: $? = 0
+configure:3682: result: yes
+configure:3710: checking for style of include used by make
+configure:3738: result: GNU
+configure:3764: checking dependency style of gcc
+configure:3875: result: gcc3
+configure:3907: checking for main in -lX11
+configure:3926: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c -lX11   >&5
+configure:3926: $? = 0
+configure:3935: result: yes
+configure:3956: checking for CRYPTO_new_ex_data in -lcrypto
+configure:3981: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c -lcrypto  -lX11 >&5
+configure:3981: $? = 0
+configure:3990: result: yes
+configure:4004: checking for OPENSSL_init_ssl in -lssl
+configure:4029: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c -lssl  -lcrypto -lX11 >&5
+configure:4029: $? = 0
+configure:4038: result: yes
+configure:4044: checking for SSL_library_init in -lssl
+configure:4069: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c -lssl  -lcrypto -lX11 >&5
+/tmp/cclYjK83.o: In function `main':
+/home/ken/passmanager/conftest.c:24: undefined reference to `SSL_library_init'
 collect2: error: ld returned 1 exit status
-configure:4128: $? = 1
+configure:4069: $? = 1
 configure: failed program was:
 | /* confdefs.h */
 | #define PACKAGE_NAME "passmanager"
@@ -164,7 +160,6 @@ configure: failed program was:
 | #define PACKAGE "passmanager"
 | #define VERSION "3.2.9"
 | #define HAVE_LIBX11 1
-| #define HAVE_LIBXMU 1
 | #define HAVE_LIBCRYPTO 1
 | /* end confdefs.h.  */
 | 
@@ -182,12 +177,35 @@ configure: failed program was:
 |   ;
 |   return 0;
 | }
-configure:4137: result: no
-configure:4329: checking how to run the C preprocessor
+configure:4078: result: no
+configure:4270: checking how to run the C preprocessor
+configure:4301: gcc -E  conftest.c
+configure:4301: $? = 0
+configure:4315: gcc -E  conftest.c
+conftest.c:13:10: fatal error: ac_nonexistent.h: No such file or directory
+ #include <ac_nonexistent.h>
+          ^~~~~~~~~~~~~~~~~~
+compilation terminated.
+configure:4315: $? = 1
+configure: failed program was:
+| /* confdefs.h */
+| #define PACKAGE_NAME "passmanager"
+| #define PACKAGE_TARNAME "passmanager"
+| #define PACKAGE_VERSION "3.2.9"
+| #define PACKAGE_STRING "passmanager 3.2.9"
+| #define PACKAGE_BUGREPORT ""
+| #define PACKAGE_URL ""
+| #define PACKAGE "passmanager"
+| #define VERSION "3.2.9"
+| #define HAVE_LIBX11 1
+| #define HAVE_LIBCRYPTO 1
+| /* end confdefs.h.  */
+| #include <ac_nonexistent.h>
+configure:4340: result: gcc -E
 configure:4360: gcc -E  conftest.c
 configure:4360: $? = 0
 configure:4374: gcc -E  conftest.c
-conftest.c:14:10: fatal error: ac_nonexistent.h: No such file or directory
+conftest.c:13:10: fatal error: ac_nonexistent.h: No such file or directory
  #include <ac_nonexistent.h>
           ^~~~~~~~~~~~~~~~~~
 compilation terminated.
@@ -203,123 +221,98 @@ configure: failed program was:
 | #define PACKAGE "passmanager"
 | #define VERSION "3.2.9"
 | #define HAVE_LIBX11 1
-| #define HAVE_LIBXMU 1
 | #define HAVE_LIBCRYPTO 1
 | /* end confdefs.h.  */
 | #include <ac_nonexistent.h>
-configure:4399: result: gcc -E
-configure:4419: gcc -E  conftest.c
-configure:4419: $? = 0
-configure:4433: gcc -E  conftest.c
-conftest.c:14:10: fatal error: ac_nonexistent.h: No such file or directory
- #include <ac_nonexistent.h>
-          ^~~~~~~~~~~~~~~~~~
-compilation terminated.
-configure:4433: $? = 1
-configure: failed program was:
-| /* confdefs.h */
-| #define PACKAGE_NAME "passmanager"
-| #define PACKAGE_TARNAME "passmanager"
-| #define PACKAGE_VERSION "3.2.9"
-| #define PACKAGE_STRING "passmanager 3.2.9"
-| #define PACKAGE_BUGREPORT ""
-| #define PACKAGE_URL ""
-| #define PACKAGE "passmanager"
-| #define VERSION "3.2.9"
-| #define HAVE_LIBX11 1
-| #define HAVE_LIBXMU 1
-| #define HAVE_LIBCRYPTO 1
-| /* end confdefs.h.  */
-| #include <ac_nonexistent.h>
-configure:4462: checking for grep that handles long lines and -e
-configure:4520: result: /bin/grep
-configure:4525: checking for egrep
-configure:4587: result: /bin/grep -E
-configure:4592: checking for ANSI C header files
-configure:4612: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
-configure:4612: $? = 0
-configure:4685: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c -lcrypto -lX11 -lXmu >&5
-configure:4685: $? = 0
-configure:4685: ./conftest
-configure:4685: $? = 0
-configure:4696: result: yes
-configure:4709: checking for sys/types.h
-configure:4709: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
-configure:4709: $? = 0
-configure:4709: result: yes
-configure:4709: checking for sys/stat.h
-configure:4709: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
-configure:4709: $? = 0
-configure:4709: result: yes
-configure:4709: checking for stdlib.h
-configure:4709: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
-configure:4709: $? = 0
-configure:4709: result: yes
-configure:4709: checking for string.h
-configure:4709: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
-configure:4709: $? = 0
-configure:4709: result: yes
-configure:4709: checking for memory.h
-configure:4709: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
-configure:4709: $? = 0
-configure:4709: result: yes
-configure:4709: checking for strings.h
-configure:4709: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
-configure:4709: $? = 0
-configure:4709: result: yes
-configure:4709: checking for inttypes.h
-configure:4709: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
-configure:4709: $? = 0
-configure:4709: result: yes
-configure:4709: checking for stdint.h
-configure:4709: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
-configure:4709: $? = 0
-configure:4709: result: yes
-configure:4709: checking for unistd.h
-configure:4709: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
-configure:4709: $? = 0
-configure:4709: result: yes
-configure:4724: checking limits.h usability
-configure:4724: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
-configure:4724: $? = 0
-configure:4724: result: yes
-configure:4724: checking limits.h presence
-configure:4724: gcc -E  conftest.c
-configure:4724: $? = 0
-configure:4724: result: yes
-configure:4724: checking for limits.h
-configure:4724: result: yes
-configure:4724: checking for stdlib.h
-configure:4724: result: yes
-configure:4724: checking for string.h
-configure:4724: result: yes
-configure:4724: checking termios.h usability
-configure:4724: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
-configure:4724: $? = 0
-configure:4724: result: yes
-configure:4724: checking termios.h presence
-configure:4724: gcc -E  conftest.c
-configure:4724: $? = 0
-configure:4724: result: yes
-configure:4724: checking for termios.h
-configure:4724: result: yes
-configure:4724: checking for unistd.h
-configure:4724: result: yes
-configure:4736: checking for inline
-configure:4752: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
-configure:4752: $? = 0
-configure:4760: result: inline
-configure:4778: checking for size_t
-configure:4778: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
-configure:4778: $? = 0
-configure:4778: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
+configure:4403: checking for grep that handles long lines and -e
+configure:4461: result: /bin/grep
+configure:4466: checking for egrep
+configure:4528: result: /bin/grep -E
+configure:4533: checking for ANSI C header files
+configure:4553: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
+configure:4553: $? = 0
+configure:4626: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c -lcrypto -lX11 >&5
+configure:4626: $? = 0
+configure:4626: ./conftest
+configure:4626: $? = 0
+configure:4637: result: yes
+configure:4650: checking for sys/types.h
+configure:4650: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
+configure:4650: $? = 0
+configure:4650: result: yes
+configure:4650: checking for sys/stat.h
+configure:4650: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
+configure:4650: $? = 0
+configure:4650: result: yes
+configure:4650: checking for stdlib.h
+configure:4650: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
+configure:4650: $? = 0
+configure:4650: result: yes
+configure:4650: checking for string.h
+configure:4650: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
+configure:4650: $? = 0
+configure:4650: result: yes
+configure:4650: checking for memory.h
+configure:4650: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
+configure:4650: $? = 0
+configure:4650: result: yes
+configure:4650: checking for strings.h
+configure:4650: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
+configure:4650: $? = 0
+configure:4650: result: yes
+configure:4650: checking for inttypes.h
+configure:4650: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
+configure:4650: $? = 0
+configure:4650: result: yes
+configure:4650: checking for stdint.h
+configure:4650: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
+configure:4650: $? = 0
+configure:4650: result: yes
+configure:4650: checking for unistd.h
+configure:4650: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
+configure:4650: $? = 0
+configure:4650: result: yes
+configure:4665: checking limits.h usability
+configure:4665: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
+configure:4665: $? = 0
+configure:4665: result: yes
+configure:4665: checking limits.h presence
+configure:4665: gcc -E  conftest.c
+configure:4665: $? = 0
+configure:4665: result: yes
+configure:4665: checking for limits.h
+configure:4665: result: yes
+configure:4665: checking for stdlib.h
+configure:4665: result: yes
+configure:4665: checking for string.h
+configure:4665: result: yes
+configure:4665: checking termios.h usability
+configure:4665: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
+configure:4665: $? = 0
+configure:4665: result: yes
+configure:4665: checking termios.h presence
+configure:4665: gcc -E  conftest.c
+configure:4665: $? = 0
+configure:4665: result: yes
+configure:4665: checking for termios.h
+configure:4665: result: yes
+configure:4665: checking for unistd.h
+configure:4665: result: yes
+configure:4677: checking for inline
+configure:4693: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
+configure:4693: $? = 0
+configure:4701: result: inline
+configure:4719: checking for size_t
+configure:4719: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
+configure:4719: $? = 0
+configure:4719: gcc -c -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined  conftest.c >&5
 conftest.c: In function 'main':
-conftest.c:65:21: error: expected expression before ')' token
+conftest.c:64:21: error: expected expression before ')' token
  if (sizeof ((size_t)))
                      ^
 conftest.c: At top level:
 cc1: warning: unrecognized command line option '-Wno-self-assign'
-configure:4778: $? = 1
+configure:4719: $? = 1
 configure: failed program was:
 | /* confdefs.h */
 | #define PACKAGE_NAME "passmanager"
@@ -331,7 +324,6 @@ configure: failed program was:
 | #define PACKAGE "passmanager"
 | #define VERSION "3.2.9"
 | #define HAVE_LIBX11 1
-| #define HAVE_LIBXMU 1
 | #define HAVE_LIBCRYPTO 1
 | #define STDC_HEADERS 1
 | #define HAVE_SYS_TYPES_H 1
@@ -390,38 +382,38 @@ configure: failed program was:
 |   ;
 |   return 0;
 | }
+configure:4719: result: yes
+configure:4734: checking for stdlib.h
+configure:4734: result: yes
+configure:4744: checking for GNU libc compatible malloc
+configure:4768: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c -lcrypto -lX11 >&5
+configure:4768: $? = 0
+configure:4768: ./conftest
+configure:4768: $? = 0
 configure:4778: result: yes
-configure:4793: checking for stdlib.h
-configure:4793: result: yes
-configure:4803: checking for GNU libc compatible malloc
-configure:4827: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c -lcrypto -lX11 -lXmu >&5
-configure:4827: $? = 0
-configure:4827: ./conftest
-configure:4827: $? = 0
-configure:4837: result: yes
-configure:4860: checking for stdlib.h
-configure:4860: result: yes
-configure:4870: checking for GNU libc compatible realloc
-configure:4894: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c -lcrypto -lX11 -lXmu >&5
-configure:4894: $? = 0
-configure:4894: ./conftest
-configure:4894: $? = 0
-configure:4904: result: yes
-configure:4928: checking for getpass
-configure:4928: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c -lcrypto -lX11 -lXmu >&5
-configure:4928: $? = 0
-configure:4928: result: yes
-configure:4928: checking for memset
-configure:4928: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c -lcrypto -lX11 -lXmu >&5
-conftest.c:57:6: warning: conflicting types for built-in function 'memset' [-Wbuiltin-declaration-mismatch]
+configure:4801: checking for stdlib.h
+configure:4801: result: yes
+configure:4811: checking for GNU libc compatible realloc
+configure:4835: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c -lcrypto -lX11 >&5
+configure:4835: $? = 0
+configure:4835: ./conftest
+configure:4835: $? = 0
+configure:4845: result: yes
+configure:4869: checking for getpass
+configure:4869: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c -lcrypto -lX11 >&5
+configure:4869: $? = 0
+configure:4869: result: yes
+configure:4869: checking for memset
+configure:4869: gcc -o conftest -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined   conftest.c -lcrypto -lX11 >&5
+conftest.c:56:6: warning: conflicting types for built-in function 'memset' [-Wbuiltin-declaration-mismatch]
  char memset ();
       ^~~~~~
 cc1: warning: unrecognized command line option '-Wno-self-assign'
-configure:4928: $? = 0
-configure:4928: result: yes
-configure:5050: checking that generated files are newer than configure
-configure:5056: result: done
-configure:5083: creating ./config.status
+configure:4869: $? = 0
+configure:4869: result: yes
+configure:4991: checking that generated files are newer than configure
+configure:4997: result: done
+configure:5024: creating ./config.status
 
 ## ---------------------- ##
 ## Running config.status. ##
@@ -438,9 +430,9 @@ generated by GNU Autoconf 2.69.  Invocation command line was
 
 on ken-ThinkPad-T420
 
-config.status:872: creating Makefile
-config.status:872: creating config.h
-config.status:1101: executing depfiles commands
+config.status:870: creating Makefile
+config.status:870: creating config.h
+config.status:1099: executing depfiles commands
 
 ## ---------------- ##
 ## Cache variables. ##
@@ -483,7 +475,6 @@ ac_cv_header_sys_types_h=yes
 ac_cv_header_termios_h=yes
 ac_cv_header_unistd_h=yes
 ac_cv_lib_X11_main=yes
-ac_cv_lib_Xmu_main=yes
 ac_cv_lib_crypto_CRYPTO_new_ex_data=yes
 ac_cv_lib_ssl_OPENSSL_init_ssl=yes
 ac_cv_lib_ssl_SSL_library_init=no
@@ -540,7 +531,7 @@ INSTALL_SCRIPT='${INSTALL}'
 INSTALL_STRIP_PROGRAM='$(install_sh) -c -s'
 LDFLAGS=''
 LIBOBJS=''
-LIBS='-lcrypto -lX11 -lXmu'
+LIBS='-lcrypto -lX11'
 LTLIBOBJS=''
 MAINT='#'
 MAINTAINER_MODE_FALSE=''
@@ -561,7 +552,6 @@ SHELL='/bin/bash'
 STRIP=''
 VERSION='3.2.9'
 X11LIB='-lX11'
-XMULIB='-lXmu'
 ac_ct_CC='gcc'
 am__EXEEXT_FALSE=''
 am__EXEEXT_TRUE='#'
@@ -617,7 +607,6 @@ target_alias=''
 #define PACKAGE "passmanager"
 #define VERSION "3.2.9"
 #define HAVE_LIBX11 1
-#define HAVE_LIBXMU 1
 #define HAVE_LIBCRYPTO 1
 #define STDC_HEADERS 1
 #define HAVE_SYS_TYPES_H 1

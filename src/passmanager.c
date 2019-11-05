@@ -47,17 +47,9 @@
 #include <stdbool.h>
 #include <sys/resource.h>
 #include <sys/time.h>
-#ifdef HAVE_LIBXMU
+#ifdef HAVE_LIBX11
 #    include <X11/Xatom.h>
 #    include <X11/Xlib.h>
-#    include <X11/Xmu/Atoms.h>
-#elif HAVE_LIBX11
-#    include <X11/Xlib.h>
-/*These are defined here so including and linking Xmu.h/Atoms.h is not needed*/
-/*If problems arise just comment out and include and link Xmu/Atoms.h*/
-#    define XA_PRIMARY 1 /*Paste with middle click, and erase with selection*/
-#    define XA_STRING 31
-#    define XA_ATOM 4
 #endif
 
 #define printSysError(errCode) \
@@ -321,13 +313,6 @@ int main(int argc, char *argv[])
                 condition.selectionIsPrimary = true;
             else if (strcmp("clipboard", optarg) == 0) {
                 condition.selectionIsClipboard = true;
-#ifdef HAVE_LIBX11
-#    ifndef HAVE_LIBXMU
-                printf("Need libXmu to send pass to 'clipboard' selection\nSetting to 'primary' instead\n");
-                condition.selectionIsClipboard = false;
-                condition.selectionIsPrimary = true;
-#    endif
-#endif
             }
             condition.selectionGiven = true;
             break;
@@ -2701,14 +2686,10 @@ int sendWithXlib(char *passToSend, int passLength, int clearTime)
     Display *xDisplay = XOpenDisplay(defaultDisplay);
     XEvent XAeventStruct;
     Atom selectionAtm;
-#    ifdef HAVE_LIBXMU
     if (condition.selectionGiven == true && condition.selectionIsClipboard == true)
-        selectionAtm = XA_CLIPBOARD(xDisplay);
+        selectionAtm = XInternAtom(xDisplay, "CLIPBOARD", False);
     else if (condition.selectionGiven == false || condition.selectionIsPrimary == true)
         selectionAtm = XA_PRIMARY;
-#    elif HAVE_LIBX11
-    selectionAtm = XA_PRIMARY;
-#    endif
     Atom targetAtm = XA_STRING;
     int X11fileDescriptor; /* File descriptor on which XEvents appear */
     fd_set inputFileDescriptors;

@@ -12,7 +12,7 @@
 /* Define if you have libX11 */
 #undef HAVE_LIBX11
 
-/* Define to 1 if you have the `Xmu' library (-lXmu). */
+/* Define if you have libXmu */
 #undef HAVE_LIBXMU
 
 /* Define to 1 if you have the <limits.h> header file. */
