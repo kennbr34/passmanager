@@ -193,7 +193,7 @@ int PBKDF2IterationsStore;
 int PBKDF2IterationsOld;
 
 char dbFileName[NAME_MAX];
-char backupFileName[NAME_MAX];
+char backupFileName[NAME_MAX + 9];
 
 char *entryPass;
 char *entryPassToVerify;
@@ -1660,7 +1660,7 @@ void backupDatabase()
 {
     /*Before anything else, back up the password database*/
     if (condition.databaseBeingInitalized == false && condition.readingPass == false && condition.printingDbInfo == false) {
-        snprintf(backupFileName, NAME_MAX, "%s.autobak", dbFileName);
+        snprintf(backupFileName, NAME_MAX + 9, "%s.autobak", dbFileName);
 
         FILE *backUpFile = fopen(backupFileName, "w");
         if (backUpFile == NULL) {
@@ -3138,8 +3138,8 @@ int printSyntax(char *arg)
 \nReccomend Syntax: \
 \n\n%s passmanager  -a entry name | -r entry name | -d entry name | -u entry name | -U  [-n new name ] [-p new entry password] [-l random password length] [-c cipher] [-H digest] [-i iterations ] [ -P ] [-x database password] [ -C ] [ -O ] [ -s selection ] [ -t seconds or miliseconds ] -f database file\
 \nOptions: \
-\n-n new name - entry name up to 512 characters (can contain white space or special characters) \
-\n-p new entry password - entry password up to 512 characters (don't call to be prompted instead) ('gen' will generate a random password, 'genalpha' will generate a random password with no symbols)\
+\n-n new name - entry name up to 511 characters (can contain white space or special characters) \
+\n-p new entry password - entry password up to 511 characters (don't call to be prompted instead) ('gen' will generate a random password, 'genalpha' will generate a random password with no symbols)\
 \n-l random password length - makes 'gen' or 'genalpha' generate a password random password length digits long (defaults to 16 without this option) \
 \n-c cipher - Specify 'list' for a list of methods available to OpenSSL. Default: aes-256-ctr. \
 \n-H digest - Specify 'list' for a list of methods available to OpenSSL. Default: sha512. \
