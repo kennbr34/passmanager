@@ -48,12 +48,8 @@
 #include <sys/resource.h>
 #include <sys/time.h>
 #ifdef HAVE_LIBX11
+#    include <X11/Xatom.h>
 #    include <X11/Xlib.h>
-/*These are defined here so including and linking Xmu.h/Atoms.h is not needed*/
-/*If problems arise just comment out and include and link Xmu/Atoms.h*/
-#    define XA_PRIMARY 1 /*Paste with middle click, and erase with selection*/
-#    define XA_STRING 31
-#    define XA_ATOM 4
 #endif
 
 #define printSysError(errCode) \
@@ -99,7 +95,7 @@ struct conditionsStruct {
     bool userChoseCipher;
     bool genPassLengthGiven;
     bool sendToClipboard;
-    bool userChoseXclipClearTime;
+    bool userChoseClipboardClearTime;
     bool userChosePBKDF2Iterations;
     bool databaseBeingInitalized;
     bool generateEntryPass;
@@ -107,6 +103,10 @@ struct conditionsStruct {
     bool printAllPasses;
     bool updateAllPasses;
     bool printingDbInfo;
+    bool selectionIsPrimary;
+    bool selectionIsClipboard;
+    bool selectionGiven;
+    bool allowOnePasting;
 };
 
 struct conditionsStruct condition = {0};
@@ -144,8 +144,9 @@ int freadWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream);
 int fwriteWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream);
 int compareMAC(const void *in_a, const void *in_b, size_t len);
 void printDbInfo();
+void printClipboardMessage(int entriesMatched);
 void backupDatabase();
-bool xclipIsInstalled(void);
+bool xselIsInstalled(void);
 #ifdef HAVE_LIBX11
 int targetWinHandler(Display *xDisplay,
                      Window *targetWindow,
@@ -153,7 +154,6 @@ int targetWinHandler(Display *xDisplay,
                      Atom *windowProperty, Atom targetProperty, unsigned char *passToSend, unsigned long passLength);
 int sendWithXlib(char *passToSend, int passLength, int clearTime);
 #endif
-
 
 const EVP_CIPHER *evpCipher, *evpCipherOld;
 unsigned char evpKey[EVP_MAX_KEY_LENGTH], evpKeyOld[EVP_MAX_KEY_LENGTH];
@@ -185,7 +185,7 @@ int PBKDF2IterationsStore;
 int PBKDF2IterationsOld;
 
 char dbFileName[NAME_MAX];
-char backupFileName[NAME_MAX];
+char backupFileName[NAME_MAX + 9];
 
 char *entryPass;
 char *entryPassToVerify;
@@ -200,7 +200,7 @@ unsigned char *encryptedBuffer;
 unsigned char dbInitBuffer[(UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH];
 int evpDataSize;
 
-int clipboardClearTimeSeconds = 30;
+int clipboardClearTimeMiliSeconds = 30000;
 
 int genPassLength;
 
@@ -294,19 +294,59 @@ int main(int argc, char *argv[])
     int i;
 
     /*Process through arguments*/
-    while ((opt = getopt(argc, argv, "i:s:l:f:u:n:d:a:r:p:x:H:c:hUPCI")) != -1) {
+    while ((opt = getopt(argc, argv, "Os:i:t:l:f:u:n:d:a:r:p:x:H:c:hUPCI")) != -1) {
         switch (opt) {
         case 'h':
             printSyntax("passmanager");
             return 1;
             break;
+        case 'O':
+            clipboardClearTimeMiliSeconds = 55;
+            condition.allowOnePasting = true;
+            break;
         case 's':
+            if (optarg[0] == '-' && strlen(optarg) == 2) {
+                printf("Option -S requires an argument\n");
+                errflg++;
+            }
+            if (strcmp("primary", optarg) == 0)
+                condition.selectionIsPrimary = true;
+            else if (strcmp("clipboard", optarg) == 0) {
+                condition.selectionIsClipboard = true;
+            }
+            condition.selectionGiven = true;
+            break;
+        case 't':
             if (optarg[0] == '-' && strlen(optarg) == 2) {
                 printf("Option -s requires an argument\n");
                 errflg++;
             }
-            clipboardClearTimeSeconds = atoi(optarg);
-            condition.userChoseXclipClearTime = true;
+            for(unsigned int i=0; i < strlen(optarg); i++) {
+                if(isdigit(optarg[i]))
+                    break;
+                printf("Time specified needs a number\n");
+                exit(EXIT_FAILURE);
+            }
+            if(optarg[strlen(optarg) - 1] == 's' && optarg[strlen(optarg) - 2] == 'm') {
+                optarg[strlen(optarg) - 2] = '\0';
+                clipboardClearTimeMiliSeconds = atoi(optarg);
+            }
+            else if(optarg[strlen(optarg) - 1] == 's' && optarg[strlen(optarg) - 2] != 'm') {
+                optarg[strlen(optarg) - 1] = '\0';
+                clipboardClearTimeMiliSeconds = atoi(optarg) * 1000;
+            }
+            else if(isdigit(optarg[strlen(optarg) - 1])){
+                clipboardClearTimeMiliSeconds = atoi(optarg) * 1000;
+            }
+            else if(isalpha(optarg[strlen(optarg) - 1])) {
+                printf("Only 's' for seconds or 'ms' for miliseconds can be specified. Defaulting to seconds.\n");
+                clipboardClearTimeMiliSeconds = atoi(optarg) * 1000;
+            }
+            else {
+                printf("Don't understand time format.\n");
+                exit(EXIT_FAILURE);
+            }
+            condition.userChoseClipboardClearTime = true;
             break;
         case 'i':
             if (optarg[0] == '-' && strlen(optarg) == 2) {
@@ -333,10 +373,10 @@ int main(int argc, char *argv[])
             break;
         case 'C':
 #ifndef HAVE_LIBX11
-            if (xclipIsInstalled() == true)
+            if (xselIsInstalled() == true)
                 condition.sendToClipboard = true;
             else {
-                printf("Program wasn't compiled with X11 headers and no executable xclip binary found. Will now quit to prevent password from being printed to screen.\n");
+                printf("Program wasn't compiled with X11 headers and no executable xsel binary found. Will now quit to prevent password from being printed to screen.\n");
                 /*Sanitize argv and argc of any sensitive information*/
                 for (i = 1; i < argc; i++)
                     OPENSSL_cleanse(argv[i], strlen(argv[i]));
@@ -363,7 +403,7 @@ int main(int argc, char *argv[])
                 printf("\nentry name too long\n");
                 return 1;
             }
-            snprintf(entryName,UI_BUFFERS_SIZE,"%s", optarg);
+            snprintf(entryName, UI_BUFFERS_SIZE, "%s", optarg);
             condition.entryGiven = true;
             break;
         case 'r':
@@ -379,7 +419,7 @@ int main(int argc, char *argv[])
             }
             if (strcmp(optarg, "allpasses") == 0)
                 condition.printAllPasses = true;
-            snprintf(entryName,UI_BUFFERS_SIZE,"%s",optarg);
+            snprintf(entryName, UI_BUFFERS_SIZE, "%s", optarg);
             condition.entryGiven = true;
             break;
         case 'd':
@@ -392,7 +432,7 @@ int main(int argc, char *argv[])
                 printf("\nentry name too long\n");
                 exit(EXIT_FAILURE);
             }
-            snprintf(entryName,UI_BUFFERS_SIZE,"%s",optarg);
+            snprintf(entryName, UI_BUFFERS_SIZE, "%s", optarg);
             condition.entryGiven = true;
             condition.searchForEntry = true;
             break;
@@ -411,8 +451,8 @@ int main(int argc, char *argv[])
 
             /*Copy optarg into both variables because openDatabase() will replace what's in messageDigestName afer reading the header
 			But only if the database is being initialized. This way the program doesn't need extra code for both conditions*/
-            snprintf(messageDigestName,NAME_MAX,"%s",optarg);
-            snprintf(messageDigestNameFromCmdLine,NAME_MAX,"%s", messageDigestName);
+            snprintf(messageDigestName, NAME_MAX, "%s", optarg);
+            snprintf(messageDigestNameFromCmdLine, NAME_MAX, "%s", messageDigestName);
 
             condition.userChoseDigest = true;
             break;
@@ -427,8 +467,8 @@ int main(int argc, char *argv[])
             }
             condition.userChoseCipher = true;
 
-            snprintf(encCipherName,NAME_MAX,"%s",optarg);
-            snprintf(encCipherNameFromCmdLine,NAME_MAX,"%s",encCipherName);
+            snprintf(encCipherName, NAME_MAX, "%s", optarg);
+            snprintf(encCipherNameFromCmdLine, NAME_MAX, "%s", encCipherName);
 
             condition.userChoseCipher = true;
             break;
@@ -438,7 +478,7 @@ int main(int argc, char *argv[])
                 errflg++;
             } else
                 condition.fileGiven = true;
-            snprintf(dbFileName,NAME_MAX,"%s",optarg);
+            snprintf(dbFileName, NAME_MAX, "%s", optarg);
             break;
         case 'n':
             if (optarg[0] == '-' && strlen(optarg) == 2) {
@@ -450,7 +490,7 @@ int main(int argc, char *argv[])
                 printf("\nentry name too long\n");
                 exit(EXIT_FAILURE);
             }
-            snprintf(entryName,UI_BUFFERS_SIZE,"%s",optarg);
+            snprintf(entryName, UI_BUFFERS_SIZE, "%s", optarg);
             condition.entryGiven = true;
             break;
         case 'u':
@@ -465,7 +505,7 @@ int main(int argc, char *argv[])
             }
             if (strcmp(optarg, "allpasses") == 0)
                 condition.updateAllPasses = true;
-            snprintf(entryNameToFind,UI_BUFFERS_SIZE,"%s",optarg);
+            snprintf(entryNameToFind, UI_BUFFERS_SIZE, "%s", optarg);
             break;
         case 'p':
             condition.entryPassGivenasArg = true;
@@ -481,7 +521,7 @@ int main(int argc, char *argv[])
                 condition.generateEntryPass = true;
             if (strcmp(optarg, "genalpha") == 0)
                 condition.generateEntryPassAlpha = true;
-            snprintf(entryPass,UI_BUFFERS_SIZE,"%s",optarg);
+            snprintf(entryPass, UI_BUFFERS_SIZE, "%s", optarg);
             break;
         case 'x':
             condition.dbPassGivenasArg = true;
@@ -489,7 +529,7 @@ int main(int argc, char *argv[])
                 errflg++;
                 printf("Option -x requires an argument\n");
             }
-            snprintf(dbPass,UI_BUFFERS_SIZE,"%s",optarg);
+            snprintf(dbPass, UI_BUFFERS_SIZE, "%s", optarg);
             break;
         case ':':
             printf("Option -%c requires an argument\n", optopt);
@@ -717,10 +757,10 @@ int main(int argc, char *argv[])
 
         /*Get new entry*/
         if (condition.entryGiven == true) {
-            snprintf(newEntry,UI_BUFFERS_SIZE,"%s",entryName);
+            snprintf(newEntry, UI_BUFFERS_SIZE, "%s", entryName);
         } else {
             /*If no new entry was specified then just update the password*/
-            snprintf(newEntry,UI_BUFFERS_SIZE,"%s",entryNameToFind);
+            snprintf(newEntry, UI_BUFFERS_SIZE, "%s", entryNameToFind);
             condition.updatingEntryPass = true;
         }
 
@@ -736,20 +776,20 @@ int main(int argc, char *argv[])
                     condition.generateEntryPass = true;
                     genPassWord(genPassLength);
                     /*Have to copy over passWord to newEntryPass since genPassWord() operates on entryPass buffer*/
-                    snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
+                    snprintf(newEntryPass, UI_BUFFERS_SIZE, "%s", entryPass);
                 } else {
                     genPassWord(DEFAULT_GENPASS_LENGTH);
-                    snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
+                    snprintf(newEntryPass, UI_BUFFERS_SIZE, "%s", entryPass);
                 }
             } else if (strcmp(entryPass, "genalpha") == 0) {
                 condition.generateEntryPassAlpha = true;
                 if (condition.genPassLengthGiven == true) {
                     genPassWord(genPassLength);
                     /*Have to copy over passWord to newEntryPass since genPassWord() operates on entryPass buffer*/
-                    snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
+                    snprintf(newEntryPass, UI_BUFFERS_SIZE, "%s", entryPass);
                 } else {
                     genPassWord(DEFAULT_GENPASS_LENGTH);
-                    snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
+                    snprintf(newEntryPass, UI_BUFFERS_SIZE, "%s", entryPass);
                 }
             } else if (condition.entryPassGivenasArg == false) {
                 getPass("Enter entry password to be saved: ", newEntryPass);
@@ -761,10 +801,10 @@ int main(int argc, char *argv[])
                     if (condition.genPassLengthGiven == true) {
                         genPassWord(genPassLength);
                         /*Have to copy over entryPass to newEntryPass since genPassWord() operates on entryPass buffer*/
-                        snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
+                        snprintf(newEntryPass, UI_BUFFERS_SIZE, "%s", entryPass);
                     } else {
                         genPassWord(DEFAULT_GENPASS_LENGTH);
-                        snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
+                        snprintf(newEntryPass, UI_BUFFERS_SIZE, "%s", entryPass);
                     }
                 } else if (strcmp(newEntryPass, "genalpha") == 0) {
                     condition.generateEntryPassAlpha = true;
@@ -772,23 +812,22 @@ int main(int argc, char *argv[])
                     if (condition.genPassLengthGiven == true) {
                         genPassWord(genPassLength);
                         /*Have to copy over entryPass to newEntryPass since genPassWord() operates on entryPass buffer*/
-                        snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
+                        snprintf(newEntryPass, UI_BUFFERS_SIZE, "%s", entryPass);
                     } else {
                         genPassWord(DEFAULT_GENPASS_LENGTH);
-                        snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
+                        snprintf(newEntryPass, UI_BUFFERS_SIZE, "%s", entryPass);
                     }
                 } else {
                     /*If retrieved password was not gen/genalpha verify it was not mistyped*/
                     getPass("Veryify password:", newEntryPassToVerify);
                     if (strcmp(newEntryPass, newEntryPassToVerify) != 0) {
                         printf("\nPasswords do not match.  Nothing done.\n\n");
-                        cleanUpBuffers();
                         return 1;
                     }
                 }
             } else if (condition.entryPassGivenasArg == true) /*This condition is true if the user DID supply a password but it isn't 'gen'*/
             {
-                snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
+                snprintf(newEntryPass, UI_BUFFERS_SIZE, "%s", entryPass);
             }
         }
 
@@ -815,7 +854,7 @@ int main(int argc, char *argv[])
         openDatabase();
 
         /*Must store old EVP key data to decrypt database before new key material is generated*/
-        snprintf(dbPassOld,UI_BUFFERS_SIZE,"%s",dbPass);
+        snprintf(dbPassOld, UI_BUFFERS_SIZE, "%s", dbPass);
         memcpy(HMACKeyOld, HMACKey, sizeof(char) * SHA512_DIGEST_LENGTH);
 
         /*If -i was given along with nothing else*/
@@ -832,8 +871,7 @@ int main(int argc, char *argv[])
             if (strcmp(dbPass, dbPassToVerify) != 0) {
                 printf("Passwords don't match, not changing.\n");
                 /*If not changing, replace old dbPass back into dbPass*/
-                snprintf(dbPass,UI_BUFFERS_SIZE,"%s",dbPassOld);
-                cleanUpBuffers();
+                snprintf(dbPass, UI_BUFFERS_SIZE, "%s", dbPassOld);
                 return 1;
             } else {
                 printf("Changed password.\n");
@@ -846,22 +884,22 @@ int main(int argc, char *argv[])
 
             /*Change cipher and digest if specified*/
             if (condition.userChoseCipher == true) {
-                snprintf(encCipherName,NAME_MAX,"%s",encCipherNameFromCmdLine);
+                snprintf(encCipherName, NAME_MAX, "%s", encCipherNameFromCmdLine);
                 printf("Changing cipher to %s\n", encCipherNameFromCmdLine);
             }
             if (condition.userChoseDigest == true) {
-                snprintf(messageDigestName,NAME_MAX,"%s",messageDigestNameFromCmdLine);
+                snprintf(messageDigestName, NAME_MAX, "%s", messageDigestNameFromCmdLine);
                 printf("Changing digest to %s\n", messageDigestNameFromCmdLine);
             }
         }
         /*-U was given but not -P and -c and/or -H might be there*/
         else if (condition.updatingDbEnc == true && condition.updatingEntryPass == false) {
             if (condition.userChoseCipher == true) {
-                snprintf(encCipherName,NAME_MAX,"%s",encCipherNameFromCmdLine);
+                snprintf(encCipherName, NAME_MAX, "%s", encCipherNameFromCmdLine);
                 printf("Changing cipher to %s\n", encCipherNameFromCmdLine);
             }
             if (condition.userChoseDigest == true) {
-                snprintf(messageDigestName,NAME_MAX,"%s",messageDigestNameFromCmdLine);
+                snprintf(messageDigestName, NAME_MAX, "%s", messageDigestNameFromCmdLine);
                 printf("Changing digest to %s\n", messageDigestNameFromCmdLine);
             }
             memcpy(HMACKeyNew, HMACKey, sizeof(char) * SHA512_DIGEST_LENGTH);
@@ -874,7 +912,7 @@ int main(int argc, char *argv[])
             getPass("Verify password:", dbPassToVerify);
             if (strcmp(dbPass, dbPassToVerify) != 0) {
                 printf("Passwords don't match, not changing.\n");
-                snprintf(dbPass,UI_BUFFERS_SIZE,"%s",dbPassOld);
+                snprintf(dbPass, UI_BUFFERS_SIZE, "%s", dbPassOld);
                 exit(EXIT_FAILURE);
             } else {
                 printf("Changed password.\n");
@@ -887,11 +925,11 @@ int main(int argc, char *argv[])
 
             /*Change crypto settings*/
             if (condition.userChoseCipher == true) {
-                snprintf(encCipherName,NAME_MAX,"%s",encCipherNameFromCmdLine);
+                snprintf(encCipherName, NAME_MAX, "%s", encCipherNameFromCmdLine);
                 printf("Changing cipher to %s\n", encCipherNameFromCmdLine);
             }
             if (condition.userChoseDigest == true) {
-                snprintf(messageDigestName,NAME_MAX,"%s",messageDigestNameFromCmdLine);
+                snprintf(messageDigestName, NAME_MAX, "%s", messageDigestNameFromCmdLine);
                 printf("Changing digest to %s\n", messageDigestNameFromCmdLine);
             }
         }
@@ -1079,7 +1117,7 @@ void allocateBuffers()
 void genPassWord(int stringLength)
 {
     unsigned char randomByte;
-    char *tempPassString = calloc(sizeof(char),stringLength + 1);
+    char *tempPassString = calloc(sizeof(char), stringLength + 1);
     int i = 0;
 
     /*Go until i has iterated over the length of the pass requested*/
@@ -1107,7 +1145,7 @@ void genPassWord(int stringLength)
         }
     }
 
-    snprintf(entryPass,UI_BUFFERS_SIZE,"%s",tempPassString);
+    snprintf(entryPass, UI_BUFFERS_SIZE, "%s", tempPassString);
     free(tempPassString);
 }
 
@@ -1149,7 +1187,7 @@ char *getPass(const char *prompt, char *paddedPass)
     nread = getline(&pass, &len, stdin);
     if (nread == -1)
         exit(EXIT_FAILURE);
-    else if (nread > (UI_BUFFERS_SIZE -1)) {
+    else if (nread > (UI_BUFFERS_SIZE - 1)) {
         /* Restore terminal. */
         (void)tcsetattr(fileno(stdin), TCSAFLUSH, &termisOld);
         OPENSSL_cleanse(pass, sizeof(char) * nread);
@@ -1563,7 +1601,7 @@ int openDatabase()
         printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
         exit(EXIT_FAILURE);
     }
-    snprintf(encCipherName,NAME_MAX,"%s",token);
+    snprintf(encCipherName, NAME_MAX, "%s", token);
 
     token = strtok(NULL, ":");
     if (token == NULL) {
@@ -1572,7 +1610,7 @@ int openDatabase()
     }
 
     /*Then the message digest*/
-    snprintf(messageDigestName,NAME_MAX,"%s",token);
+    snprintf(messageDigestName, NAME_MAX, "%s", token);
 
     /*Check the strings read are valid cipher and digest names*/
     evpCipher = EVP_get_cipherbyname(encCipherName);
@@ -1607,8 +1645,8 @@ void backupDatabase()
 {
     /*Before anything else, back up the password database*/
     if (condition.databaseBeingInitalized == false && condition.readingPass == false && condition.printingDbInfo == false) {
-        snprintf(backupFileName,NAME_MAX,"%s.autobak", dbFileName);
-      
+        snprintf(backupFileName, NAME_MAX + 9, "%s.autobak", dbFileName);
+
         FILE *backUpFile = fopen(backupFileName, "w");
         if (backUpFile == NULL) {
             printf("Couldn't make a backup file. Be careful...\n");
@@ -1790,13 +1828,7 @@ int writePass()
         free(decryptedBuffer);
         free(ctx);
         if (sendToClipboard(entryPass) == 0) {
-            printf("New password sent to clipboard. Paste with middle-click.\n");
-#ifdef HAVE_LIBX11
-            printf("clipboard will be cleared %i seconds after pasting\n", clipboardClearTimeSeconds);
-#endif
-#ifndef HAVE_LIBX11
-            printf("%i seconds before password is cleared from clipboard\n", clipboardClearTimeSeconds);
-#endif
+            printClipboardMessage(0);
         }
     } else {
         free(infoBuffer);
@@ -1877,16 +1909,10 @@ int printPasses(char *searchString)
                         free(ctx);
                         if (sendToClipboard(passBuffer) == 0) {
                             if (strcmp(searchString, entryName) == 0) {
-                                printf("Sent the entry's password to clipboard. Paste with middle-click.\n");
+                                printClipboardMessage(1);
                             } else {
-                                printf("Sent the first matched entry's password to clipboard. Paste with middle-click.\n(Note: There may be more entries that matched your search string)\n");
+                                printClipboardMessage(0);
                             }
-#ifdef HAVE_LIBX11
-                            printf("clipboard will be cleared %i seconds after pasting\n", clipboardClearTimeSeconds);
-#endif
-#ifndef HAVE_LIBX11
-                            printf("%i seconds before password is cleared from clipboard\n", clipboardClearTimeSeconds);
-#endif
                         }
                         OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
                         free(passBuffer);
@@ -2205,13 +2231,13 @@ int updateEntry(char *searchString)
 
             entriesMatched++;
 
-            if (! ((condition.sendToClipboard == true && entriesMatched > 1) || (condition.updateAllPasses == true && condition.sendToClipboard == true && entriesMatched > 1)) ) {
-                
+            if (!((condition.sendToClipboard == true && entriesMatched > 1) || (condition.updateAllPasses == true && condition.sendToClipboard == true && entriesMatched > 1))) {
+
                 //Update content in entryName before encrypting back
                 if (condition.entryGiven == true) {
                     memcpy(entryBuffer, newEntry, UI_BUFFERS_SIZE);
                 }
-        
+
                 /*This will preserve the alphanumeric nature of a password if it has no symbols*/
                 if (condition.updateAllPasses == true) {
                     passLength = strlen(passWord);
@@ -2219,7 +2245,7 @@ int updateEntry(char *searchString)
                         if (isupper(passBuffer[i]) == 0 && islower(passBuffer[i]) == 0 && isdigit(passBuffer[i]) == 0)
                             numberOfSymbols++;
                     }
-        
+
                     if (numberOfSymbols == 0) {
                         condition.generateEntryPassAlpha = true;
                         condition.generateEntryPass = false;
@@ -2229,39 +2255,39 @@ int updateEntry(char *searchString)
                     }
                     numberOfSymbols = 0;
                 }
-        
+
                 /*Generate random passwords if gen was given, and for all if allpasses was given*/
                 /*If allpasses was given, they will be random regardless if gen is not set.*/
                 if (condition.updatingEntryPass == true && (condition.generateEntryPass == true || condition.updateAllPasses == true)) {
-        
+
                     /*This will generate a new pass for each entry during a bulk update*/
                     if (condition.genPassLengthGiven == true) {
                         genPassWord(genPassLength);
                         /*Have to copy over entryPass to newEntryPass since genPassWord() operates on entryPass buffer*/
-                        snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
+                        snprintf(newEntryPass, UI_BUFFERS_SIZE, "%s", entryPass);
                     } else {
                         genPassWord(DEFAULT_GENPASS_LENGTH);
-                        snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
+                        snprintf(newEntryPass, UI_BUFFERS_SIZE, "%s", entryPass);
                     }
-        
+
                     memcpy(passBuffer, newEntryPass, UI_BUFFERS_SIZE);
                     /*Do the same as above but if an alphanumeric pass was specified*/
                 } else if (condition.updatingEntryPass == true && (condition.generateEntryPassAlpha == true || condition.updateAllPasses == true)) {
                     if (condition.genPassLengthGiven == true) {
                         genPassWord(genPassLength);
-                        snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
+                        snprintf(newEntryPass, UI_BUFFERS_SIZE, "%s", entryPass);
                     } else {
                         genPassWord(DEFAULT_GENPASS_LENGTH);
-                        snprintf(newEntryPass,UI_BUFFERS_SIZE,"%s",entryPass);
+                        snprintf(newEntryPass, UI_BUFFERS_SIZE, "%s", entryPass);
                     }
-        
+
                     memcpy(passBuffer, newEntryPass, UI_BUFFERS_SIZE);
                 }
-        
+
                 if (condition.updatingEntryPass == true) {
                     memcpy(passBuffer, newEntryPass, UI_BUFFERS_SIZE);
                 }
-        
+
                 /*Copy the entryBuffer and passBuffer out to fileBuffer*/
                 for (i = 0; i < UI_BUFFERS_SIZE * 2; i++) {
                     if (i < UI_BUFFERS_SIZE)
@@ -2366,15 +2392,10 @@ int updateEntry(char *searchString)
         free(fileBuffer);
         free(ctx);
         if (sendToClipboard(newEntryPass) == 0) {
-            printf("\nSent new password to clipboard. Paste with middle-click.\n");
-#ifdef HAVE_LIBX11
-            printf("clipboard will be cleared %i seconds after pasting\n", clipboardClearTimeSeconds);
-#endif
-#ifndef HAVE_LIBX11
-            printf("%i seconds before password is cleared from clipboard\n", clipboardClearTimeSeconds);
-#endif
             if (entriesMatched > 1)
-                printf("(Note: Multiple entries matched, only updated and sent fist entry's password to clipboard)\n");
+                printClipboardMessage(entriesMatched);
+            else
+                printClipboardMessage(1);
         }
         OPENSSL_cleanse(newEntryPass, sizeof(char) * UI_BUFFERS_SIZE);
 
@@ -2589,10 +2610,18 @@ int sendToClipboard(char *textToSend)
     if (cid == -1)
         printSysError(errno);
 
-    snprintf(passBuffer,passLength + 1,"%s",textToSend);
+    snprintf(passBuffer, passLength + 1, "%s", textToSend);
 
     if (getpid() != pid) {
-        sendWithXlib(passBuffer, passLength, clipboardClearTimeSeconds);
+        /*FIXME*/
+        /*For some reason the timer method only works with the 'primary' selection*/
+        /*The password would be cleared immediately regardless if the user pasted it*/
+        /*Set selection to 'primary' instead*/
+        if (condition.selectionIsClipboard && clipboardClearTimeMiliSeconds <= 5000) {
+            condition.selectionIsClipboard = false;
+            condition.selectionIsPrimary = true;
+        }
+        sendWithXlib(passBuffer, passLength, clipboardClearTimeMiliSeconds);
         if (condition.readingPass == true)
             free(textToSend);
         exit(EXIT_SUCCESS);
@@ -2653,17 +2682,19 @@ int sendWithXlib(char *passToSend, int passLength, int clearTime)
 {
 
     Window rootWindow;
-    Display *xDisplay;
+    char *defaultDisplay = NULL;
+    Display *xDisplay = XOpenDisplay(defaultDisplay);
     XEvent XAeventStruct;
-    Atom selectionAtm = XA_PRIMARY;
+    Atom selectionAtm;
+    if (condition.selectionGiven == true && condition.selectionIsClipboard == true)
+        selectionAtm = XInternAtom(xDisplay, "CLIPBOARD", False);
+    else if (condition.selectionGiven == false || condition.selectionIsPrimary == true)
+        selectionAtm = XA_PRIMARY;
     Atom targetAtm = XA_STRING;
     int X11fileDescriptor; /* File descriptor on which XEvents appear */
     fd_set inputFileDescriptors;
     struct timeval timeVariable;
 
-    char *defaultDisplay = NULL;
-
-    xDisplay = XOpenDisplay(defaultDisplay);
     rootWindow = XCreateSimpleWindow(xDisplay, DefaultRootWindow(xDisplay), 0, 0, 1, 1, 0, 0, 0);
     XSetSelectionOwner(xDisplay, selectionAtm, rootWindow, CurrentTime);
 
@@ -2683,11 +2714,12 @@ int sendWithXlib(char *passToSend, int passLength, int clearTime)
             OPENSSL_cleanse(passToSend, sizeof(char) * passLength); /*Zero out password if selection was cleared and return out of loop*/
             return EXIT_SUCCESS;
         }
-        
+
         /*Clear selection 'clearTime' seconds after it has been pasted*/
+        /*If 'clearTime' is 0 clear password 50 ms after pasting*/
         if (!XPending(xDisplay)) {
-            timeVariable.tv_sec = (clearTime * 1000) / 1000;
-            timeVariable.tv_usec = ((clearTime * 1000) % 1000) * 1000;
+            timeVariable.tv_sec = clearTime / 1000;
+            timeVariable.tv_usec = (clearTime % 1000) * 1000;
 
             /* Build file descriptors */
             FD_ZERO(&inputFileDescriptors);
@@ -2707,30 +2739,34 @@ int sendWithXlib(char *passToSend, int passLength, int clearTime)
 int sendToClipboard(char *textToSend)
 {
     int passLength = strlen(textToSend);
-    char xclipCommand[] = "xclip";
-    char wipeCommand[] = "xclip";
-    char wipeOutBuffer[passLength];
+    char xselCommand[27];
+    char wipeCommand[27];
+    if (condition.selectionGiven == false || condition.selectionIsPrimary == true) {
+        strcpy(xselCommand, "xsel");
+        strcpy(wipeCommand, "xsel -c");
+    } else if (condition.selectionGiven == true && condition.selectionIsClipboard == true) {
+        strcpy(xselCommand, "xsel -b");
+        strcpy(wipeCommand, "xsel -b -c");
+    }
+
     char passBuffer[passLength];
 
-    /*Using openssl_cleanse instead of memset so optimization won't wipe it out*/
-    OPENSSL_cleanse(wipeOutBuffer, passLength);
-
-    FILE *xclipFile = popen(xclipCommand, "w");
+    FILE *xselFile = popen(xselCommand, "w");
     pid_t pid;
 
-    snprintf(passBuffer,passLength + 1,"%s",textToSend);
+    snprintf(passBuffer, passLength + 1, "%s", textToSend);
 
-    if (xclipFile == NULL) {
+    if (xselFile == NULL) {
         printSysError(errno);
         return 1;
     }
 
-    if (fwriteWErrCheck(passBuffer, sizeof(char), passLength, xclipFile) != 0) {
+    if (fwriteWErrCheck(passBuffer, sizeof(char), passLength, xselFile) != 0) {
         printSysError(returnVal);
         return 1;
     }
 
-    if (pclose(xclipFile) == -1) {
+    if (pclose(xselFile) == -1) {
         printSysError(errno);
         return 1;
     }
@@ -2738,7 +2774,7 @@ int sendToClipboard(char *textToSend)
     OPENSSL_cleanse(passBuffer, passLength);
     OPENSSL_cleanse(textToSend, passLength);
 
-    /*Going to fork off the application into the background, and wait 30 seconds to send zeroes to the xclip clipboard*/
+    /*Going to fork off the application into the background, and wait 30 seconds to send zeroes to the xsel clipboard*/
 
     /*Stops the child process from exiting when the parent does*/
     if (signal(SIGHUP, SIG_IGN) == SIG_ERR) {
@@ -2759,25 +2795,15 @@ int sendToClipboard(char *textToSend)
 
     /* At this point we are executing as the child process */
     /* Don't return 1 on error after this point*/
+    
+    struct timespec ts;
 
-    /* Create a new SID for the child process */
+    ts.tv_sec = clipboardClearTimeMiliSeconds / 1000;
+    ts.tv_nsec = (clipboardClearTimeMiliSeconds % 1000) * 1000000;
+    
+    nanosleep(&ts, &ts);
 
-    sleep(clipboardClearTimeSeconds);
-
-    FILE *wipeFile = popen(wipeCommand, "w");
-
-    if (wipeFile == NULL) {
-        printSysError(errno);
-    }
-
-    if (fwriteWErrCheck(wipeOutBuffer, sizeof(char), passLength, wipeFile) != 0) {
-        printSysError(returnVal);
-    }
-
-    if (pclose(wipeFile) == -1) {
-        fprintf(stderr, "Line %i: %s\n", __LINE__, strerror(errno));
-        exit(EXIT_FAILURE);
-    }
+    system(wipeCommand);
 
     /*Leave this as 1 otherwise messages about what was sent to clipboard will be repeated*/
     /*The child process will return to calling function, and a conditional tests if this function returns 0*/
@@ -2830,6 +2856,57 @@ int compareMAC(const void *in_a, const void *in_b, size_t len)
         x |= a[i] ^ b[i];
 
     return x;
+}
+
+void printClipboardMessage(int entriesMatched)
+{
+    /*FIXME*/
+    /*For some reason the timer method only works with the 'primary' selection*/
+    /*The password would be cleared immediately regardless if the user pasted it*/
+    /*Set selection to 'primary' instead and inform user*/
+    if (condition.selectionIsClipboard && clipboardClearTimeMiliSeconds <= 5000) {
+        condition.selectionIsClipboard = false;
+        condition.selectionIsPrimary = true;
+        printf("Using 'primary' selection instead because password will be cleared before being able to paste if using 'clipboard'\n");
+    }
+
+    if (condition.addingPass == true) {
+        printf("New password sent to clipboard.");
+        if (condition.selectionGiven == false || condition.selectionIsPrimary == true)
+            printf("\nPaste with middle-click\n");
+        else if (condition.selectionIsClipboard == true)
+            printf("\nPaste with Ctrl+V or Right-Click->Paste\n");
+    } else if (condition.readingPass == true) {
+        if (entriesMatched == 1) {
+            printf("\nSent the entry's password to clipboard.");
+        } else {
+            printf("\nSent the first matched entry's password to clipboard. (Note: There may be more entries that matched your search string)");
+        }
+        if (condition.selectionGiven == false || condition.selectionIsPrimary == true)
+            printf("\nPaste with middle-click\n");
+        else if (condition.selectionIsClipboard == true)
+            printf("\nPaste with Ctrl+V or Right-Click->Paste\n");
+    } else if (condition.updatingEntry == true) {
+        printf("\nSent new password to clipboard.");
+        if (entriesMatched > 1)
+            printf(" (Note: Multiple entries matched, only updated and sent fist entry's password to clipboard)");
+        if (condition.selectionGiven == false || condition.selectionIsPrimary == true)
+            printf("\nPaste with middle-click\n");
+        else if (condition.selectionIsClipboard == true)
+            printf("\nPaste with Ctrl+V or Right-Click->Paste\n");
+    }
+#ifndef HAVE_LIBX11
+    printf("%.2f seconds before password is cleared\n", (float)clipboardClearTimeMiliSeconds / 1000);
+#elif HAVE_LIBX11
+    if (condition.selectionIsClipboard == true)
+        printf("%.2f seconds before password is cleared\n", (float)clipboardClearTimeMiliSeconds / 1000);
+    else {
+        if (clipboardClearTimeMiliSeconds != 0)
+            printf("Password will be cleared %.2f seconds after it is pasted\n", (float)clipboardClearTimeMiliSeconds / 1000);
+        else
+            printf("Password will be cleared immediately after it is pasted\n");
+    }
+#endif
 }
 
 void printDbInfo()
@@ -2943,17 +3020,17 @@ void cleanUpBuffers()
     free(encryptedBuffer);
 }
 
-bool xclipIsInstalled(void)
+bool xselIsInstalled(void)
 {
     char *pathBuffer;
     char pathString[NAME_MAX], pathToCheck[NAME_MAX];
     char *token;
-    bool xclipInstalled = false;
+    bool xselInstalled = false;
     struct stat sb;
 
     pathBuffer = (char *)getenv("PATH");
 
-    snprintf(pathString,NAME_MAX,"%s",pathBuffer);
+    snprintf(pathString, NAME_MAX, "%s", pathBuffer);
 
     token = strtok(pathString, ":");
     if (token == NULL) {
@@ -2962,10 +3039,10 @@ bool xclipIsInstalled(void)
     }
 
     while (1) {
-        snprintf(pathToCheck,NAME_MAX,"%s/xclip",token);
+        snprintf(pathToCheck, NAME_MAX, "%s/xsel", token);
 
         if (stat(pathToCheck, &sb) == 0 && sb.st_mode & S_IXUSR) {
-            xclipInstalled = true;
+            xselInstalled = true;
             break;
         } else {
             token = strtok(NULL, ":");
@@ -2975,7 +3052,7 @@ bool xclipIsInstalled(void)
         }
     }
 
-    if (xclipInstalled == true)
+    if (xselInstalled == true)
         return true;
     else
         return false;
@@ -3040,17 +3117,19 @@ int printSyntax(char *arg)
 {
     printf("\
 \nReccomend Syntax: \
-\n\n%s passmanager  -a entry name | -r entry name | -d entry name | -u entry name | -U  [-n new name ] [-p new entry password] [-l random password length] [-c cipher] [-H digest] [-i iterations ] [ -P ] [-x database password] [ -C ] [ -s seconds ] -f database file\
+\n\n%s passmanager  -a entry name | -r entry name | -d entry name | -u entry name | -U  [-n new name ] [-p new entry password] [-l random password length] [-c cipher] [-H digest] [-i iterations ] [ -P ] [-x database password] [ -C ] [ -O ] [ -s selection ] [ -t seconds or miliseconds ] -f database file\
 \nOptions: \
-\n-n new name - entry name up to 512 characters (can contain white space or special characters) \
-\n-p new entry password - entry password up to 512 characters (don't call to be prompted instead) ('gen' will generate a random password, 'genalpha' will generate a random password with no symbols)\
+\n-n new name - entry name up to 511 characters (can contain white space or special characters) \
+\n-p new entry password - entry password up to 511 characters (don't call to be prompted instead) ('gen' will generate a random password, 'genalpha' will generate a random password with no symbols)\
 \n-l random password length - makes 'gen' or 'genalpha' generate a password random password length digits long (defaults to 16 without this option) \
 \n-c cipher - Specify 'list' for a list of methods available to OpenSSL. Default: aes-256-ctr. \
 \n-H digest - Specify 'list' for a list of methods available to OpenSSL. Default: sha512. \
-\n-i iterations - Specify amount of PBKDF2 to be iterations. Default: 500000\
+\n-i iterations - Specify amount of PBKDF2 to be iterations. Default: 1000000\
 \n-P - In Update entry or Update database mode (-u and -U respectively) this option enables updating the entry password or database password via prompt instead of as command line argument \
 \n-C - end entry password directly to clipboard. Clipboard is cleared automatically after pasting, or in 30 seconds. \
-\n-s seconds - clear clipboard seconds after instead of default 30. \
+\n-t 'n'ms or 'n's - clear password from clipboard in the specified amount of miliseconds or seconds instead of default 30 seconds. \
+\n-O - implies '-t 55ms' to allow only one pasting of pssword before its cleared \
+\n-s selection - use either the 'primary' or 'clipboard' X selection. (Defaults to 'primary')\
 \n-x database password - To supply database password as command-line argument (not reccomended) \
 \n-I - print database information \
 \n-f - database file ( must be specified ) \
@@ -3064,11 +3143,15 @@ int printSyntax(char *arg)
 \n     \t-H 'digest' - Derives keys for 'cipher' with digest 'digest'.\
 \n     \t-i 'iterations' - Specify PBKDF2 iteration amount as iterations. \
 \n     \t-C send new entry's password to clipboard (useful if randomly generated)\
-\n     \t-s seconds - clear clipboard seconds after instead of default 30.\
+\n     \t-t 'n'ms or 'n's - clear password from clipboard in the specified amount of miliseconds or seconds instead of default 30 seconds.\
+\n     \t-O implies '-t 55ms' to allow only one pasting of pssword before its cleared \
+\n     \t-s 'selection' - use either the 'primary' or 'clipboard' X selection. (Defaults to 'primary')\
 \n-r - Read mode \
 \n     \t-x 'database password'\
 \n     \t-C  send a specified entry's password directly to clipboard \
-\n     \t-s seconds - clear clipboard seconds after instead of default 30.\
+\n     \t-t 'n'ms or 'n's - clear password from clipboard in the specified amount of miliseconds or seconds instead of default 30 seconds.\
+\n     \t-O implies '-t 55ms' to allow only one pasting of pssword before its cleared \
+\n     \t-s 'selection' - use either the 'primary' or 'clipboard' X selection.(Defaults to 'primary')\
 \n-d - Delete mode \
 \n     \t-x 'database password'\
 \n-u - Update entry mode \
@@ -3078,14 +3161,16 @@ int printSyntax(char *arg)
 \n     \t-n 'entry' - update the entry's name to 'entry'. Without this its assumed you're only changing entry's password. \
 \n     \t-x 'database password'\
 \n     \t-C send entry's new password directly to clipboard\
-\n     \t-s seconds - clear clipboard seconds after instead of default 30.\
+\n     \t-t 'n'ms or 'n's - clear password from clipboard in the specified amount of miliseconds or seconds instead of default 30 seconds.\
+\n     \t-O implies '-t 55ms' to allow only one pasting of pssword before its cleared \
+\n     \t-s 'selection' - use either the 'primary' or 'clipboard' X selection. (Defaults to 'primary')\
 \n-U - Update database mode \
 \n     \t-P  updates database password. Read via prompt. Cannot be supplied via commandline. \
 \n     \t-x 'database password' (the current database password to decrypt/with) \
 \n     \t-c 'cipher' - Update encryption algorithm  \
 \n     \t-H 'digest' - Update digest used for algorithms' KDFs \
 \n     \t-i 'iterations' - Update iteration amount used by PBKDF2 to 'iterations'\
-\nVersion 3.2.8\
+\nVersion 3.2.9\
 \n\
 ",
            arg);

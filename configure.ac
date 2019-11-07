@@ -2,13 +2,13 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([passmanager], [3.2.8])
+AC_INIT([passmanager], [3.2.9])
 AC_CONFIG_SRCDIR([src/passmanager.c])
 AM_INIT_AUTOMAKE([subdir-objects foreign])
 AC_CONFIG_HEADERS([config.h])
 AM_MAINTAINER_MODE
 
-: ${CFLAGS="-g -Wall -Wextra -pedantic -Wno-self-assign -fsanitize=undefined"}
+: ${CFLAGS="-g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined"}
 
 # Checks for programs.
 AC_PROG_CC
@@ -20,19 +20,21 @@ AC_PROG_CC
 
 AC_ARG_ENABLE([x11],
             [AS_HELP_STRING([--disable-x11],
-              [use xclip binary instead of integrated X11 code to send passwords to clipboard])],
+              [use xsel binary instead of integrated X11 code to send passwords to clipboard])],
             [with_x11=no],
             [with_x11=yes])
           
-          LIBS=
+          X11LIB=
           AS_IF([test "x$with_x11" != xno],
             [AC_CHECK_LIB([X11], [main],
-              [AC_SUBST([LIBS], ["-lX11"])
+              [AC_SUBST([X11LIB], ["-lX11"])
                AC_DEFINE([HAVE_LIBX11], [1],
                          [Define if you have libX11])
               ],
               [AC_MSG_FAILURE(
                  [x11 development files needed for clipboard functions (--disable-x11 to disable)])])])
+                 
+LIBS="$X11LIB"
 
 dnl Order matters!
   if test "$PORTNAME" != "win32"; then

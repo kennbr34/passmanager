@@ -58,14 +58,14 @@ echo passmanager -r allpasses -f ./examplepasswords1.dat -x password
 passmanager -r allpasses -f ./examplepasswords1.dat -x password
 echo -e "\nNow add a new entry 'name' to the database with a random password and send the password to the clipboard, and clear the clipboard after 5 seconds... (Press enter)"
 read
-echo passmanager -a name -p gen -f ./examplepasswords1.dat -x password -C -s 5
-passmanager -a name -p gen -f ./examplepasswords1.dat -x password -C -s 5
+echo passmanager -a name -p gen -f ./examplepasswords1.dat -x password -C -t 5s
+passmanager -a name -p gen -f ./examplepasswords1.dat -x password -C -t 5s
 echo -e "\nGo ahead and middle-click your mouse, and the password will be displayed.  Wait 5 seconds and try it again, and it should be cleared..."
 read
 echo -e "Now read that pass from the database and send it to the clipboard... (Press enter)"
 read
-echo passmanager -r name -f ./examplepasswords1.dat -x password -C -s 5
-passmanager -r name -f ./examplepasswords1.dat -x password -C -s 5
+echo passmanager -r name -f ./examplepasswords1.dat -x password -C -t 5s
+passmanager -r name -f ./examplepasswords1.dat -x password -C -t 5s
 echo -e "\nCheck it is read and erased with middle-click..."
 read
 echo -e "Now let's display it... (Press enter)"

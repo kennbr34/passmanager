@@ -28,7 +28,7 @@ X11 development files
 
 ...or
 
-xclip (to pipe password to)
+xsel (to pipe password to)
 
 # INSTALL
 
@@ -44,7 +44,7 @@ $ make
 
 \# make install
 
-If you would rather use xclip for clipboard functions (or to disable them all together if xclip is not installed)...
+If you would rather use xsel for clipboard functions (or to disable them all together if xsel is not installed)...
 
 $ ./configure --disable-x11
 
@@ -58,7 +58,7 @@ If you don't want to install the automake package contents, and want to compile 
 
 gcc passmanager.c -o passmanager -lcrypto -lX11 -D HAVE_LIBX11
 
-...or if you want to use xclip for clipboard functions, or disable clipboard functions all together...
+...or if you want to use xsel for clipboard functions, or disable clipboard functions all together...
 
 gcc passmanager.c -o passmanager -lcrypto
 
