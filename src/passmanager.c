@@ -178,7 +178,10 @@ unsigned char MACcipherTextGenerates[SHA512_DIGEST_LENGTH];
 unsigned char MACcipherTextSignedWith[SHA512_DIGEST_LENGTH];
 unsigned char MACdBFileSignedWith[SHA512_DIGEST_LENGTH];
 unsigned char MACdBFileGenerates[SHA512_DIGEST_LENGTH];
+unsigned char MACdBPassSignedWith[SHA512_DIGEST_LENGTH];
+unsigned char MACdBPassGenerates[SHA512_DIGEST_LENGTH];
 unsigned int *HMACLengthPtr;
+int MACSize = SHA512_DIGEST_LENGTH;
 
 int PBKDF2Iterations = DEFAULT_PBKDF2_ITER;
 int PBKDF2IterationsStore;
@@ -681,6 +684,11 @@ int main(int argc, char *argv[])
                 printError("Could not create HMAC key");
                 exit(EXIT_FAILURE);
             }
+            /*HMAC User Supplied Password*/
+            if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), MACdBPassGenerates, HMACLengthPtr) == NULL) {
+                printError("HMAC falied");
+                exit(EXIT_FAILURE);
+            }
         }
 
         /*Derives a key for the EVP algorithm*/
@@ -707,6 +715,12 @@ int main(int argc, char *argv[])
 
         /*Note no configEvp() needed before openDatabase() in Read mode*/
         openDatabase();
+        
+        /*HMAC User Supplied Password*/
+        if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), MACdBPassGenerates, HMACLengthPtr) == NULL) {
+            printError("HMAC falied");
+            exit(EXIT_FAILURE);
+        }
 
         if (deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations) != 0) {
             printError("Could not derive EVP key");
@@ -1432,7 +1446,14 @@ int writeDatabase()
         exit(EXIT_FAILURE);
     }
 
+    /*HMAC Database File*/
     if (HMAC(EVP_sha512(), HMACKey, MACSize, fileBuffer, returnFileSize(dbFileName), MACdBFileGenerates, HMACLengthPtr) == NULL) {
+        printError("HMAC falied");
+        exit(EXIT_FAILURE);
+    }
+    
+    /*HMAC User Supplied Password*/
+    if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), MACdBPassGenerates, HMACLengthPtr) == NULL) {
         printError("HMAC falied");
         exit(EXIT_FAILURE);
     }
@@ -1462,6 +1483,11 @@ int writeDatabase()
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
+    
+    if (fwriteWErrCheck(MACdBPassGenerates, sizeof(unsigned char), MACSize, dbFile) != 0) {
+        printSysError(returnVal);
+        exit(EXIT_FAILURE);
+    }
 
     if (fclose(dbFile) == EOF) {
         printFileError(dbFileName, errno);
@@ -1478,7 +1504,7 @@ int openDatabase()
     unsigned char *verificationBuffer;
     int MACSize = SHA512_DIGEST_LENGTH;
     int fileSize = returnFileSize(dbFileName);
-    evpDataSize = fileSize - (EVP_SALT_SIZE + CRYPTO_HEADER_SIZE + (MACSize * 2));
+    evpDataSize = fileSize - (EVP_SALT_SIZE + CRYPTO_HEADER_SIZE + (MACSize * 3));
 
     FILE *dbFile;
 
@@ -1516,7 +1542,7 @@ int openDatabase()
     }
 
     /*Copy all of the file minus the MACs but including the salt and cryptoHeader into a buffer for verification*/
-    verificationBuffer = calloc(fileSize - (MACSize * 2), sizeof(unsigned char));
+    verificationBuffer = calloc(fileSize - (MACSize * 3), sizeof(unsigned char));
     if (verificationBuffer == NULL) {
         printSysError(errno);
         exit(EXIT_FAILURE);
@@ -1528,14 +1554,14 @@ int openDatabase()
         exit(EXIT_FAILURE);
     }
 
-    /*Read in the size of the file minus the size of the two MACs i.e. MACSize * 2*/
-    if (freadWErrCheck(verificationBuffer, sizeof(unsigned char), fileSize - (MACSize * 2), dbFile) != 0) {
+    /*Read in the size of the file minus the size of the three MACs i.e. MACSize * 3*/
+    if (freadWErrCheck(verificationBuffer, sizeof(unsigned char), fileSize - (MACSize * 3), dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
 
     /*Set the file position to the beginning of the first MAC*/
-    if (fseek(dbFile, fileSize - (MACSize * 2), SEEK_SET) != 0) {
+    if (fseek(dbFile, fileSize - (MACSize * 3), SEEK_SET) != 0) {
         printSysError(errno);
         exit(EXIT_FAILURE);
     }
@@ -1549,10 +1575,30 @@ int openDatabase()
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
+    
+    if (freadWErrCheck(MACdBPassSignedWith, sizeof(unsigned char), MACSize, dbFile) != 0) {
+        printSysError(returnVal);
+        exit(EXIT_FAILURE);
+    }
 
     if (condition.printingDbInfo == false) {
+        
+        /*HMAC User Supplied Password*/
+        if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), MACdBPassGenerates, HMACLengthPtr) == NULL) {
+            printError("HMAC falied");
+            exit(EXIT_FAILURE);
+        }
+        
+        /*Verify dbPass*/
+        if (compareMAC(MACdBPassSignedWith, MACdBPassGenerates, MACSize) != 0) {
+            /*Return error status before proceeding and clean up sensitive data*/
+            printMACErrMessage(2);
 
-        if (HMAC(EVP_sha512(), HMACKey, MACSize, verificationBuffer, fileSize - (MACSize * 2), MACdBFileGenerates, HMACLengthPtr) == NULL) {
+            exit(EXIT_FAILURE);
+        }
+
+        /*HMAC Database File*/
+        if (HMAC(EVP_sha512(), HMACKey, MACSize, verificationBuffer, fileSize - (MACSize * 3), MACdBFileGenerates, HMACLengthPtr) == NULL) {
             printError("HMAC failed");
             exit(EXIT_FAILURE);
         }
@@ -1710,7 +1756,7 @@ int writePass()
         infoBuffer[i + UI_BUFFERS_SIZE] = entryPass[i];
 
     if (condition.databaseBeingInitalized == false) {
-
+        
         /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
         if (verifyCiphertext(EVP_CIPHER_iv_length(evpCipher), fileSize, encryptedBuffer, HMACKey, evpIv) != 0) {
             /*Return error status before proceeding and clean up sensitive data*/
@@ -1855,7 +1901,7 @@ int printPasses(char *searchString)
     unsigned char *entryBuffer = calloc(sizeof(char), UI_BUFFERS_SIZE);
     unsigned char *passBuffer = calloc(sizeof(char), UI_BUFFERS_SIZE);
     unsigned char *decryptedBuffer = calloc(sizeof(char), fileSize + EVP_MAX_BLOCK_LENGTH);
-
+        
     /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
     if (verifyCiphertext(EVP_CIPHER_iv_length(evpCipher), fileSize, encryptedBuffer, HMACKey, evpIv) != 0) {
         /*Return error status before proceeding and clean up sensitive data*/
@@ -3103,13 +3149,13 @@ void signalHandler(int signum)
 int printMACErrMessage(int errMessage)
 {
     if (errMessage == 0)
-        printf("Database Authentication Failed\nThis could mean the database file has been modified since the program last ran.\
-				\nOr simply that you entered the wrong password.\n");
+        printf("Database Authentication Failed\nThis means the database file has been modified since the program last ran.\n");
     else if (errMessage == 1)
         printf("Ciphertext Authentication Failed\
-				\nThis means the content of the ciphertext or IV has been changed since loaded or generated from file.\
-				\nThis definitely should not happen!\n");
-
+				\nThis means the content of the ciphertext or IV has been changed since loaded into memory.\
+				\nThis could indicate a live attack in progress and should definitely not happen!\n");
+    else if (errMessage == 2)
+        printf("Password was incorrect.\n");
     return 0;
 }
 
@@ -3170,7 +3216,7 @@ int printSyntax(char *arg)
 \n     \t-c 'cipher' - Update encryption algorithm  \
 \n     \t-H 'digest' - Update digest used for algorithms' KDFs \
 \n     \t-i 'iterations' - Update iteration amount used by PBKDF2 to 'iterations'\
-\nVersion 3.2.9\
+\nVersion 3.3.10\
 \n\
 ",
            arg);
