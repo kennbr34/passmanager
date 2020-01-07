@@ -3151,11 +3151,25 @@ void signalHandler(int signum)
 int printMACErrMessage(int errMessage)
 {
     if (errMessage == 0)
-        printf("Database Authentication Failed\nThis means the database file has been modified since the program last ran.\n");
+        printf("Database Authentication Failed\
+                \n\nThis means the database file has been modified or corrupted since the program last saved it.\
+                \n\nThis could be caused by:\
+                \n\t1. An attacker has attempted to modify any part of the database on disk\
+                \n\t2. A data-integrity issue with your storage media\
+                \n\t3. A corrupted footer which has altered the MAC\
+                \n\t4. A bug in the program\
+                \n\nPlease verify your system is secure, storage media is not failing, and restore from backup.\
+                \n\nIf you believe this to be caused by a bug, please open a ticket at: https://github.com/kennbr34/passmanager/issues\n");
     else if (errMessage == 1)
         printf("Ciphertext Authentication Failed\
-				\nThis means the content of the ciphertext or IV has been changed since loaded into memory.\
-				\nThis could indicate a live attack in progress and should definitely not happen!\n");
+				\n\nThis means the cipher-text or associated data has been modified after being loaded into memory.\
+                \n\nThis could be caused by:\
+                \n\t1. An attacker has attempted to modify the cipher-text and/or associated data in memory\
+                \n\t2. A data-integrity issue with your storage media\
+                \n\t3. A corrupted footer which has altered the MAC\
+                \n\t4. A bug in the program\
+                \n\nPlease verify your system is secure, storage media is not failing, and restore from backup.\
+                \n\nIf you believe this to be caused by a bug, please open a ticket at: https://github.com/kennbr34/passmanager/issues\n");
     else if (errMessage == 2)
         printf("Password was incorrect.\n");
     return 0;
