@@ -1593,6 +1593,14 @@ int openDatabase()
         if (compareMAC(MACdBPassSignedWith, MACdBPassGenerates, MACSize) != 0) {
             /*Return error status before proceeding and clean up sensitive data*/
             printMACErrMessage(2);
+            
+            if (fclose(dbFile) == EOF) {
+                printFileError(dbFileName, errno);
+                free(verificationBuffer);
+                exit(EXIT_FAILURE);
+            }
+
+            free(verificationBuffer);
 
             exit(EXIT_FAILURE);
         }
