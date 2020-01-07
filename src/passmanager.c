@@ -715,12 +715,6 @@ int main(int argc, char *argv[])
 
         /*Note no configEvp() needed before openDatabase() in Read mode*/
         openDatabase();
-        
-        /*HMAC User Supplied Password*/
-        if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), MACdBPassGenerates, HMACLengthPtr) == NULL) {
-            printError("HMAC falied");
-            exit(EXIT_FAILURE);
-        }
 
         if (deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations) != 0) {
             printError("Could not derive EVP key");
