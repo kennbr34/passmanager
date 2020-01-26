@@ -137,6 +137,7 @@ int sendToClipboard();
 int printSyntax(char *arg);
 int printMACErrMessage(int errMessage);
 int verifyCiphertext(unsigned int IvLength, unsigned int encryptedBufferLength, unsigned char *encryptedBuffer, unsigned char *HMACKey, unsigned char *evpIv);
+int checkPassword();
 int signCiphertext(unsigned int IvLength, unsigned int encryptedBufferLength, unsigned char *encryptedBuffer);
 int evpDecrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, unsigned char *encryptedBuffer, unsigned char *decryptedBuffer);
 int evpEncrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, unsigned char *encryptedBuffer, unsigned char *decryptedBuffer);
@@ -173,11 +174,13 @@ char cryptoHeader[CRYPTO_HEADER_SIZE];
 unsigned char *HMACKey, *HMACKeyNew, *HMACKeyOld;
 
 unsigned char *evpSalt;
+unsigned char encryptedEvpSalt[EVP_SALT_SIZE];
+unsigned char decryptedEvpSalt[EVP_SALT_SIZE];
 
 unsigned char MACcipherTextGenerates[SHA512_DIGEST_LENGTH];
 unsigned char MACcipherTextSignedWith[SHA512_DIGEST_LENGTH];
-unsigned char MACdBFileSignedWith[SHA512_DIGEST_LENGTH];
-unsigned char MACdBFileGenerates[SHA512_DIGEST_LENGTH];
+unsigned char CheckSumDbFileSignedWith[SHA512_DIGEST_LENGTH];
+unsigned char CheckSumDbFileGenerates[SHA512_DIGEST_LENGTH];
 unsigned int *HMACLengthPtr;
 
 int PBKDF2Iterations = DEFAULT_PBKDF2_ITER;
@@ -1346,8 +1349,11 @@ int writeDatabase()
         return errno;
     }
     unsigned char *fileBuffer;
-    int MACSize = SHA512_DIGEST_LENGTH;
     int fileSize = evpDataSize;
+    
+    int evpOutputLength;
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    EVP_CIPHER_CTX_init(ctx);
 
     if (!RAND_bytes(cryptoHeaderPadding, CRYPTO_HEADER_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
@@ -1431,12 +1437,12 @@ int writeDatabase()
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
-
-    if (HMAC(EVP_sha512(), HMACKey, MACSize, fileBuffer, returnFileSize(dbFileName), MACdBFileGenerates, HMACLengthPtr) == NULL) {
+    
+    if (SHA512(fileBuffer, returnFileSize(dbFileName), CheckSumDbFileGenerates) == NULL) {
         printError("HMAC falied");
         exit(EXIT_FAILURE);
     }
-
+    
     free(fileBuffer);
 
     if (fclose(dbFile) == EOF) {
@@ -1453,15 +1459,33 @@ int writeDatabase()
     chmod(dbFileName, S_IRUSR | S_IWUSR);
 
     /*Append the MACs and close the file*/
-    if (fwriteWErrCheck(MACdBFileGenerates, sizeof(unsigned char), MACSize, dbFile) != 0) {
+    if (fwriteWErrCheck(CheckSumDbFileGenerates, sizeof(unsigned char), SHA512_DIGEST_LENGTH, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
 
-    if (fwriteWErrCheck(MACcipherTextGenerates, sizeof(unsigned char), MACSize, dbFile) != 0) {
+    if (fwriteWErrCheck(MACcipherTextGenerates, sizeof(unsigned char), SHA512_DIGEST_LENGTH, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
+    
+    /*Append encrypted version of evpSalt so that it can be used to check if supply password decrypts successfully*/
+    EVP_EncryptInit_ex(ctx, EVP_get_cipherbyname("aes-256-ctr"), NULL, evpKey, evpIv);
+
+    if (evpEncrypt(ctx, EVP_SALT_SIZE, &evpOutputLength, encryptedEvpSalt, evpSalt) != 0) {
+        printError("evpEncrypt failed");
+        free(ctx);
+
+        return 1;
+    }
+
+    EVP_CIPHER_CTX_cleanup(ctx);
+    
+    if (fwriteWErrCheck(encryptedEvpSalt, sizeof(unsigned char), EVP_SALT_SIZE, dbFile) != 0) {
+        printSysError(returnVal);
+        exit(EXIT_FAILURE);
+    }
+
 
     if (fclose(dbFile) == EOF) {
         printFileError(dbFileName, errno);
@@ -1476,9 +1500,8 @@ int openDatabase()
     char *token;
 
     unsigned char *verificationBuffer;
-    int MACSize = SHA512_DIGEST_LENGTH;
     int fileSize = returnFileSize(dbFileName);
-    evpDataSize = fileSize - (EVP_SALT_SIZE + CRYPTO_HEADER_SIZE + (MACSize * 2));
+    evpDataSize = fileSize - (EVP_SALT_SIZE + CRYPTO_HEADER_SIZE + (SHA512_DIGEST_LENGTH * 2) + EVP_SALT_SIZE);
 
     FILE *dbFile;
 
@@ -1516,7 +1539,7 @@ int openDatabase()
     }
 
     /*Copy all of the file minus the MACs but including the salt and cryptoHeader into a buffer for verification*/
-    verificationBuffer = calloc(fileSize - (MACSize * 2), sizeof(unsigned char));
+    verificationBuffer = calloc(fileSize - (SHA512_DIGEST_LENGTH * 2) - EVP_SALT_SIZE, sizeof(unsigned char));
     if (verificationBuffer == NULL) {
         printSysError(errno);
         exit(EXIT_FAILURE);
@@ -1528,37 +1551,42 @@ int openDatabase()
         exit(EXIT_FAILURE);
     }
 
-    /*Read in the size of the file minus the size of the two MACs i.e. MACSize * 2*/
-    if (freadWErrCheck(verificationBuffer, sizeof(unsigned char), fileSize - (MACSize * 2), dbFile) != 0) {
+    /*Read in the size of the file minus the size of the two MACs i.e. SHA512_DIGEST_LENGTH * 2*/
+    if (freadWErrCheck(verificationBuffer, sizeof(unsigned char), fileSize - (SHA512_DIGEST_LENGTH * 2) - EVP_SALT_SIZE, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
 
     /*Set the file position to the beginning of the first MAC*/
-    if (fseek(dbFile, fileSize - (MACSize * 2), SEEK_SET) != 0) {
+    if (fseek(dbFile, fileSize - (SHA512_DIGEST_LENGTH * 2) - EVP_SALT_SIZE, SEEK_SET) != 0) {
         printSysError(errno);
         exit(EXIT_FAILURE);
     }
 
-    if (freadWErrCheck(MACdBFileSignedWith, sizeof(unsigned char), MACSize, dbFile) != 0) {
+    if (freadWErrCheck(CheckSumDbFileSignedWith, sizeof(unsigned char), SHA512_DIGEST_LENGTH, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
 
-    if (freadWErrCheck(MACcipherTextSignedWith, sizeof(unsigned char), MACSize, dbFile) != 0) {
+    if (freadWErrCheck(MACcipherTextSignedWith, sizeof(unsigned char), SHA512_DIGEST_LENGTH, dbFile) != 0) {
+        printSysError(returnVal);
+        exit(EXIT_FAILURE);
+    }
+    
+    if (freadWErrCheck(encryptedEvpSalt, sizeof(char), EVP_SALT_SIZE, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
 
     if (condition.printingDbInfo == false) {
-
-        if (HMAC(EVP_sha512(), HMACKey, MACSize, verificationBuffer, fileSize - (MACSize * 2), MACdBFileGenerates, HMACLengthPtr) == NULL) {
+        
+        if (SHA512(verificationBuffer, fileSize - (SHA512_DIGEST_LENGTH * 2) - EVP_SALT_SIZE, CheckSumDbFileGenerates) == NULL) {
             printError("HMAC failed");
             exit(EXIT_FAILURE);
         }
 
         /*Verify authenticity of database*/
-        if (compareMAC(MACdBFileSignedWith, MACdBFileGenerates, MACSize) != 0) {
+        if (compareMAC(CheckSumDbFileSignedWith, CheckSumDbFileGenerates, SHA512_DIGEST_LENGTH) != 0) {
             /*Return error status before proceeding and clean up sensitive data*/
             printMACErrMessage(0);
 
@@ -1710,6 +1738,25 @@ int writePass()
         infoBuffer[i + UI_BUFFERS_SIZE] = entryPass[i];
 
     if (condition.databaseBeingInitalized == false) {
+        
+        EVP_DecryptInit(ctx, evpCipher, evpKey, evpIv);
+
+        if (evpDecrypt(ctx, EVP_SALT_SIZE, &evpOutputLength, encryptedEvpSalt, decryptedEvpSalt) != 0) {
+            printError("evpDecrypt failed\n");
+            free(ctx);
+        
+            return 1;
+        }
+        
+        EVP_CIPHER_CTX_cleanup(ctx);
+        
+        if(memcmp(evpSalt,decryptedEvpSalt,EVP_SALT_SIZE) != 0)
+        {
+            printf("Incorrect password\n");
+            free(ctx);
+        
+            return 1;
+        }
 
         /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
         if (verifyCiphertext(EVP_CIPHER_iv_length(evpCipher), fileSize, encryptedBuffer, HMACKey, evpIv) != 0) {
@@ -1855,6 +1902,17 @@ int printPasses(char *searchString)
     unsigned char *entryBuffer = calloc(sizeof(char), UI_BUFFERS_SIZE);
     unsigned char *passBuffer = calloc(sizeof(char), UI_BUFFERS_SIZE);
     unsigned char *decryptedBuffer = calloc(sizeof(char), fileSize + EVP_MAX_BLOCK_LENGTH);
+    
+    /*Check if password will decrypt properly*/
+    if(checkPassword() != 0) {
+        printf("Incorrect password\n");
+        
+        free(entryBuffer);
+        free(passBuffer);
+        free(decryptedBuffer);
+        
+        return 1;
+    }
 
     /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
     if (verifyCiphertext(EVP_CIPHER_iv_length(evpCipher), fileSize, encryptedBuffer, HMACKey, evpIv) != 0) {
@@ -1866,7 +1924,7 @@ int printPasses(char *searchString)
         free(decryptedBuffer);
         return 1;
     }
-
+    
     EVP_DecryptInit(ctx, evpCipher, evpKey, evpIv);
 
     if (evpDecrypt(ctx, fileSize, &evpOutputLength, encryptedBuffer, decryptedBuffer) != 0) {
@@ -1975,6 +2033,17 @@ int deletePass(char *searchString)
     if (decryptedBuffer == NULL) {
         printSysError(errno);
         return errno;
+    }
+    
+    /*Check if password will decrypt properly*/
+    if(checkPassword() != 0) {
+        printf("Password incorrect\n");
+        
+        free(entryBuffer);
+        free(passBuffer);
+        free(decryptedBuffer);
+        
+        return 1;
     }
 
     /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
@@ -2171,6 +2240,20 @@ int updateEntry(char *searchString)
         printSysError(errno);
         return errno;
     }
+    
+    /*Check if password will decrypt properly*/
+    if(checkPassword() !=0 ) {
+        printf("Incorrect password\n");
+        
+        OPENSSL_cleanse(newEntryPass, sizeof(unsigned char) * UI_BUFFERS_SIZE);
+        
+        free(newEntryPass);
+        free(entryBuffer);
+        free(passBuffer);
+        free(decryptedBuffer);
+
+        return 1;
+    }
 
     /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
     if (verifyCiphertext(EVP_CIPHER_iv_length(evpCipher), fileSize, encryptedBuffer, HMACKey, evpIv) != 0) {
@@ -2193,7 +2276,7 @@ int updateEntry(char *searchString)
         return errno;
     }
 
-    EVP_DecryptInit(ctx, evpCipher, evpKey, evpIv);
+    EVP_DecryptInit(ctx, EVP_get_cipherbyname("aes-256-ctr"), evpKey, evpIv);
 
     /*Decrypt file and store into decryptedBuffer*/
     if (evpDecrypt(ctx, fileSize, &evpOutputLength, encryptedBuffer, decryptedBuffer) != 0) {
@@ -2425,6 +2508,15 @@ int updateDbEnc()
         printSysError(errno);
         return errno;
     }
+    
+    /*Check if password will decrypt properly*/
+    if(checkPassword() !=0 ) {
+        printf("Incorrect password\n");
+        
+        free(decryptedBuffer);
+        
+        return 1;
+    }
 
     /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
     if (verifyCiphertext(EVP_CIPHER_iv_length(evpCipherOld), fileSize, encryptedBuffer, HMACKeyOld, evpIvOld) != 0) {
@@ -2528,6 +2620,36 @@ int verifyCiphertext(unsigned int IvLength, unsigned int encryptedBufferLength, 
         return 1;
     else
         return 0;
+}
+
+int checkPassword()
+{
+    int evpOutputLength;
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    EVP_CIPHER_CTX_init(ctx);
+    
+    if(condition.updatingDbEnc == true)
+        EVP_DecryptInit(ctx, EVP_get_cipherbyname("aes-256-ctr"), evpKeyOld, evpIvOld);
+    else
+        EVP_DecryptInit(ctx, EVP_get_cipherbyname("aes-256-ctr"), evpKey, evpIv);
+
+    if (evpDecrypt(ctx, EVP_SALT_SIZE, &evpOutputLength, encryptedEvpSalt, decryptedEvpSalt) != 0) {
+        printError("evpDecrypt failed\n");
+        free(ctx);
+    
+        return 1;
+    }
+    
+    EVP_CIPHER_CTX_cleanup(ctx);
+    
+    if(compareMAC(evpSalt,decryptedEvpSalt,EVP_SALT_SIZE) != 0)
+    {
+        free(ctx);
+    
+        return 1;
+    }
+    
+    return 0;
 }
 
 int signCiphertext(unsigned int IvLength, unsigned int encryptedBufferLength, unsigned char *encryptedBuffer)
@@ -2971,7 +3093,7 @@ void printDbInfo()
     printf("\tIV Size: %i bits\n", EVP_CIPHER_iv_length(EVP_get_cipherbyname(encCipherName)) * 8);
     printf("Database MAC:\n\t");
     for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
-        printf("%02x", MACdBFileSignedWith[i] & 0xff);
+        printf("%02x", CheckSumDbFileSignedWith[i] & 0xff);
     }
     printf("\n");
     printf("Ciphertext+IV MAC:\n\t");
@@ -3103,12 +3225,25 @@ void signalHandler(int signum)
 int printMACErrMessage(int errMessage)
 {
     if (errMessage == 0)
-        printf("Database Authentication Failed\nThis could mean the database file has been modified since the program last ran.\
-				\nOr simply that you entered the wrong password.\n");
+        printf("Database Integrity Failure\
+                \n\nThis means the database file has been modified or corrupted since the program last saved it.\
+                \n\nThis could be because:\
+                \n\t1. An attacker has attempted to modify any part of the database on disk\
+                \n\t2. A data-integrity issue with your storage media\
+                \n\t3. A corrupted footer which has altered the checksum\
+                \n\t4. A bug in the program\
+                \n\nPlease verify your system is secure, storage media is not failing, and restore from backup.\
+                \n\nIf you believe this to be caused by a bug, please open a ticket at: https://github.com/kennbr34/passmanager/issues\n");
     else if (errMessage == 1)
         printf("Ciphertext Authentication Failed\
-				\nThis means the content of the ciphertext or IV has been changed since loaded or generated from file.\
-				\nThis definitely should not happen!\n");
+				\n\nThis means the cipher-text or associated data has been modified after being loaded into memory.\
+                \n\nThis could be because:\
+                \n\t1. An attacker has attempted to modify the cipher-text and/or associated data in memory\
+                \n\t2. A data-integrity issue with your storage media\
+                \n\t3. A corrupted footer which has altered the MAC\
+                \n\t4. A bug in the program\
+                \n\nPlease verify your system is secure, storage media is not failing, and restore from backup.\
+                \n\nIf you believe this to be caused by a bug, please open a ticket at: https://github.com/kennbr34/passmanager/issues\n");
 
     return 0;
 }
@@ -3170,7 +3305,7 @@ int printSyntax(char *arg)
 \n     \t-c 'cipher' - Update encryption algorithm  \
 \n     \t-H 'digest' - Update digest used for algorithms' KDFs \
 \n     \t-i 'iterations' - Update iteration amount used by PBKDF2 to 'iterations'\
-\nVersion 3.2.9\
+\nVersion 3.3.10\
 \n\
 ",
            arg);
