@@ -176,8 +176,8 @@ unsigned char *evpSalt;
 
 unsigned char MACcipherTextGenerates[SHA512_DIGEST_LENGTH];
 unsigned char MACcipherTextSignedWith[SHA512_DIGEST_LENGTH];
-unsigned char MACdBFileSignedWith[SHA512_DIGEST_LENGTH];
-unsigned char MACdBFileGenerates[SHA512_DIGEST_LENGTH];
+unsigned char CheckSumDbFileSignedWith[SHA512_DIGEST_LENGTH];
+unsigned char CheckSumDbFileGenerates[SHA512_DIGEST_LENGTH];
 unsigned char MACdBPassSignedWith[SHA512_DIGEST_LENGTH];
 unsigned char MACdBPassGenerates[SHA512_DIGEST_LENGTH];
 unsigned int *HMACLengthPtr;
@@ -1440,8 +1440,8 @@ int writeDatabase()
         exit(EXIT_FAILURE);
     }
 
-    /*HMAC Database File*/
-    if (HMAC(EVP_sha512(), HMACKey, MACSize, fileBuffer, returnFileSize(dbFileName), MACdBFileGenerates, HMACLengthPtr) == NULL) {
+    /*Hash Database File*/
+    if (SHA512(fileBuffer, returnFileSize(dbFileName), CheckSumDbFileGenerates) == NULL) {
         printError("HMAC falied");
         exit(EXIT_FAILURE);
     }
@@ -1468,7 +1468,7 @@ int writeDatabase()
     chmod(dbFileName, S_IRUSR | S_IWUSR);
 
     /*Append the MACs and close the file*/
-    if (fwriteWErrCheck(MACdBFileGenerates, sizeof(unsigned char), MACSize, dbFile) != 0) {
+    if (fwriteWErrCheck(CheckSumDbFileGenerates, sizeof(unsigned char), MACSize, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
@@ -1560,7 +1560,7 @@ int openDatabase()
         exit(EXIT_FAILURE);
     }
 
-    if (freadWErrCheck(MACdBFileSignedWith, sizeof(unsigned char), MACSize, dbFile) != 0) {
+    if (freadWErrCheck(CheckSumDbFileSignedWith, sizeof(unsigned char), MACSize, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
@@ -1576,6 +1576,28 @@ int openDatabase()
     }
 
     if (condition.printingDbInfo == false) {
+
+        /*Hash Database File*/
+        if (SHA512(verificationBuffer, fileSize - (MACSize * 3), CheckSumDbFileGenerates) == NULL) {
+            printError("HMAC failed");
+            exit(EXIT_FAILURE);
+        }
+
+        /*Verify authenticity of database*/
+        if (compareMAC(CheckSumDbFileSignedWith, CheckSumDbFileGenerates, MACSize) != 0) {
+            /*Return error status before proceeding and clean up sensitive data*/
+            printMACErrMessage(0);
+
+            if (fclose(dbFile) == EOF) {
+                printFileError(dbFileName, errno);
+                free(verificationBuffer);
+                exit(EXIT_FAILURE);
+            }
+
+            free(verificationBuffer);
+
+            exit(EXIT_FAILURE);
+        }
         
         /*HMAC User Supplied Password*/
         if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), MACdBPassGenerates, HMACLengthPtr) == NULL) {
@@ -1588,28 +1610,6 @@ int openDatabase()
             /*Return error status before proceeding and clean up sensitive data*/
             printMACErrMessage(2);
             
-            if (fclose(dbFile) == EOF) {
-                printFileError(dbFileName, errno);
-                free(verificationBuffer);
-                exit(EXIT_FAILURE);
-            }
-
-            free(verificationBuffer);
-
-            exit(EXIT_FAILURE);
-        }
-
-        /*HMAC Database File*/
-        if (HMAC(EVP_sha512(), HMACKey, MACSize, verificationBuffer, fileSize - (MACSize * 3), MACdBFileGenerates, HMACLengthPtr) == NULL) {
-            printError("HMAC failed");
-            exit(EXIT_FAILURE);
-        }
-
-        /*Verify authenticity of database*/
-        if (compareMAC(MACdBFileSignedWith, MACdBFileGenerates, MACSize) != 0) {
-            /*Return error status before proceeding and clean up sensitive data*/
-            printMACErrMessage(0);
-
             if (fclose(dbFile) == EOF) {
                 printFileError(dbFileName, errno);
                 free(verificationBuffer);
@@ -3019,7 +3019,7 @@ void printDbInfo()
     printf("\tIV Size: %i bits\n", EVP_CIPHER_iv_length(EVP_get_cipherbyname(encCipherName)) * 8);
     printf("Database MAC:\n\t");
     for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
-        printf("%02x", MACdBFileSignedWith[i] & 0xff);
+        printf("%02x", CheckSumDbFileSignedWith[i] & 0xff);
     }
     printf("\n");
     printf("Ciphertext+IV MAC:\n\t");
@@ -3151,9 +3151,9 @@ void signalHandler(int signum)
 int printMACErrMessage(int errMessage)
 {
     if (errMessage == 0)
-        printf("Database Authentication Failed\
+        printf("Database Integrity Failure\
                 \n\nThis means the database file has been modified or corrupted since the program last saved it.\
-                \n\nThis could be caused by:\
+                \n\nThis could be because:\
                 \n\t1. An attacker has attempted to modify any part of the database on disk\
                 \n\t2. A data-integrity issue with your storage media\
                 \n\t3. A corrupted footer which has altered the MAC\
@@ -3161,9 +3161,9 @@ int printMACErrMessage(int errMessage)
                 \n\nPlease verify your system is secure, storage media is not failing, and restore from backup.\
                 \n\nIf you believe this to be caused by a bug, please open a ticket at: https://github.com/kennbr34/passmanager/issues\n");
     else if (errMessage == 1)
-        printf("Ciphertext Authentication Failed\
+        printf("Ciphertext Authentication Failure\
 				\n\nThis means the cipher-text or associated data has been modified after being loaded into memory.\
-                \n\nThis could be caused by:\
+                \n\nThis could be because:\
                 \n\t1. An attacker has attempted to modify the cipher-text and/or associated data in memory\
                 \n\t2. A data-integrity issue with your storage media\
                 \n\t3. A corrupted footer which has altered the MAC\
