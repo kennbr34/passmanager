@@ -139,6 +139,7 @@ int printMACErrMessage(int errMessage);
 int verifyCiphertext(unsigned int IvLength, unsigned int encryptedBufferLength, unsigned char *encryptedBuffer, unsigned char *HMACKey, unsigned char *evpIv);
 int checkPassword();
 int signCiphertext(unsigned int IvLength, unsigned int encryptedBufferLength, unsigned char *encryptedBuffer);
+int decryptSalt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, unsigned char *encryptedBuffer, unsigned char *decryptedBuffer);
 int evpDecrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, unsigned char *encryptedBuffer, unsigned char *decryptedBuffer);
 int evpEncrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, unsigned char *encryptedBuffer, unsigned char *decryptedBuffer);
 int freadWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream);
@@ -174,8 +175,8 @@ char cryptoHeader[CRYPTO_HEADER_SIZE];
 unsigned char *HMACKey, *HMACKeyNew, *HMACKeyOld;
 
 unsigned char *evpSalt;
-unsigned char encryptedEvpSalt[EVP_SALT_SIZE];
-unsigned char decryptedEvpSalt[EVP_SALT_SIZE];
+unsigned char *encryptedEvpSalt;
+unsigned char *decryptedEvpSalt;
 
 unsigned char MACcipherTextGenerates[SHA512_DIGEST_LENGTH];
 unsigned char MACcipherTextSignedWith[SHA512_DIGEST_LENGTH];
@@ -1107,6 +1108,26 @@ void allocateBuffers()
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(EXIT_FAILURE);
     }
+    
+    encryptedEvpSalt = calloc(sizeof(unsigned char), EVP_SALT_SIZE + EVP_MAX_BLOCK_LENGTH);
+    if (encryptedEvpSalt == NULL) {
+        printSysError(errno);
+        exit(EXIT_FAILURE);
+    }
+    if (!RAND_bytes(encryptedEvpSalt, EVP_SALT_SIZE + EVP_MAX_BLOCK_LENGTH)) {
+        printf("Failure: CSPRNG bytes could not be made unpredictable\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    decryptedEvpSalt = calloc(sizeof(unsigned char), EVP_SALT_SIZE + EVP_MAX_BLOCK_LENGTH);
+    if (decryptedEvpSalt == NULL) {
+        printSysError(errno);
+        exit(EXIT_FAILURE);
+    }
+    if (!RAND_bytes(decryptedEvpSalt, EVP_SALT_SIZE + EVP_MAX_BLOCK_LENGTH)) {
+        printf("Failure: CSPRNG bytes could not be made unpredictable\n");
+        exit(EXIT_FAILURE);
+    }
 
     evpSalt = calloc(sizeof(unsigned char), EVP_SALT_SIZE);
     if (evpSalt == NULL) {
@@ -1470,7 +1491,7 @@ int writeDatabase()
     }
     
     /*Append encrypted version of evpSalt so that it can be used to check if supply password decrypts successfully*/
-    EVP_EncryptInit_ex(ctx, EVP_get_cipherbyname("aes-256-ctr"), NULL, evpKey, evpIv);
+    EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
 
     if (evpEncrypt(ctx, EVP_SALT_SIZE, &evpOutputLength, encryptedEvpSalt, evpSalt) != 0) {
         printError("evpEncrypt failed");
@@ -1480,12 +1501,13 @@ int writeDatabase()
     }
 
     EVP_CIPHER_CTX_cleanup(ctx);
-    
-    if (fwriteWErrCheck(encryptedEvpSalt, sizeof(unsigned char), EVP_SALT_SIZE, dbFile) != 0) {
+        
+    if (fwriteWErrCheck(encryptedEvpSalt, sizeof(unsigned char), (EVP_SALT_SIZE + EVP_MAX_BLOCK_LENGTH), dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
-
+    
+    free(ctx);
 
     if (fclose(dbFile) == EOF) {
         printFileError(dbFileName, errno);
@@ -1501,7 +1523,7 @@ int openDatabase()
 
     unsigned char *verificationBuffer;
     int fileSize = returnFileSize(dbFileName);
-    evpDataSize = fileSize - (EVP_SALT_SIZE + CRYPTO_HEADER_SIZE + (SHA512_DIGEST_LENGTH * 2) + EVP_SALT_SIZE);
+    evpDataSize = fileSize - (EVP_SALT_SIZE + CRYPTO_HEADER_SIZE + (SHA512_DIGEST_LENGTH * 2) + (EVP_SALT_SIZE + EVP_MAX_BLOCK_LENGTH));
 
     FILE *dbFile;
 
@@ -1539,7 +1561,7 @@ int openDatabase()
     }
 
     /*Copy all of the file minus the MACs but including the salt and cryptoHeader into a buffer for verification*/
-    verificationBuffer = calloc(fileSize - (SHA512_DIGEST_LENGTH * 2) - EVP_SALT_SIZE, sizeof(unsigned char));
+    verificationBuffer = calloc(fileSize - (SHA512_DIGEST_LENGTH * 2) - (EVP_SALT_SIZE + EVP_MAX_BLOCK_LENGTH), sizeof(unsigned char));
     if (verificationBuffer == NULL) {
         printSysError(errno);
         exit(EXIT_FAILURE);
@@ -1552,13 +1574,13 @@ int openDatabase()
     }
 
     /*Read in the size of the file minus the size of the two MACs i.e. SHA512_DIGEST_LENGTH * 2*/
-    if (freadWErrCheck(verificationBuffer, sizeof(unsigned char), fileSize - (SHA512_DIGEST_LENGTH * 2) - EVP_SALT_SIZE, dbFile) != 0) {
+    if (freadWErrCheck(verificationBuffer, sizeof(unsigned char), fileSize - (SHA512_DIGEST_LENGTH * 2) - (EVP_SALT_SIZE + EVP_MAX_BLOCK_LENGTH), dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
 
     /*Set the file position to the beginning of the first MAC*/
-    if (fseek(dbFile, fileSize - (SHA512_DIGEST_LENGTH * 2) - EVP_SALT_SIZE, SEEK_SET) != 0) {
+    if (fseek(dbFile, fileSize - (SHA512_DIGEST_LENGTH * 2) - (EVP_SALT_SIZE + EVP_MAX_BLOCK_LENGTH), SEEK_SET) != 0) {
         printSysError(errno);
         exit(EXIT_FAILURE);
     }
@@ -1573,14 +1595,14 @@ int openDatabase()
         exit(EXIT_FAILURE);
     }
     
-    if (freadWErrCheck(encryptedEvpSalt, sizeof(char), EVP_SALT_SIZE, dbFile) != 0) {
+    if (freadWErrCheck(encryptedEvpSalt, sizeof(char), (EVP_SALT_SIZE + EVP_MAX_BLOCK_LENGTH), dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
 
     if (condition.printingDbInfo == false) {
         
-        if (SHA512(verificationBuffer, fileSize - (SHA512_DIGEST_LENGTH * 2) - EVP_SALT_SIZE, CheckSumDbFileGenerates) == NULL) {
+        if (SHA512(verificationBuffer, fileSize - (SHA512_DIGEST_LENGTH * 2) - (EVP_SALT_SIZE + EVP_MAX_BLOCK_LENGTH), CheckSumDbFileGenerates) == NULL) {
             printError("HMAC failed");
             exit(EXIT_FAILURE);
         }
@@ -1741,20 +1763,13 @@ int writePass()
         
         EVP_DecryptInit(ctx, evpCipher, evpKey, evpIv);
 
-        if (evpDecrypt(ctx, EVP_SALT_SIZE, &evpOutputLength, encryptedEvpSalt, decryptedEvpSalt) != 0) {
-            printError("evpDecrypt failed\n");
-            free(ctx);
-        
-            return 1;
-        }
-        
-        EVP_CIPHER_CTX_cleanup(ctx);
-        
-        if(memcmp(evpSalt,decryptedEvpSalt,EVP_SALT_SIZE) != 0)
-        {
+        /*Check if password will decrypt properly*/
+        if(checkPassword() != 0) {
             printf("Incorrect password\n");
+            
+            free(decryptedBuffer);
             free(ctx);
-        
+            
             return 1;
         }
 
@@ -1910,6 +1925,7 @@ int printPasses(char *searchString)
         free(entryBuffer);
         free(passBuffer);
         free(decryptedBuffer);
+        free(ctx);
         
         return 1;
     }
@@ -1922,6 +1938,7 @@ int printPasses(char *searchString)
         free(entryBuffer);
         free(passBuffer);
         free(decryptedBuffer);
+        free(ctx);
         return 1;
     }
     
@@ -2042,6 +2059,7 @@ int deletePass(char *searchString)
         free(entryBuffer);
         free(passBuffer);
         free(decryptedBuffer);
+        free(ctx);
         
         return 1;
     }
@@ -2245,12 +2263,10 @@ int updateEntry(char *searchString)
     if(checkPassword() !=0 ) {
         printf("Incorrect password\n");
         
-        OPENSSL_cleanse(newEntryPass, sizeof(unsigned char) * UI_BUFFERS_SIZE);
-        
-        free(newEntryPass);
         free(entryBuffer);
         free(passBuffer);
         free(decryptedBuffer);
+        free(ctx);
 
         return 1;
     }
@@ -2259,10 +2275,7 @@ int updateEntry(char *searchString)
     if (verifyCiphertext(EVP_CIPHER_iv_length(evpCipher), fileSize, encryptedBuffer, HMACKey, evpIv) != 0) {
         /*Return error status before proceeding and clean up sensitive data*/
         printMACErrMessage(1);
-
-        OPENSSL_cleanse(newEntryPass, sizeof(unsigned char) * UI_BUFFERS_SIZE);
-
-        free(newEntryPass);
+        
         free(entryBuffer);
         free(passBuffer);
         free(decryptedBuffer);
@@ -2276,7 +2289,7 @@ int updateEntry(char *searchString)
         return errno;
     }
 
-    EVP_DecryptInit(ctx, EVP_get_cipherbyname("aes-256-ctr"), evpKey, evpIv);
+    EVP_DecryptInit(ctx, evpCipher, evpKey, evpIv);
 
     /*Decrypt file and store into decryptedBuffer*/
     if (evpDecrypt(ctx, fileSize, &evpOutputLength, encryptedBuffer, decryptedBuffer) != 0) {
@@ -2514,6 +2527,7 @@ int updateDbEnc()
         printf("Incorrect password\n");
         
         free(decryptedBuffer);
+        free(ctx);
         
         return 1;
     }
@@ -2629,16 +2643,11 @@ int checkPassword()
     EVP_CIPHER_CTX_init(ctx);
     
     if(condition.updatingDbEnc == true)
-        EVP_DecryptInit(ctx, EVP_get_cipherbyname("aes-256-ctr"), evpKeyOld, evpIvOld);
+        EVP_DecryptInit(ctx, evpCipherOld, evpKeyOld, evpIvOld);
     else
-        EVP_DecryptInit(ctx, EVP_get_cipherbyname("aes-256-ctr"), evpKey, evpIv);
+        EVP_DecryptInit(ctx, evpCipher, evpKey, evpIv);
 
-    if (evpDecrypt(ctx, EVP_SALT_SIZE, &evpOutputLength, encryptedEvpSalt, decryptedEvpSalt) != 0) {
-        printError("evpDecrypt failed\n");
-        free(ctx);
-    
-        return 1;
-    }
+    decryptSalt(ctx, (EVP_SALT_SIZE + EVP_CIPHER_block_size(evpCipher)), &evpOutputLength, encryptedEvpSalt, decryptedEvpSalt);
     
     EVP_CIPHER_CTX_cleanup(ctx);
     
@@ -2648,6 +2657,8 @@ int checkPassword()
     
         return 1;
     }
+    
+    free(ctx);
     
     return 0;
 }
@@ -2668,6 +2679,19 @@ int signCiphertext(unsigned int IvLength, unsigned int encryptedBufferLength, un
     }
     OPENSSL_cleanse(hmacBuffer, sizeof(char) * (encryptedBufferLength + IvLength));
     free(hmacBuffer);
+
+    return 0;
+}
+
+int decryptSalt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, unsigned char *encryptedBuffer, unsigned char *decryptedBuffer)
+{
+    int evpLengthUpdate = 0;
+
+    EVP_DecryptUpdate(ctx, decryptedBuffer, evpOutputLength, encryptedBuffer, evpInputLength);
+
+    EVP_DecryptFinal_ex(ctx, decryptedBuffer + *evpOutputLength, &evpLengthUpdate);
+    
+    *evpOutputLength += evpLengthUpdate;
 
     return 0;
 }
@@ -3139,6 +3163,8 @@ void cleanUpBuffers()
     free(HMACKeyNew);
 
     free(evpSalt);
+    free(encryptedEvpSalt);
+    free(decryptedEvpSalt);
     free(encryptedBuffer);
 }
 
