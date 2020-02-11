@@ -1,4 +1,4 @@
-/* Copyright 2019 Kenneth Brown */
+/* Copyright 2020 Kenneth Brown */
 
 /* Licensed under the Apache License, Version 2.0 (the "License"); */
 /* you may not use this file except in compliance with the License. */
@@ -29,6 +29,7 @@
 #include <openssl/opensslv.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
+#include <openssl/err.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -155,57 +156,59 @@ int targetWinHandler(Display *xDisplay,
 int sendWithXlib(char *passToSend, int passLength, int clearTime);
 #endif
 
-const EVP_CIPHER *evpCipher, *evpCipherOld;
-unsigned char evpKey[EVP_MAX_KEY_LENGTH], evpKeyOld[EVP_MAX_KEY_LENGTH];
-unsigned char evpIv[EVP_MAX_IV_LENGTH], evpIvOld[EVP_MAX_KEY_LENGTH];
+const EVP_CIPHER *evpCipher = NULL, *evpCipherOld = NULL;
+unsigned char evpKey[EVP_MAX_KEY_LENGTH] = {0}, evpKeyOld[EVP_MAX_KEY_LENGTH] = {0};
+unsigned char evpIv[EVP_MAX_IV_LENGTH] = {0}, evpIvOld[EVP_MAX_KEY_LENGTH] = {0};
 const EVP_MD *evpDigest = NULL;
 
-char *dbPass;
-char *dbPassToVerify;
-char *dbPassOld;
+char *dbPass = NULL;
+char *dbPassToVerify = NULL;
+char *dbPassOld = NULL;
 
-char messageDigestName[NAME_MAX];
-char messageDigestNameFromCmdLine[NAME_MAX];
-char encCipherName[NAME_MAX];
-char encCipherNameFromCmdLine[NAME_MAX];
-char cryptoHeader[CRYPTO_HEADER_SIZE];
+char messageDigestName[NAME_MAX] = {0};
+char messageDigestNameFromCmdLine[NAME_MAX] = {0};
+char encCipherName[NAME_MAX] = {0};
+char encCipherNameFromCmdLine[NAME_MAX] = {0};
+char cryptoHeader[CRYPTO_HEADER_SIZE] = {0};
 
-unsigned char *HMACKey, *HMACKeyNew, *HMACKeyOld;
+unsigned char *HMACKey = NULL, *HMACKeyNew = NULL , *HMACKeyOld = NULL;
 
-unsigned char *evpSalt;
+unsigned char *evpSalt = NULL;
 
-unsigned char MACcipherTextGenerates[SHA512_DIGEST_LENGTH];
-unsigned char MACcipherTextSignedWith[SHA512_DIGEST_LENGTH];
-unsigned char CheckSumDbFileSignedWith[SHA512_DIGEST_LENGTH];
-unsigned char CheckSumDbFileGenerates[SHA512_DIGEST_LENGTH];
-unsigned char MACdBPassSignedWith[SHA512_DIGEST_LENGTH];
-unsigned char MACdBPassGenerates[SHA512_DIGEST_LENGTH];
-unsigned int *HMACLengthPtr;
+unsigned char MACcipherTextGenerates[SHA512_DIGEST_LENGTH] = {0};
+unsigned char MACcipherTextSignedWith[SHA512_DIGEST_LENGTH] = {0};
+unsigned char CheckSumDbFileSignedWith[SHA512_DIGEST_LENGTH] = {0};
+unsigned char CheckSumDbFileGenerates[SHA512_DIGEST_LENGTH] = {0};
+unsigned char MACdBPassSignedWith[SHA512_DIGEST_LENGTH] = {0};
+unsigned char MACdBPassGenerates[SHA512_DIGEST_LENGTH] = {0};
+unsigned int *HMACLengthPtr = NULL;
 int MACSize = SHA512_DIGEST_LENGTH;
 
 int PBKDF2Iterations = DEFAULT_PBKDF2_ITER;
-int PBKDF2IterationsStore;
-int PBKDF2IterationsOld;
+int PBKDF2IterationsStore = 0;
+int PBKDF2IterationsOld = 0;
 
-char dbFileName[NAME_MAX];
-char backupFileName[NAME_MAX + 9];
+char dbFileName[NAME_MAX] = {0};
+char backupFileExt[] = ".autobak";
+#define BACKUP_FILE_EXT_LEN 9
+char backupFileName[NAME_MAX + BACKUP_FILE_EXT_LEN] = {0};
 
-char *entryPass;
-char *entryPassToVerify;
-char *entryName;
-char *entryNameToFind;
-char *newEntry;
-char *newEntryPass;
-char *newEntryPassToVerify;
-char *paddedPass;
+char *entryPass = NULL;
+char *entryPassToVerify = NULL;
+char *entryName = NULL;
+char *entryNameToFind = NULL;
+char *newEntry = NULL;
+char *newEntryPass = NULL;
+char *newEntryPassToVerify = NULL;
+char *paddedPass = NULL;
 
-unsigned char *encryptedBuffer;
-unsigned char dbInitBuffer[(UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH];
-int evpDataSize;
+unsigned char *encryptedBuffer = NULL;
+unsigned char dbInitBuffer[(UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH] = {0};
+int evpDataSize = 0;
 
 int clipboardClearTimeMiliSeconds = 30000;
 
-int genPassLength;
+int genPassLength = 0;
 
 /*Structs needed to hold termios info when resetting terminal echo'ing after taking password*/
 struct termios termisOld, termiosNew;
@@ -285,16 +288,16 @@ int main(int argc, char *argv[])
 
     signal(SIGINT, signalHandler);
 
-    FILE *dbFile;
+    FILE *dbFile = NULL;
 
     /*This loads up all names of alogirithms for OpenSSL into an object structure so we can call them by name later*/
     /*It is also needed for the mdListCallback() and encListCallback() functions to work*/
     OpenSSL_add_all_algorithms();
 
-    int opt;
+    int opt = 0;
     int errflg = 0;
 
-    int i;
+    int i = 0;
 
     /*Process through arguments*/
     while ((opt = getopt(argc, argv, "Os:i:t:l:f:u:n:d:a:r:p:x:H:c:hUPCI")) != -1) {
@@ -1120,11 +1123,12 @@ void allocateBuffers()
     }
 
     free(tmpBuffer);
+    tmpBuffer = NULL;
 }
 
 void genPassWord(int stringLength)
 {
-    unsigned char randomByte;
+    unsigned char randomByte = 0;
     char *tempPassString = calloc(sizeof(char), stringLength + 1);
     int i = 0;
 
@@ -1155,13 +1159,14 @@ void genPassWord(int stringLength)
 
     snprintf(entryPass, UI_BUFFERS_SIZE, "%s", tempPassString);
     free(tempPassString);
+    tempPassString = NULL;
 }
 
 char *getPass(const char *prompt, char *paddedPass)
 {
     size_t len = 0;
-    int i;
-    int passLength;
+    int i = 0;
+    int passLength = 0;
     char *pass = NULL;
     unsigned char *paddedPassTmp = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE);
     if (paddedPassTmp == NULL) {
@@ -1179,8 +1184,9 @@ char *getPass(const char *prompt, char *paddedPass)
     memcpy(paddedPass, paddedPassTmp, sizeof(char) * UI_BUFFERS_SIZE);
     OPENSSL_cleanse(paddedPassTmp, sizeof(char) * UI_BUFFERS_SIZE);
     free(paddedPassTmp);
+    paddedPassTmp = NULL;
 
-    int nread;
+    int nread = 0;
 
     /* Turn echoing off and fail if we can’t. */
     if (tcgetattr(fileno(stdin), &termisOld) != 0)
@@ -1200,6 +1206,7 @@ char *getPass(const char *prompt, char *paddedPass)
         (void)tcsetattr(fileno(stdin), TCSAFLUSH, &termisOld);
         OPENSSL_cleanse(pass, sizeof(char) * nread);
         free(pass);
+        pass = NULL;
         printf("\nPassword was too large\n");
         exit(EXIT_FAILURE);
     } else {
@@ -1219,6 +1226,7 @@ char *getPass(const char *prompt, char *paddedPass)
 
     OPENSSL_cleanse(pass, sizeof(char) * nread);
     free(pass);
+    pass = NULL;
 
     return paddedPass;
 }
@@ -1302,8 +1310,8 @@ int genEvpSalt()
 int deriveHMACKey()
 {
 
-    int i;
-    unsigned char hmacSalt[HMAC_SALT_SIZE];
+    int i = 0;
+    unsigned char hmacSalt[HMAC_SALT_SIZE] = {0};
 
     /*Derive a larger salt for HMAC from evpSalt*/
     /*Use a counter of 3 so this XOR doesn't undo last xor'd bytes*/
@@ -1328,6 +1336,7 @@ int deriveEVPKey(char *dbPass, unsigned char *evpSalt, unsigned int saltLen, con
                            evpDigest, EVP_CIPHER_key_length(evpCipher),
                            evpKey)) {
         printError("PBKDF2 failed\n");
+        ERR_print_errors_fp(stderr);
         return 1;
     }
 
@@ -1339,6 +1348,7 @@ int deriveEVPKey(char *dbPass, unsigned char *evpSalt, unsigned int saltLen, con
                                evpDigest, EVP_CIPHER_iv_length(evpCipher),
                                evpIv)) {
             printError("PBKDF2 failed\n");
+            ERR_print_errors_fp(stderr);
             return 1;
         }
     }
@@ -1353,7 +1363,7 @@ int writeDatabase()
         printSysError(errno);
         return errno;
     }
-    unsigned char *fileBuffer;
+    unsigned char *fileBuffer = NULL;
     int MACSize = SHA512_DIGEST_LENGTH;
     int fileSize = evpDataSize;
 
@@ -1363,8 +1373,9 @@ int writeDatabase()
     }
     memcpy(cryptoHeader, cryptoHeaderPadding, sizeof(char) * CRYPTO_HEADER_SIZE);
     free(cryptoHeaderPadding);
+    cryptoHeaderPadding = NULL;
 
-    FILE *dbFile;
+    FILE *dbFile = NULL;
 
     dbFile = fopen(dbFileName, "wb");
     if (dbFile == NULL) {
@@ -1420,6 +1431,7 @@ int writeDatabase()
     }
 
     free(fileBuffer);
+    fileBuffer = NULL;
 
     /*Generate MAC from EVP data written to temp file*/
     dbFile = fopen(dbFileName, "rb");
@@ -1453,6 +1465,7 @@ int writeDatabase()
     }
 
     free(fileBuffer);
+    fileBuffer = NULL;
 
     if (fclose(dbFile) == EOF) {
         printFileError(dbFileName, errno);
@@ -1493,14 +1506,14 @@ int writeDatabase()
 
 int openDatabase()
 {
-    char *token;
+    char *token = NULL;
 
-    unsigned char *verificationBuffer;
+    unsigned char *verificationBuffer = NULL;
     int MACSize = SHA512_DIGEST_LENGTH;
     int fileSize = returnFileSize(dbFileName);
     evpDataSize = fileSize - (EVP_SALT_SIZE + CRYPTO_HEADER_SIZE + (MACSize * 3));
 
-    FILE *dbFile;
+    FILE *dbFile = NULL;
 
     dbFile = fopen(dbFileName, "rb");
     if (dbFile == NULL) {
@@ -1579,7 +1592,7 @@ int openDatabase()
 
         /*Hash Database File*/
         if (SHA512(verificationBuffer, fileSize - (MACSize * 3), CheckSumDbFileGenerates) == NULL) {
-            printError("HMAC failed");
+            printError("SHA512 failed");
             exit(EXIT_FAILURE);
         }
 
@@ -1591,10 +1604,12 @@ int openDatabase()
             if (fclose(dbFile) == EOF) {
                 printFileError(dbFileName, errno);
                 free(verificationBuffer);
+                verificationBuffer = NULL;
                 exit(EXIT_FAILURE);
             }
 
             free(verificationBuffer);
+            verificationBuffer = NULL;
 
             exit(EXIT_FAILURE);
         }
@@ -1613,10 +1628,12 @@ int openDatabase()
             if (fclose(dbFile) == EOF) {
                 printFileError(dbFileName, errno);
                 free(verificationBuffer);
+                verificationBuffer = NULL;
                 exit(EXIT_FAILURE);
             }
 
             free(verificationBuffer);
+            verificationBuffer = NULL;
 
             exit(EXIT_FAILURE);
         }
@@ -1640,6 +1657,7 @@ int openDatabase()
     }
 
     free(verificationBuffer);
+    verificationBuffer = NULL;
 
     /*Use strtok to parse the strings delimited by ':'*/
 
@@ -1693,7 +1711,7 @@ void backupDatabase()
 {
     /*Before anything else, back up the password database*/
     if (condition.databaseBeingInitalized == false && condition.readingPass == false && condition.printingDbInfo == false) {
-        snprintf(backupFileName, NAME_MAX + 9, "%s.autobak", dbFileName);
+        snprintf(backupFileName, NAME_MAX + BACKUP_FILE_EXT_LEN, "%s%s", dbFileName, backupFileExt);
 
         FILE *backUpFile = fopen(backupFileName, "w");
         if (backUpFile == NULL) {
@@ -1726,13 +1744,14 @@ void backupDatabase()
             }
 
             free(backUpFileBuffer);
+            backUpFileBuffer = NULL;
         }
     }
 }
 
 int writePass()
 {
-    int i;
+    int i = 0;
     long fileSize = evpDataSize, newFileSize, oldFileSize;
 
     int evpOutputLength;
@@ -1766,7 +1785,9 @@ int writePass()
             OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
 
             free(infoBuffer);
+            infoBuffer = NULL;
             free(decryptedBuffer);
+            decryptedBuffer = NULL;
             return 1;
         }
 
@@ -1778,9 +1799,13 @@ int writePass()
 
             OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
             free(infoBuffer);
+            infoBuffer = NULL;
             free(decryptedBuffer);
+            decryptedBuffer = NULL;
             free(encryptedBuffer);
+            encryptedBuffer = NULL;
             free(ctx);
+            ctx = NULL;
 
             return 1;
         }
@@ -1794,9 +1819,13 @@ int writePass()
         if (evpEncrypt(ctx, UI_BUFFERS_SIZE * 2, &evpOutputLength, dbInitBuffer, infoBuffer) != 0) {
             printError("evpEncrypt failed");
             free(infoBuffer);
+            infoBuffer = NULL;
             free(decryptedBuffer);
+            decryptedBuffer = NULL;
             free(encryptedBuffer);
+            encryptedBuffer = NULL;
             free(ctx);
+            ctx = NULL;
 
             return 1;
         }
@@ -1849,9 +1878,13 @@ int writePass()
         if (evpEncrypt(ctx, evpOutputLength + (UI_BUFFERS_SIZE * 2), &evpOutputLength, encryptedBuffer, decryptedBuffer) != 0) {
             printError("evpEncrypt falied");
             free(infoBuffer);
+            infoBuffer = NULL;
             free(decryptedBuffer);
+            decryptedBuffer = NULL;
             free(encryptedBuffer);
+            encryptedBuffer = NULL;
             free(ctx);
+            ctx = NULL;
 
             return 1;
         }
@@ -1873,15 +1906,21 @@ int writePass()
 
     if (condition.sendToClipboard == true) {
         free(infoBuffer);
+        infoBuffer = NULL;
         free(decryptedBuffer);
+        decryptedBuffer = NULL;
         free(ctx);
+        ctx = NULL;
         if (sendToClipboard(entryPass) == 0) {
             printClipboardMessage(0);
         }
     } else {
         free(infoBuffer);
+        infoBuffer = NULL;
         free(decryptedBuffer);
+        decryptedBuffer = NULL;
         free(ctx);
+        ctx = NULL;
     }
 
     return 0;
@@ -1889,12 +1928,12 @@ int writePass()
 
 int printPasses(char *searchString)
 {
-    int i, ii;
+    int i = 0, ii = 0;
     int entriesMatched = 0;
 
-    char entryName[UI_BUFFERS_SIZE];
+    char entryName[UI_BUFFERS_SIZE] = {0};
 
-    int evpOutputLength;
+    int evpOutputLength = 0;
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     EVP_CIPHER_CTX_init(ctx);
 
@@ -1910,8 +1949,11 @@ int printPasses(char *searchString)
         printMACErrMessage(1);
 
         free(entryBuffer);
+        entryBuffer = NULL;
         free(passBuffer);
+        passBuffer = NULL;
         free(decryptedBuffer);
+        decryptedBuffer = NULL;
         return 1;
     }
 
@@ -1920,10 +1962,15 @@ int printPasses(char *searchString)
     if (evpDecrypt(ctx, fileSize, &evpOutputLength, encryptedBuffer, decryptedBuffer) != 0) {
         printError("evpDecrypt failed\n");
         free(entryBuffer);
+        entryBuffer = NULL;
         free(passBuffer);
+        passBuffer = NULL;
         free(encryptedBuffer);
+        encryptedBuffer = NULL;
         free(decryptedBuffer);
+        decryptedBuffer = NULL;
         free(ctx);
+        ctx = NULL;
 
         return 1;
     }
@@ -1953,8 +2000,11 @@ int printPasses(char *searchString)
                         OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * evpOutputLength + EVP_MAX_BLOCK_LENGTH);
 
                         free(entryBuffer);
+                        entryBuffer = NULL;
                         free(decryptedBuffer);
+                        decryptedBuffer = NULL;
                         free(ctx);
+                        ctx = NULL;
                         if (sendToClipboard(passBuffer) == 0) {
                             if (strcmp(searchString, entryName) == 0) {
                                 printClipboardMessage(1);
@@ -1964,6 +2014,7 @@ int printPasses(char *searchString)
                         }
                         OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
                         free(passBuffer);
+                        passBuffer = NULL;
                         break;
                     }
                 } else {
@@ -1984,27 +2035,31 @@ int printPasses(char *searchString)
         OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * evpOutputLength + EVP_MAX_BLOCK_LENGTH);
 
         free(entryBuffer);
+        entryBuffer = NULL;
         free(passBuffer);
+        passBuffer = NULL;
         free(decryptedBuffer);
+        decryptedBuffer = NULL;
         free(ctx);
+        ctx = NULL;
     }
 
     return 0;
 }
 int deletePass(char *searchString)
 {
-    int i, ii = 0, iii = 0;
+    int i = 0, ii = 0, iii = 0;
     int lastCheck = 0;
     int entriesMatched = 0;
 
-    char entryName[UI_BUFFERS_SIZE];
+    char entryName[UI_BUFFERS_SIZE] = {0};
 
     int evpOutputLength;
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     EVP_CIPHER_CTX_init(ctx);
 
-    unsigned char *fileBuffer;
-    unsigned char *fileBufferOld;
+    unsigned char *fileBuffer = NULL;
+    unsigned char *fileBufferOld = NULL;
 
     unsigned char *entryBuffer = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE);
     if (entryBuffer == NULL) {
@@ -2031,8 +2086,11 @@ int deletePass(char *searchString)
         printMACErrMessage(1);
 
         free(entryBuffer);
+        entryBuffer = NULL;
         free(passBuffer);
+        passBuffer = NULL;
         free(decryptedBuffer);
+        decryptedBuffer = NULL;
         return 1;
     }
 
@@ -2050,11 +2108,17 @@ int deletePass(char *searchString)
         printError("evpDecrypt failed");
 
         free(entryBuffer);
+        entryBuffer = NULL;
         free(passBuffer);
+        passBuffer = NULL;
         free(encryptedBuffer);
+        encryptedBuffer = NULL;
         free(decryptedBuffer);
+        decryptedBuffer = NULL;
         free(fileBuffer);
+        fileBuffer = NULL;
         free(ctx);
+        ctx = NULL;
 
         return 1;
     }
@@ -2097,6 +2161,7 @@ int deletePass(char *searchString)
                     memcpy(fileBuffer, fileBufferOld, sizeof(unsigned char) * oldFileSize - ((UI_BUFFERS_SIZE * 2) * entriesMatched));
                     OPENSSL_cleanse(fileBufferOld, sizeof(unsigned char) * oldFileSize - ((UI_BUFFERS_SIZE * 2) * entriesMatched));
                     free(fileBufferOld);
+                    fileBufferOld = NULL;
                 }
             }
             printf("Matched \"%s\" to \"%s\" (Deleting)...\n", searchString, entryBuffer);
@@ -2148,11 +2213,17 @@ int deletePass(char *searchString)
     if (evpEncrypt(ctx, newFileSize, &evpOutputLength, encryptedBuffer, fileBuffer) != 0) {
         printError("evpEncrypt failed");
         free(entryBuffer);
+        entryBuffer = NULL;
         free(passBuffer);
+        passBuffer = NULL;
         free(encryptedBuffer);
+        encryptedBuffer = NULL;
         free(decryptedBuffer);
+        decryptedBuffer = NULL;
         free(fileBuffer);
+        fileBuffer = NULL;
         free(ctx);
+        ctx = NULL;
 
         return 1;
     }
@@ -2172,34 +2243,39 @@ int deletePass(char *searchString)
     if (entriesMatched < 1) {
         printf("Nothing matched that exactly.\n");
     } else {
-        printf("If you deleted more than you intended to, restore from %s.autobak\n", dbFileName);
+        printf("If you deleted more than you intended to, restore from %s%s\n", dbFileName, backupFileExt);
     }
 
     free(entryBuffer);
+    entryBuffer = NULL;
     free(passBuffer);
+    passBuffer = NULL;
     free(decryptedBuffer);
+    decryptedBuffer = NULL;
     free(fileBuffer);
+    fileBuffer = NULL;
     free(ctx);
+    ctx = NULL;
 
     return 0;
 }
 
 int updateEntry(char *searchString)
 {
-    int i, ii = 0;
+    int i = 0, ii = 0;
     int entriesMatched = 0;
-    int passLength;
+    int passLength = 0;
 
-    char entryName[UI_BUFFERS_SIZE];
-    char passWord[UI_BUFFERS_SIZE];
+    char entryName[UI_BUFFERS_SIZE] = {0};
+    char passWord[UI_BUFFERS_SIZE] = {0};
 
-    int evpOutputLength;
+    int evpOutputLength = 0;
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     EVP_CIPHER_CTX_init(ctx);
 
     int numberOfSymbols = 0;
 
-    unsigned char *fileBuffer;
+    unsigned char *fileBuffer = NULL;
 
     unsigned char *entryBuffer = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE);
     if (entryBuffer == NULL) {
@@ -2228,9 +2304,13 @@ int updateEntry(char *searchString)
         OPENSSL_cleanse(newEntryPass, sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
         free(newEntryPass);
+        newEntryPass = NULL;
         free(entryBuffer);
+        entryBuffer = NULL;
         free(passBuffer);
+        passBuffer = NULL;
         free(decryptedBuffer);
+        decryptedBuffer = NULL;
 
         return 1;
     }
@@ -2250,12 +2330,19 @@ int updateEntry(char *searchString)
         OPENSSL_cleanse(newEntryPass, sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
         free(newEntryPass);
+        newEntryPass = NULL;
         free(entryBuffer);
+        entryBuffer = NULL;
         free(passBuffer);
+        passBuffer = NULL;
         free(encryptedBuffer);
+        encryptedBuffer = NULL;
         free(decryptedBuffer);
+        decryptedBuffer = NULL;
         free(fileBuffer);
+        fileBuffer = NULL;
         free(ctx);
+        ctx = NULL;
 
         return 1;
     }
@@ -2405,12 +2492,19 @@ int updateEntry(char *searchString)
         OPENSSL_cleanse(newEntryPass, sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
         free(newEntryPass);
+        newEntryPass = NULL;
         free(entryBuffer);
+        entryBuffer = NULL;
         free(passBuffer);
+        passBuffer = NULL;
         free(encryptedBuffer);
+        encryptedBuffer = NULL;
         free(decryptedBuffer);
+        decryptedBuffer = NULL;
         free(fileBuffer);
+        fileBuffer = NULL;
         free(ctx);
+        ctx = NULL;
 
         return 1;
     }
@@ -2431,14 +2525,19 @@ int updateEntry(char *searchString)
     if (entriesMatched < 1) {
         printf("Nothing matched the entry specified, nothing was updated.\n");
     } else {
-        printf("If you updated more than you intended to, restore from %s.autobak\n", dbFileName);
+        printf("If you updated more than you intended to, restore from %s%s\n", dbFileName, backupFileExt);
     }
     if (condition.sendToClipboard == true) {
         free(entryBuffer);
+        entryBuffer = NULL;
         free(passBuffer);
+        passBuffer = NULL;
         free(decryptedBuffer);
+        decryptedBuffer = NULL;
         free(fileBuffer);
+        fileBuffer = NULL;
         free(ctx);
+        ctx = NULL;
         if (sendToClipboard(newEntryPass) == 0) {
             if (entriesMatched > 1)
                 printClipboardMessage(entriesMatched);
@@ -2451,10 +2550,15 @@ int updateEntry(char *searchString)
         OPENSSL_cleanse(newEntryPass, sizeof(char) * UI_BUFFERS_SIZE);
 
         free(entryBuffer);
+        entryBuffer = NULL;
         free(passBuffer);
+        passBuffer = NULL;
         free(decryptedBuffer);
+        decryptedBuffer = NULL;
         free(fileBuffer);
+        fileBuffer = NULL;
         free(ctx);
+        ctx = NULL;
     }
 
     return 0;
@@ -2462,7 +2566,7 @@ int updateEntry(char *searchString)
 
 int updateDbEnc()
 {
-    int evpOutputLength;
+    int evpOutputLength = 0;
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     EVP_CIPHER_CTX_init(ctx);
 
@@ -2480,6 +2584,7 @@ int updateDbEnc()
         printMACErrMessage(1);
 
         free(decryptedBuffer);
+        decryptedBuffer = NULL;
         return 1;
     }
 
@@ -2492,8 +2597,11 @@ int updateDbEnc()
         printError("evpDecrypt");
 
         free(encryptedBuffer);
+        encryptedBuffer = NULL;
         free(decryptedBuffer);
+        decryptedBuffer = NULL;
         free(ctx);
+        ctx = NULL;
 
         return 1;
     }
@@ -2531,8 +2639,11 @@ int updateDbEnc()
         printError("evpEncrypt failed");
 
         free(encryptedBuffer);
+        encryptedBuffer = NULL;
         free(decryptedBuffer);
+        decryptedBuffer = NULL;
         free(ctx);
+        ctx = NULL;
 
         return 1;
     }
@@ -2550,7 +2661,9 @@ int updateDbEnc()
         return 1;
 
     free(decryptedBuffer);
+    decryptedBuffer = NULL;
     free(ctx);
+    ctx = NULL;
 
     return 0;
 }
@@ -2571,6 +2684,7 @@ int verifyCiphertext(unsigned int IvLength, unsigned int encryptedBufferLength, 
     }
     OPENSSL_cleanse(hmacBuffer, sizeof(char) * (encryptedBufferLength + IvLength));
     free(hmacBuffer);
+    hmacBuffer = NULL;
 
     if (compareMAC(MACcipherTextSignedWith, MACcipherTextGenerates, SHA512_DIGEST_LENGTH) != 0)
         return 1;
@@ -2594,6 +2708,7 @@ int signCiphertext(unsigned int IvLength, unsigned int encryptedBufferLength, un
     }
     OPENSSL_cleanse(hmacBuffer, sizeof(char) * (encryptedBufferLength + IvLength));
     free(hmacBuffer);
+    hmacBuffer = NULL;
 
     return 0;
 }
@@ -2604,6 +2719,7 @@ int evpDecrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, un
 
     if (!EVP_DecryptUpdate(ctx, decryptedBuffer, evpOutputLength, encryptedBuffer, evpInputLength)) {
         printf("EVP_DecryptUpdate failed\n");
+        ERR_print_errors_fp(stderr);
         EVP_CIPHER_CTX_cleanup(ctx);
         OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * evpInputLength + EVP_MAX_BLOCK_LENGTH);
 
@@ -2612,6 +2728,7 @@ int evpDecrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, un
 
     if (!EVP_DecryptFinal_ex(ctx, decryptedBuffer + *evpOutputLength, &evpLengthUpdate)) {
         printf("EVP_DecryptFinal_ex failed \n");
+        ERR_print_errors_fp(stderr);
         EVP_CIPHER_CTX_cleanup(ctx);
         OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * evpInputLength + EVP_MAX_BLOCK_LENGTH);
 
@@ -2628,6 +2745,7 @@ int evpEncrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, un
 
     if (!EVP_EncryptUpdate(ctx, encryptedBuffer, evpOutputLength, decryptedBuffer, evpInputLength)) {
         printf("EVP_EncryptUpdate failed\n");
+        ERR_print_errors_fp(stderr);
         EVP_CIPHER_CTX_cleanup(ctx);
         OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * evpInputLength + EVP_MAX_BLOCK_LENGTH);
 
@@ -2636,6 +2754,7 @@ int evpEncrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, un
 
     if (!EVP_EncryptFinal_ex(ctx, encryptedBuffer + *evpOutputLength, &evpLengthUpdate)) {
         printf("EVP_EncryptFinal_ex failed\n");
+        ERR_print_errors_fp(stderr);
         EVP_CIPHER_CTX_cleanup(ctx);
         OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * evpInputLength + EVP_MAX_BLOCK_LENGTH);
 
@@ -2670,8 +2789,10 @@ int sendToClipboard(char *textToSend)
             condition.selectionIsPrimary = true;
         }
         sendWithXlib(passBuffer, passLength, clipboardClearTimeMiliSeconds);
-        if (condition.readingPass == true)
+        if (condition.readingPass == true) {
             free(textToSend);
+            textToSend = NULL;
+        }
         exit(EXIT_SUCCESS);
     }
 
@@ -2729,11 +2850,11 @@ int targetWinHandler(Display *xDisplay,
 int sendWithXlib(char *passToSend, int passLength, int clearTime)
 {
 
-    Window rootWindow;
+    Window rootWindow = 0;
     char *defaultDisplay = NULL;
     Display *xDisplay = XOpenDisplay(defaultDisplay);
     XEvent XAeventStruct;
-    Atom selectionAtm;
+    Atom selectionAtm = 0;
     if (condition.selectionGiven == true && condition.selectionIsClipboard == true)
         selectionAtm = XInternAtom(xDisplay, "CLIPBOARD", False);
     else if (condition.selectionGiven == false || condition.selectionIsPrimary == true)
@@ -2751,8 +2872,8 @@ int sendWithXlib(char *passToSend, int passLength, int clearTime)
 
     /* At this point we are executing as the child process */
     for (;;) {
-        static Window targetWindow;
-        static Atom windowProperty;
+        static Window targetWindow = 0;
+        static Atom windowProperty = 0;
 
         XNextEvent(xDisplay, &XAeventStruct);
 
@@ -2787,8 +2908,8 @@ int sendWithXlib(char *passToSend, int passLength, int clearTime)
 int sendToClipboard(char *textToSend)
 {
     int passLength = strlen(textToSend);
-    char xselCommand[27];
-    char wipeCommand[27];
+    char xselCommand[27] = {0};
+    char wipeCommand[27] = {0};
     if (condition.selectionGiven == false || condition.selectionIsPrimary == true) {
         strcpy(xselCommand, "xsel");
         strcpy(wipeCommand, "xsel -c");
@@ -2797,10 +2918,10 @@ int sendToClipboard(char *textToSend)
         strcpy(wipeCommand, "xsel -b -c");
     }
 
-    char passBuffer[passLength];
+    char passBuffer[passLength] = {0};
 
     FILE *xselFile = popen(xselCommand, "w");
-    pid_t pid;
+    pid_t pid = 0;
 
     snprintf(passBuffer, passLength + 1, "%s", textToSend);
 
@@ -2895,7 +3016,7 @@ int compareMAC(const void *in_a, const void *in_b, size_t len)
 {
     /*This is CRYPTO_memcmp from cryptlib.c in OpenSSL 1.1.*/
     /*Added here for backward-compatability to OpenSSL 1.0.1*/
-    size_t i;
+    size_t i = 0;
     const volatile unsigned char *a = in_a;
     const volatile unsigned char *b = in_b;
     unsigned char x = 0;
@@ -3017,7 +3138,7 @@ void printDbInfo()
     printf("\tBlock Size: %i bits\n", EVP_CIPHER_block_size(EVP_get_cipherbyname(encCipherName)) * 8);
     printf("\tKey Size: %i bits\n", EVP_CIPHER_key_length(EVP_get_cipherbyname(encCipherName)) * 8);
     printf("\tIV Size: %i bits\n", EVP_CIPHER_iv_length(EVP_get_cipherbyname(encCipherName)) * 8);
-    printf("Database MAC:\n\t");
+    printf("Database Checksum:\n\t");
     for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
         printf("%02x", CheckSumDbFileSignedWith[i] & 0xff);
     }
@@ -3025,6 +3146,11 @@ void printDbInfo()
     printf("Ciphertext+IV MAC:\n\t");
     for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
         printf("%02x", MACcipherTextSignedWith[i] & 0xff);
+    }
+    printf("\n");
+    printf("Database Password Keyed Hash:\n\t");
+    for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
+        printf("%02x", MACdBPassSignedWith[i] & 0xff);
     }
     printf("\n");
 }
@@ -3070,9 +3196,9 @@ void cleanUpBuffers()
 
 bool xselIsInstalled(void)
 {
-    char *pathBuffer;
-    char pathString[NAME_MAX], pathToCheck[NAME_MAX];
-    char *token;
+    char *pathBuffer = NULL;
+    char pathString[NAME_MAX] = {0}, pathToCheck[NAME_MAX] = {0};
+    char *token = NULL ;
     bool xselInstalled = false;
     struct stat sb;
 
@@ -3156,13 +3282,13 @@ int printMACErrMessage(int errMessage)
                 \n\nThis could be because:\
                 \n\t1. An attacker has attempted to modify any part of the database on disk\
                 \n\t2. A data-integrity issue with your storage media\
-                \n\t3. A corrupted footer which has altered the MAC\
+                \n\t3. A corrupted footer which has altered the checksum\
                 \n\t4. A bug in the program\
                 \n\nPlease verify your system is secure, storage media is not failing, and restore from backup.\
                 \n\nIf you believe this to be caused by a bug, please open a ticket at: https://github.com/kennbr34/passmanager/issues\n");
     else if (errMessage == 1)
         printf("Ciphertext Authentication Failure\
-				\n\nThis means the cipher-text or associated data has been modified after being loaded into memory.\
+				\n\nThis means the cipher-text or associated data has been modified, possibly after being loaded into memory.\
                 \n\nThis could be because:\
                 \n\t1. An attacker has attempted to modify the cipher-text and/or associated data in memory\
                 \n\t2. A data-integrity issue with your storage media\
