@@ -179,8 +179,8 @@ unsigned char MACcipherTextGenerates[SHA512_DIGEST_LENGTH] = {0};
 unsigned char MACcipherTextSignedWith[SHA512_DIGEST_LENGTH] = {0};
 unsigned char CheckSumDbFileSignedWith[SHA512_DIGEST_LENGTH] = {0};
 unsigned char CheckSumDbFileGenerates[SHA512_DIGEST_LENGTH] = {0};
-unsigned char MACdBPassSignedWith[SHA512_DIGEST_LENGTH] = {0};
-unsigned char MACdBPassGenerates[SHA512_DIGEST_LENGTH] = {0};
+unsigned char KeyedHashdBPassSignedWith[SHA512_DIGEST_LENGTH] = {0};
+unsigned char KeyedHashdBPassGenerates[SHA512_DIGEST_LENGTH] = {0};
 unsigned int *HMACLengthPtr = NULL;
 int MACSize = SHA512_DIGEST_LENGTH;
 
@@ -688,8 +688,9 @@ int main(int argc, char *argv[])
                 exit(EXIT_FAILURE);
             }
             /*HMAC User Supplied Password*/
-            if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), MACdBPassGenerates, HMACLengthPtr) == NULL) {
+            if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), KeyedHashdBPassGenerates, HMACLengthPtr) == NULL) {
                 printError("HMAC falied");
+                ERR_print_errors_fp(stderr);
                 exit(EXIT_FAILURE);
             }
         }
@@ -1321,6 +1322,7 @@ int deriveHMACKey()
     /*Generate a separate key to use for HMAC*/
     if (!PKCS5_PBKDF2_HMAC(dbPass, -1, hmacSalt, HMAC_SALT_SIZE, PBKDF2Iterations, EVP_get_digestbyname("sha512"), SHA512_DIGEST_LENGTH, HMACKey)) {
         printError("PBKDF2 deriveHmacKey Failed");
+        ERR_print_errors_fp(stderr);
         return 1;
     }
 
@@ -1406,7 +1408,6 @@ int writeDatabase()
         exit(EXIT_FAILURE);
     }
 
-    /*Copy data from temp file into what will be the password database*/
     fileBuffer = calloc(sizeof(char), fileSize);
     if (fileBuffer == NULL) {
         printSysError(errno);
@@ -1424,6 +1425,23 @@ int writeDatabase()
             exit(EXIT_FAILURE);
         }
     }
+    
+    /*HMAC User Supplied Password*/
+    if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), KeyedHashdBPassGenerates, HMACLengthPtr) == NULL) {
+        printError("HMAC falied");
+        ERR_print_errors_fp(stderr);
+        exit(EXIT_FAILURE);
+    }
+    
+    if (fwriteWErrCheck(KeyedHashdBPassGenerates, sizeof(unsigned char), MACSize, dbFile) != 0) {
+        printSysError(returnVal);
+        exit(EXIT_FAILURE);
+    }
+    
+    if (fwriteWErrCheck(MACcipherTextGenerates, sizeof(unsigned char), MACSize, dbFile) != 0) {
+        printSysError(returnVal);
+        exit(EXIT_FAILURE);
+    }
 
     if (fclose(dbFile) == EOF) {
         printFileError(dbFileName, errno);
@@ -1433,7 +1451,7 @@ int writeDatabase()
     free(fileBuffer);
     fileBuffer = NULL;
 
-    /*Generate MAC from EVP data written to temp file*/
+    /*Open the database file to generate a checksum*/
     dbFile = fopen(dbFileName, "rb");
     if (dbFile == NULL) {
         printFileError(dbFileName, errno);
@@ -1455,12 +1473,7 @@ int writeDatabase()
     /*Hash Database File*/
     if (SHA512(fileBuffer, returnFileSize(dbFileName), CheckSumDbFileGenerates) == NULL) {
         printError("HMAC falied");
-        exit(EXIT_FAILURE);
-    }
-    
-    /*HMAC User Supplied Password*/
-    if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), MACdBPassGenerates, HMACLengthPtr) == NULL) {
-        printError("HMAC falied");
+        ERR_print_errors_fp(stderr);
         exit(EXIT_FAILURE);
     }
 
@@ -1472,7 +1485,7 @@ int writeDatabase()
         exit(EXIT_FAILURE);
     }
 
-    /*Now append new generated MAC to end of the EVP data*/
+    /*Now append the database checksum*/
     dbFile = fopen(dbFileName, "ab");
     if (dbFile == NULL) {
         printFileError(dbFileName, errno);
@@ -1480,18 +1493,8 @@ int writeDatabase()
     }
     chmod(dbFileName, S_IRUSR | S_IWUSR);
 
-    /*Append the MACs and close the file*/
+    /*Append the database checksum and close the file*/
     if (fwriteWErrCheck(CheckSumDbFileGenerates, sizeof(unsigned char), MACSize, dbFile) != 0) {
-        printSysError(returnVal);
-        exit(EXIT_FAILURE);
-    }
-
-    if (fwriteWErrCheck(MACcipherTextGenerates, sizeof(unsigned char), MACSize, dbFile) != 0) {
-        printSysError(returnVal);
-        exit(EXIT_FAILURE);
-    }
-    
-    if (fwriteWErrCheck(MACdBPassGenerates, sizeof(unsigned char), MACSize, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
@@ -1548,8 +1551,8 @@ int openDatabase()
         }
     }
 
-    /*Copy all of the file minus the MACs but including the salt and cryptoHeader into a buffer for verification*/
-    verificationBuffer = calloc(fileSize - (MACSize * 3), sizeof(unsigned char));
+    /*Copy all of the file minus the checksum but including the salt and cryptoHeader and keyed-hash/MAC into a buffer for verification*/
+    verificationBuffer = calloc(fileSize - MACSize, sizeof(unsigned char));
     if (verificationBuffer == NULL) {
         printSysError(errno);
         exit(EXIT_FAILURE);
@@ -1561,19 +1564,19 @@ int openDatabase()
         exit(EXIT_FAILURE);
     }
 
-    /*Read in the size of the file minus the size of the three MACs i.e. MACSize * 3*/
-    if (freadWErrCheck(verificationBuffer, sizeof(unsigned char), fileSize - (MACSize * 3), dbFile) != 0) {
+    /*Read in the size of the file minus keyed hash and MAC*/
+    if (freadWErrCheck(verificationBuffer, sizeof(unsigned char), fileSize - MACSize, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
 
-    /*Set the file position to the beginning of the first MAC*/
+    /*Set the file position to the beginning of the first SHA512 hash*/
     if (fseek(dbFile, fileSize - (MACSize * 3), SEEK_SET) != 0) {
         printSysError(errno);
         exit(EXIT_FAILURE);
     }
-
-    if (freadWErrCheck(CheckSumDbFileSignedWith, sizeof(unsigned char), MACSize, dbFile) != 0) {
+    
+    if (freadWErrCheck(KeyedHashdBPassSignedWith, sizeof(unsigned char), MACSize, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
@@ -1583,7 +1586,7 @@ int openDatabase()
         exit(EXIT_FAILURE);
     }
     
-    if (freadWErrCheck(MACdBPassSignedWith, sizeof(unsigned char), MACSize, dbFile) != 0) {
+    if (freadWErrCheck(CheckSumDbFileSignedWith, sizeof(unsigned char), MACSize, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
@@ -1591,8 +1594,9 @@ int openDatabase()
     if (condition.printingDbInfo == false) {
 
         /*Hash Database File*/
-        if (SHA512(verificationBuffer, fileSize - (MACSize * 3), CheckSumDbFileGenerates) == NULL) {
+        if (SHA512(verificationBuffer, fileSize - MACSize, CheckSumDbFileGenerates) == NULL) {
             printError("SHA512 failed");
+            ERR_print_errors_fp(stderr);
             exit(EXIT_FAILURE);
         }
 
@@ -1615,13 +1619,14 @@ int openDatabase()
         }
         
         /*HMAC User Supplied Password*/
-        if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), MACdBPassGenerates, HMACLengthPtr) == NULL) {
+        if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), KeyedHashdBPassGenerates, HMACLengthPtr) == NULL) {
             printError("HMAC falied");
+            ERR_print_errors_fp(stderr);
             exit(EXIT_FAILURE);
         }
         
         /*Verify dbPass*/
-        if (compareMAC(MACdBPassSignedWith, MACdBPassGenerates, MACSize) != 0) {
+        if (compareMAC(KeyedHashdBPassSignedWith, KeyedHashdBPassGenerates, MACSize) != 0) {
             /*Return error status before proceeding and clean up sensitive data*/
             printMACErrMessage(2);
             
@@ -2680,6 +2685,7 @@ int verifyCiphertext(unsigned int IvLength, unsigned int encryptedBufferLength, 
     memcpy(hmacBuffer + IvLength, encryptedBuffer, encryptedBufferLength);
     if (HMAC(EVP_sha512(), HMACKey, SHA512_DIGEST_LENGTH, hmacBuffer, encryptedBufferLength + IvLength, MACcipherTextGenerates, HMACLengthPtr) == NULL) {
         printError("verifyCipherText HMAC failure");
+        ERR_print_errors_fp(stderr);
         return 1;
     }
     OPENSSL_cleanse(hmacBuffer, sizeof(char) * (encryptedBufferLength + IvLength));
@@ -2704,6 +2710,7 @@ int signCiphertext(unsigned int IvLength, unsigned int encryptedBufferLength, un
     memcpy(hmacBuffer + IvLength, encryptedBuffer, encryptedBufferLength);
     if (HMAC(EVP_sha512(), HMACKey, SHA512_DIGEST_LENGTH, hmacBuffer, encryptedBufferLength + IvLength, MACcipherTextGenerates, HMACLengthPtr) == NULL) {
         printError("signCipherText HMAC failure");
+        ERR_print_errors_fp(stderr);
         return 1;
     }
     OPENSSL_cleanse(hmacBuffer, sizeof(char) * (encryptedBufferLength + IvLength));
@@ -3138,11 +3145,6 @@ void printDbInfo()
     printf("\tBlock Size: %i bits\n", EVP_CIPHER_block_size(EVP_get_cipherbyname(encCipherName)) * 8);
     printf("\tKey Size: %i bits\n", EVP_CIPHER_key_length(EVP_get_cipherbyname(encCipherName)) * 8);
     printf("\tIV Size: %i bits\n", EVP_CIPHER_iv_length(EVP_get_cipherbyname(encCipherName)) * 8);
-    printf("Database Checksum:\n\t");
-    for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
-        printf("%02x", CheckSumDbFileSignedWith[i] & 0xff);
-    }
-    printf("\n");
     printf("Ciphertext+IV MAC:\n\t");
     for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
         printf("%02x", MACcipherTextSignedWith[i] & 0xff);
@@ -3150,7 +3152,12 @@ void printDbInfo()
     printf("\n");
     printf("Database Password Keyed Hash:\n\t");
     for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
-        printf("%02x", MACdBPassSignedWith[i] & 0xff);
+        printf("%02x", KeyedHashdBPassSignedWith[i] & 0xff);
+    }
+    printf("\n");
+    printf("Database Checksum:\n\t");
+    for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
+        printf("%02x", CheckSumDbFileSignedWith[i] & 0xff);
     }
     printf("\n");
 }
@@ -3281,21 +3288,15 @@ int printMACErrMessage(int errMessage)
                 \n\nThis means the database file has been modified or corrupted since the program last saved it.\
                 \n\nThis could be because:\
                 \n\t1. An attacker has attempted to modify any part of the database on disk\
-                \n\t2. A data-integrity issue with your storage media\
-                \n\t3. A corrupted footer which has altered the checksum\
-                \n\t4. A bug in the program\
-                \n\nPlease verify your system is secure, storage media is not failing, and restore from backup.\
-                \n\nIf you believe this to be caused by a bug, please open a ticket at: https://github.com/kennbr34/passmanager/issues\n");
+                \n\t2. A data-integrity issue with your storage media has corrupted the database\
+                \n\nPlease verify your system is secure, storage media is not failing, and restore from backup.\n");
     else if (errMessage == 1)
         printf("Ciphertext Authentication Failure\
 				\n\nThis means the cipher-text or associated data has been modified, possibly after being loaded into memory.\
                 \n\nThis could be because:\
-                \n\t1. An attacker has attempted to modify the cipher-text and/or associated data in memory\
-                \n\t2. A data-integrity issue with your storage media\
-                \n\t3. A corrupted footer which has altered the MAC\
-                \n\t4. A bug in the program\
-                \n\nPlease verify your system is secure, storage media is not failing, and restore from backup.\
-                \n\nIf you believe this to be caused by a bug, please open a ticket at: https://github.com/kennbr34/passmanager/issues\n");
+                \n\t1. An attacker has attempted to modify the cipher-text and/or associated data and forged the database checksum to match\
+                \n\t2. A data-integrity issue with your storage media has corrupted the MAC in the footer\
+                \n\nPlease verify your system is secure, storage media is not failing, and restore from backup.\n");
     else if (errMessage == 2)
         printf("Password was incorrect.\n");
     return 0;
