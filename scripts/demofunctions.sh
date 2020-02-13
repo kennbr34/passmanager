@@ -112,7 +112,7 @@ echo -e "\nNow what if we modified the ciphertext and forged the checksum to mat
 read
 echo ./ciphertextforgery.sh ./examplepasswords1.dat ./examplepasswords1.dat.forged
 ./ciphertextforgery.sh ./examplepasswords1.dat ./examplepasswords1.dat.forged
-echo -e "\nNow try to rad the database... (Press enter)"
+echo -e "\nNow try to read the database... (Press enter)"
 read
 echo passmanager -r allpasses -f ./examplepasswords1.dat.forged -x password
 passmanager -r allpasses -f ./examplepasswords1.dat.forged -x password

@@ -2,10 +2,11 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
-2020-02-10
+2020-02-13
 (+ver 3.3.10)
-    Added ability to distinguish between incorrect password or database-integrity/ciphertext-aunthenticity failure
-    Improved messages pertaining to database checksum failure or ciphertext authenticity failure
+    Added ability to distinguish between incorrect password or integrity/aunthenticity failure
+    Added authentication of associated data (salt,cipher and digest configuration, PBKDF2 iteration amount and IV)
+    Improved messages pertaining to integrity/authenticity failure
     Fixed dangling pointers and unitilized variables/arrays
 2019-11-03
 (+ver 3.2.9)
