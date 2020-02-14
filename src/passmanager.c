@@ -2678,7 +2678,8 @@ int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encrypte
 {
     /*Generate MAC from both cipher-text and IV*/
     unsigned int IvLength = EVP_CIPHER_iv_length(evpCipher);
-    unsigned int evpCipherSize = sizeof(evpCipher), evpDigestSize = sizeof(evpDigest);
+    unsigned int evpCipherNID = EVP_CIPHER_nid(evpCipher), evpDigestNID = EVP_MD_nid(evpDigest);
+    unsigned int evpCipherSize = sizeof(evpCipherNID), evpDigestSize = sizeof(evpDigestNID);
     unsigned int PBKDF2IterationsSize = sizeof(PBKDF2Iterations);
     unsigned int hmacBufferLength = EVP_SALT_SIZE + evpCipherSize + evpDigestSize + PBKDF2IterationsSize + IvLength + encryptedBufferLength;
     
@@ -2715,7 +2716,8 @@ int signCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedB
 {
     /*Generate MAC from both cipher-text and IV*/
     unsigned int IvLength = EVP_CIPHER_iv_length(evpCipher);
-    unsigned int evpCipherSize = sizeof(evpCipher), evpDigestSize = sizeof(evpDigest);
+    unsigned int evpCipherNID = EVP_CIPHER_nid(evpCipher), evpDigestNID = EVP_MD_nid(evpDigest);
+    unsigned int evpCipherSize = sizeof(evpCipherNID), evpDigestSize = sizeof(evpDigestNID);
     unsigned int PBKDF2IterationsSize = sizeof(PBKDF2Iterations);
     unsigned int hmacBufferLength = EVP_SALT_SIZE + evpCipherSize + evpDigestSize + PBKDF2IterationsSize + IvLength + encryptedBufferLength;
         
@@ -3320,7 +3322,7 @@ int printMACErrMessage(int errMessage)
 				\n\nThis means the cipher-text or associated data has been modified, possibly after being loaded into memory.\
                 \n\nThis could be because:\
                 \n\t1. An attacker has attempted to modify the cipher-text and/or associated data and forged the database checksum to match\
-                \n\t2. Faulty memory has lead to corruption of the cipher-text and/orassociated data\
+                \n\t2. Faulty memory has lead to corruption of the cipher-text and/or associated data\
                 \n\nPlease verify your system is secure, system memory is not failing, and restore from backup.\n");
     else if (errMessage == 2)
         printf("Password was incorrect.\n");
