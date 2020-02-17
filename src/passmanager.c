@@ -137,13 +137,13 @@ void signalHandler(int signum);
 int sendToClipboard();
 int printSyntax(char *arg);
 int printMACErrMessage(int errMessage);
-int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedBuffer, unsigned char *HMACKey, const EVP_CIPHER *evpCipher, const EVP_MD *evpDigest, unsigned int PBKDF2Iterations, unsigned char *evpIv);
+int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedBuffer, unsigned char *HMACKey, char *encCipherName, char *messageDigestName, unsigned int PBKDF2Iterations, unsigned char *evpIv);
 int signCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedBuffer);
 int evpDecrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, unsigned char *encryptedBuffer, unsigned char *decryptedBuffer);
 int evpEncrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, unsigned char *encryptedBuffer, unsigned char *decryptedBuffer);
 int freadWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream);
 int fwriteWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream);
-int compareMAC(const void *in_a, const void *in_b, size_t len);
+int constTimeMemCmp(const void *in_a, const void *in_b, size_t len);
 void printDbInfo();
 void printClipboardMessage(int entriesMatched);
 void backupDatabase();
@@ -165,9 +165,9 @@ char *dbPass = NULL;
 char *dbPassToVerify = NULL;
 char *dbPassOld = NULL;
 
-char messageDigestName[NAME_MAX] = {0};
+char messageDigestName[NAME_MAX] = {0}, messageDigestNameOld[NAME_MAX] = {0};
 char messageDigestNameFromCmdLine[NAME_MAX] = {0};
-char encCipherName[NAME_MAX] = {0};
+char encCipherName[NAME_MAX] = {0}, encCipherNameOld[NAME_MAX] = {0};
 char encCipherNameFromCmdLine[NAME_MAX] = {0};
 char cryptoHeader[CRYPTO_HEADER_SIZE] = {0};
 
@@ -1601,7 +1601,7 @@ int openDatabase()
         }
 
         /*Verify authenticity of database*/
-        if (compareMAC(CheckSumDbFileSignedWith, CheckSumDbFileGenerates, MACSize) != 0) {
+        if (constTimeMemCmp(CheckSumDbFileSignedWith, CheckSumDbFileGenerates, MACSize) != 0) {
             /*Return error status before proceeding and clean up sensitive data*/
             printMACErrMessage(0);
 
@@ -1626,7 +1626,7 @@ int openDatabase()
         }
         
         /*Verify dbPass*/
-        if (compareMAC(KeyedHashdBPassSignedWith, KeyedHashdBPassGenerates, MACSize) != 0) {
+        if (constTimeMemCmp(KeyedHashdBPassSignedWith, KeyedHashdBPassGenerates, MACSize) != 0) {
             /*Return error status before proceeding and clean up sensitive data*/
             printMACErrMessage(2);
             
@@ -1701,7 +1701,8 @@ int openDatabase()
         /*Copy old evpCipher to evpCipherOld and generate evpKeyOld based on this*/
         /*This needs to be done in openDatabase() before cipher and digest parameters are changed later on */
         evpCipherOld = evpCipher;
-        evpDigestOld = evpDigest;
+        strcpy(encCipherNameOld, encCipherName);
+        strcpy(messageDigestNameOld, messageDigestName);
         PBKDF2IterationsOld = PBKDF2Iterations;
 
         if (deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKeyOld, evpIvOld, PBKDF2IterationsOld) != 0) {
@@ -1768,12 +1769,12 @@ int writePass()
     unsigned char *infoBuffer = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE * 2);
     if (infoBuffer == NULL) {
         printSysError(errno);
-        return errno;
+        goto error;
     }
     unsigned char *decryptedBuffer = calloc(sizeof(unsigned char), fileSize + (UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH);
     if (decryptedBuffer == NULL) {
         printSysError(errno);
-        return errno;
+        goto error;
     }
 
     /*Copy bufers entryName and entryPass into infoBuffer, splitting the UI_BUFFERS_SIZE * 2 chars between the two*/
@@ -1785,16 +1786,11 @@ int writePass()
     if (condition.databaseBeingInitalized == false) {
         
         /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
-        if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, evpCipher, evpDigest, PBKDF2Iterations, evpIv) != 0) {
+        if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, messageDigestName, PBKDF2Iterations, evpIv) != 0) {
             /*Return error status before proceeding and clean up sensitive data*/
             printMACErrMessage(1);
             OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
-
-            free(infoBuffer);
-            infoBuffer = NULL;
-            free(decryptedBuffer);
-            decryptedBuffer = NULL;
-            return 1;
+            goto error;
         }
 
         EVP_DecryptInit(ctx, evpCipher, evpKey, evpIv);
@@ -1802,18 +1798,10 @@ int writePass()
         /*Decrypt file and store into decryptedBuffer*/
         if (evpDecrypt(ctx, fileSize, &evpOutputLength, encryptedBuffer, decryptedBuffer) != 0) {
             printError("evpDecrypt failed");
-
+            EVP_CIPHER_CTX_cleanup(ctx);
+            OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + (UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH);
             OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
-            free(infoBuffer);
-            infoBuffer = NULL;
-            free(decryptedBuffer);
-            decryptedBuffer = NULL;
-            free(encryptedBuffer);
-            encryptedBuffer = NULL;
-            free(ctx);
-            ctx = NULL;
-
-            return 1;
+            goto error;
         }
 
         EVP_CIPHER_CTX_cleanup(ctx);
@@ -1824,16 +1812,9 @@ int writePass()
 
         if (evpEncrypt(ctx, UI_BUFFERS_SIZE * 2, &evpOutputLength, dbInitBuffer, infoBuffer) != 0) {
             printError("evpEncrypt failed");
-            free(infoBuffer);
-            infoBuffer = NULL;
-            free(decryptedBuffer);
-            decryptedBuffer = NULL;
-            free(encryptedBuffer);
-            encryptedBuffer = NULL;
-            free(ctx);
-            ctx = NULL;
-
-            return 1;
+            EVP_CIPHER_CTX_cleanup(ctx);
+            OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
+            goto error;
         }
 
         EVP_CIPHER_CTX_cleanup(ctx);
@@ -1842,9 +1823,11 @@ int writePass()
         OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
 
         /*Sign new ciphertext*/
-        if (signCiphertext(evpOutputLength, dbInitBuffer) != 0)
-            return 1;
-
+        if (signCiphertext(evpOutputLength, dbInitBuffer) != 0) {
+            printError("Could not sign ciphertext\n");
+            goto error;
+        }
+        
         evpDataSize = evpOutputLength;
 
     } else {
@@ -1852,15 +1835,21 @@ int writePass()
         /*Create new databse with new salt, so also need new HMAC and EVP key derived from that salt*/
         if (genEvpSalt() != 0) {
             printError("Could not update salt");
-            return 1;
+            OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + (UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH);
+            OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
+            goto error;
         }
         if (deriveHMACKey() != 0) {
             printError("Could not create new HMAC key");
-            return 1;
+            OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + (UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH);
+            OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
+            goto error;
         }
         if (deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations) != 0) {
             printError("Could not create new EVP key");
-            return 1;
+            OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + (UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH);
+            OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
+            goto error;
         }
 
         EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
@@ -1869,8 +1858,10 @@ int writePass()
         free(encryptedBuffer);
         encryptedBuffer = calloc(sizeof(unsigned char), evpOutputLength + (UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH);
         if (encryptedBuffer == NULL) {
-            printSysError(errno);
-            return errno;
+            EVP_CIPHER_CTX_cleanup(ctx);
+            OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + (UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH);
+            OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
+            goto error;
         }
 
         for (i = 0; i < UI_BUFFERS_SIZE * 2; i++) {
@@ -1883,16 +1874,9 @@ int writePass()
 
         if (evpEncrypt(ctx, evpOutputLength + (UI_BUFFERS_SIZE * 2), &evpOutputLength, encryptedBuffer, decryptedBuffer) != 0) {
             printError("evpEncrypt falied");
-            free(infoBuffer);
-            infoBuffer = NULL;
-            free(decryptedBuffer);
-            decryptedBuffer = NULL;
-            free(encryptedBuffer);
-            encryptedBuffer = NULL;
-            free(ctx);
-            ctx = NULL;
-
-            return 1;
+            EVP_CIPHER_CTX_cleanup(ctx);
+            OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + (UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH);
+            goto error;
         }
 
         EVP_CIPHER_CTX_cleanup(ctx);
@@ -1902,8 +1886,10 @@ int writePass()
         OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * oldFileSize + (UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH);
 
         /*Sign new ciphertext*/
-        if (signCiphertext(newFileSize, encryptedBuffer) != 0)
-            return 1;
+        if (signCiphertext(newFileSize, encryptedBuffer) != 0) {
+            printError("Could not sign ciphertext\n");
+            goto error;
+        }
 
         evpDataSize = newFileSize;
     }
@@ -1911,6 +1897,7 @@ int writePass()
     printf("Added \"%s\" to database.\n", entryName);
 
     if (condition.sendToClipboard == true) {
+        
         free(infoBuffer);
         infoBuffer = NULL;
         free(decryptedBuffer);
@@ -1921,6 +1908,7 @@ int writePass()
             printClipboardMessage(0);
         }
     } else {
+        
         free(infoBuffer);
         infoBuffer = NULL;
         free(decryptedBuffer);
@@ -1930,6 +1918,16 @@ int writePass()
     }
 
     return 0;
+    
+    error:
+    free(infoBuffer);
+    infoBuffer = NULL;
+    free(decryptedBuffer);
+    decryptedBuffer = NULL;
+    free(ctx);
+    ctx = NULL;
+    return 1;
+    
 }
 
 int printPasses(char *searchString)
@@ -1946,39 +1944,35 @@ int printPasses(char *searchString)
     long fileSize = evpDataSize;
 
     unsigned char *entryBuffer = calloc(sizeof(char), UI_BUFFERS_SIZE);
+    if(entryBuffer == NULL) {
+        printSysError(errno);
+        goto error;
+    }
     unsigned char *passBuffer = calloc(sizeof(char), UI_BUFFERS_SIZE);
+    if(passBuffer == NULL) {
+        printSysError(errno);
+        goto error;
+    }
     unsigned char *decryptedBuffer = calloc(sizeof(char), fileSize + EVP_MAX_BLOCK_LENGTH);
+    if(decryptedBuffer == NULL) {
+        printSysError(errno);
+        goto error;
+    }
         
     /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
-    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, evpCipher, evpDigest, PBKDF2Iterations, evpIv) != 0) {
+    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, messageDigestName, PBKDF2Iterations, evpIv) != 0) {
         /*Return error status before proceeding and clean up sensitive data*/
         printMACErrMessage(1);
-
-        free(entryBuffer);
-        entryBuffer = NULL;
-        free(passBuffer);
-        passBuffer = NULL;
-        free(decryptedBuffer);
-        decryptedBuffer = NULL;
-        return 1;
+        goto error;
     }
 
     EVP_DecryptInit(ctx, evpCipher, evpKey, evpIv);
 
     if (evpDecrypt(ctx, fileSize, &evpOutputLength, encryptedBuffer, decryptedBuffer) != 0) {
         printError("evpDecrypt failed\n");
-        free(entryBuffer);
-        entryBuffer = NULL;
-        free(passBuffer);
-        passBuffer = NULL;
-        free(encryptedBuffer);
-        encryptedBuffer = NULL;
-        free(decryptedBuffer);
-        decryptedBuffer = NULL;
-        free(ctx);
-        ctx = NULL;
-
-        return 1;
+        EVP_CIPHER_CTX_cleanup(ctx);
+        OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
+        goto error;
     }
 
     EVP_CIPHER_CTX_cleanup(ctx);
@@ -2051,6 +2045,17 @@ int printPasses(char *searchString)
     }
 
     return 0;
+    
+    error:
+    free(entryBuffer);
+    entryBuffer = NULL;
+    free(passBuffer);
+    passBuffer = NULL;
+    free(decryptedBuffer);
+    decryptedBuffer = NULL;
+    free(ctx);
+    ctx = NULL;
+    return 1;
 }
 int deletePass(char *searchString)
 {
@@ -2070,12 +2075,12 @@ int deletePass(char *searchString)
     unsigned char *entryBuffer = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE);
     if (entryBuffer == NULL) {
         printSysError(errno);
-        return errno;
+        goto error;
     }
     unsigned char *passBuffer = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE);
     if (passBuffer == NULL) {
         printSysError(errno);
-        return errno;
+        goto error;
     }
 
     long fileSize = evpDataSize, oldFileSize, newFileSize;
@@ -2083,28 +2088,21 @@ int deletePass(char *searchString)
     unsigned char *decryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
     if (decryptedBuffer == NULL) {
         printSysError(errno);
-        return errno;
+        goto error;
     }
 
     /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
-    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, evpCipher, evpDigest, PBKDF2Iterations, evpIv) != 0) {
+    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, messageDigestName, PBKDF2Iterations, evpIv) != 0) {
         /*Return error status before proceeding and clean up sensitive data*/
         printMACErrMessage(1);
-
-        free(entryBuffer);
-        entryBuffer = NULL;
-        free(passBuffer);
-        passBuffer = NULL;
-        free(decryptedBuffer);
-        decryptedBuffer = NULL;
-        return 1;
+        goto error;
     }
 
     /*Now make a buffer for the file.  Reallocate later if we find a match to delete*/
     fileBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
     if (fileBuffer == NULL) {
         printSysError(errno);
-        return errno;
+        goto error;
     }
 
     EVP_DecryptInit(ctx, evpCipher, evpKey, evpIv);
@@ -2112,21 +2110,9 @@ int deletePass(char *searchString)
     /*Decrypt file and store into temp buffer*/
     if (evpDecrypt(ctx, fileSize, &evpOutputLength, encryptedBuffer, decryptedBuffer) != 0) {
         printError("evpDecrypt failed");
-
-        free(entryBuffer);
-        entryBuffer = NULL;
-        free(passBuffer);
-        passBuffer = NULL;
-        free(encryptedBuffer);
-        encryptedBuffer = NULL;
-        free(decryptedBuffer);
-        decryptedBuffer = NULL;
-        free(fileBuffer);
-        fileBuffer = NULL;
-        free(ctx);
-        ctx = NULL;
-
-        return 1;
+        EVP_CIPHER_CTX_cleanup(ctx);
+        OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
+        goto error;
     }
 
     EVP_CIPHER_CTX_cleanup(ctx);
@@ -2153,7 +2139,10 @@ int deletePass(char *searchString)
                     fileBufferOld = calloc(sizeof(unsigned char), oldFileSize - ((UI_BUFFERS_SIZE * 2) * entriesMatched));
                     if (fileBufferOld == NULL) {
                         printSysError(errno);
-                        return errno;
+                        OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
+                        OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
+                        OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
+                        goto error;
                     }
                     memcpy(fileBufferOld, fileBuffer, sizeof(unsigned char) * oldFileSize - ((UI_BUFFERS_SIZE * 2) * entriesMatched));
                     OPENSSL_cleanse(fileBuffer, sizeof(unsigned char) * oldFileSize - ((UI_BUFFERS_SIZE * 2) * entriesMatched));
@@ -2162,7 +2151,10 @@ int deletePass(char *searchString)
                     fileBuffer = calloc(sizeof(unsigned char), oldFileSize - ((UI_BUFFERS_SIZE * 2) * entriesMatched));
                     if (fileBuffer == NULL) {
                         printSysError(errno);
-                        return errno;
+                        OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
+                        OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
+                        OPENSSL_cleanse(passBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
+                        goto error;
                     }
                     memcpy(fileBuffer, fileBufferOld, sizeof(unsigned char) * oldFileSize - ((UI_BUFFERS_SIZE * 2) * entriesMatched));
                     OPENSSL_cleanse(fileBufferOld, sizeof(unsigned char) * oldFileSize - ((UI_BUFFERS_SIZE * 2) * entriesMatched));
@@ -2197,41 +2189,29 @@ int deletePass(char *searchString)
     encryptedBuffer = calloc(sizeof(unsigned char), (newFileSize + EVP_MAX_BLOCK_LENGTH));
     if (encryptedBuffer == NULL) {
         printSysError(errno);
-        return errno;
+        goto error;
     }
 
     /*Create new databse with new salt, so also need new HMAC and EVP key derived from that salt*/
     if (genEvpSalt() != 0) {
         printError("Could not update salt");
-        return 1;
+        goto error;
     }
     if (deriveHMACKey() != 0) {
         printError("Could not create new HMAC key");
-        return 1;
+        goto error;
     }
     if (deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations) != 0) {
         printError("Could not create new EVP key");
-        return 1;
+        goto error;
     }
 
     EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
 
     if (evpEncrypt(ctx, newFileSize, &evpOutputLength, encryptedBuffer, fileBuffer) != 0) {
         printError("evpEncrypt failed");
-        free(entryBuffer);
-        entryBuffer = NULL;
-        free(passBuffer);
-        passBuffer = NULL;
-        free(encryptedBuffer);
-        encryptedBuffer = NULL;
-        free(decryptedBuffer);
-        decryptedBuffer = NULL;
-        free(fileBuffer);
-        fileBuffer = NULL;
-        free(ctx);
-        ctx = NULL;
-
-        return 1;
+        EVP_CIPHER_CTX_cleanup(ctx);
+        goto error;
     }
 
     EVP_CIPHER_CTX_cleanup(ctx);
@@ -2243,8 +2223,10 @@ int deletePass(char *searchString)
     evpDataSize = newFileSize;
 
     /*Sign new ciphertext*/
-    if (signCiphertext(newFileSize, encryptedBuffer) != 0)
-        return 1;
+    if (signCiphertext(newFileSize, encryptedBuffer) != 0) {
+        printError("Could not sign ciphertext\n");
+        goto error;
+    }
 
     if (entriesMatched < 1) {
         printf("Nothing matched that exactly.\n");
@@ -2264,6 +2246,19 @@ int deletePass(char *searchString)
     ctx = NULL;
 
     return 0;
+    
+    error:
+    free(entryBuffer);
+    entryBuffer = NULL;
+    free(passBuffer);
+    passBuffer = NULL;
+    free(decryptedBuffer);
+    decryptedBuffer = NULL;
+    free(fileBuffer);
+    fileBuffer = NULL;
+    free(ctx);
+    ctx = NULL;
+    return 1;
 }
 
 int updateEntry(char *searchString)
@@ -2286,12 +2281,12 @@ int updateEntry(char *searchString)
     unsigned char *entryBuffer = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE);
     if (entryBuffer == NULL) {
         printSysError(errno);
-        return errno;
+        goto error;
     }
     unsigned char *passBuffer = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE);
     if (passBuffer == NULL) {
         printSysError(errno);
-        return errno;
+        goto error;
     }
 
     long fileSize = evpDataSize, oldFileSize, newFileSize;
@@ -2299,32 +2294,20 @@ int updateEntry(char *searchString)
     unsigned char *decryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
     if (decryptedBuffer == NULL) {
         printSysError(errno);
-        return errno;
+        goto error;
     }
 
     /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
-    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, evpCipher, evpDigest, PBKDF2Iterations, evpIv) != 0) {
+    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, messageDigestName, PBKDF2Iterations, evpIv) != 0) {
         /*Return error status before proceeding and clean up sensitive data*/
         printMACErrMessage(1);
-
-        OPENSSL_cleanse(newEntryPass, sizeof(unsigned char) * UI_BUFFERS_SIZE);
-
-        free(newEntryPass);
-        newEntryPass = NULL;
-        free(entryBuffer);
-        entryBuffer = NULL;
-        free(passBuffer);
-        passBuffer = NULL;
-        free(decryptedBuffer);
-        decryptedBuffer = NULL;
-
-        return 1;
+        goto error;
     }
 
     fileBuffer = calloc(sizeof(unsigned char), fileSize);
     if (fileBuffer == NULL) {
         printSysError(errno);
-        return errno;
+        goto error;
     }
 
     EVP_DecryptInit(ctx, evpCipher, evpKey, evpIv);
@@ -2332,25 +2315,9 @@ int updateEntry(char *searchString)
     /*Decrypt file and store into decryptedBuffer*/
     if (evpDecrypt(ctx, fileSize, &evpOutputLength, encryptedBuffer, decryptedBuffer) != 0) {
         printError("evpDecrypt failed");
-
-        OPENSSL_cleanse(newEntryPass, sizeof(unsigned char) * UI_BUFFERS_SIZE);
-
-        free(newEntryPass);
-        newEntryPass = NULL;
-        free(entryBuffer);
-        entryBuffer = NULL;
-        free(passBuffer);
-        passBuffer = NULL;
-        free(encryptedBuffer);
-        encryptedBuffer = NULL;
-        free(decryptedBuffer);
-        decryptedBuffer = NULL;
-        free(fileBuffer);
-        fileBuffer = NULL;
-        free(ctx);
-        ctx = NULL;
-
-        return 1;
+        EVP_CIPHER_CTX_cleanup(ctx);
+        OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
+        goto error;
     }
 
     EVP_CIPHER_CTX_cleanup(ctx);
@@ -2473,46 +2440,29 @@ int updateEntry(char *searchString)
     encryptedBuffer = calloc(sizeof(unsigned char), oldFileSize + EVP_MAX_BLOCK_LENGTH);
     if (encryptedBuffer == NULL) {
         printSysError(errno);
-        return errno;
+        goto error;
     }
 
     /*Create new databse with new salt, so also need new HMAC and EVP key derived from that salt*/
     if (genEvpSalt() != 0) {
         printError("Could not update salt");
-        return 1;
+        goto error;
     }
     if (deriveHMACKey() != 0) {
         printError("Could not create new HMAC key");
-        return 1;
+        goto error;
     }
     if (deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations) != 0) {
         printError("Could not create new EVP key");
-        return 1;
+        goto error;
     }
 
     EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
 
     if (evpEncrypt(ctx, oldFileSize, &evpOutputLength, encryptedBuffer, fileBuffer) != 0) {
         printError("evpEncrypt failed");
-
-        OPENSSL_cleanse(newEntryPass, sizeof(unsigned char) * UI_BUFFERS_SIZE);
-
-        free(newEntryPass);
-        newEntryPass = NULL;
-        free(entryBuffer);
-        entryBuffer = NULL;
-        free(passBuffer);
-        passBuffer = NULL;
-        free(encryptedBuffer);
-        encryptedBuffer = NULL;
-        free(decryptedBuffer);
-        decryptedBuffer = NULL;
-        free(fileBuffer);
-        fileBuffer = NULL;
-        free(ctx);
-        ctx = NULL;
-
-        return 1;
+        EVP_CIPHER_CTX_cleanup(ctx);
+        goto error;
     }
 
     EVP_CIPHER_CTX_cleanup(ctx);
@@ -2524,8 +2474,10 @@ int updateEntry(char *searchString)
     OPENSSL_cleanse(fileBuffer, sizeof(unsigned char) * oldFileSize);
 
     /*Sign new ciphertext*/
-    if (signCiphertext(newFileSize, encryptedBuffer) != 0)
-        return 1;
+    if (signCiphertext(newFileSize, encryptedBuffer) != 0) {
+        printError("Could not sign ciphertext\n");
+        goto error;
+    }
 
     /*Check if any entries were updated*/
     if (entriesMatched < 1) {
@@ -2550,10 +2502,8 @@ int updateEntry(char *searchString)
             else
                 printClipboardMessage(1);
         }
-        OPENSSL_cleanse(newEntryPass, sizeof(char) * UI_BUFFERS_SIZE);
 
     } else {
-        OPENSSL_cleanse(newEntryPass, sizeof(char) * UI_BUFFERS_SIZE);
 
         free(entryBuffer);
         entryBuffer = NULL;
@@ -2568,6 +2518,19 @@ int updateEntry(char *searchString)
     }
 
     return 0;
+    
+    error:
+    free(entryBuffer);
+    entryBuffer = NULL;
+    free(passBuffer);
+    passBuffer = NULL;
+    free(decryptedBuffer);
+    decryptedBuffer = NULL;
+    free(fileBuffer);
+    fileBuffer = NULL;
+    free(ctx);
+    ctx = NULL;
+    return 1;
 }
 
 int updateDbEnc()
@@ -2581,17 +2544,14 @@ int updateDbEnc()
     unsigned char *decryptedBuffer = calloc(sizeof(unsigned char), fileSize + EVP_MAX_BLOCK_LENGTH);
     if (decryptedBuffer == NULL) {
         printSysError(errno);
-        return errno;
+        goto error;
     }
 
     /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
-    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKeyOld, evpCipherOld, evpDigestOld, PBKDF2IterationsOld, evpIvOld) != 0) {
+    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKeyOld, encCipherNameOld, messageDigestNameOld, PBKDF2IterationsOld, evpIvOld) != 0) {
         /*Return error status before proceeding and clean up sensitive data*/
         printMACErrMessage(1);
-
-        free(decryptedBuffer);
-        decryptedBuffer = NULL;
-        return 1;
+        goto error;
     }
 
     memcpy(HMACKey, HMACKeyOld, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
@@ -2601,15 +2561,9 @@ int updateDbEnc()
     /*Decrypted the data into decryptedBuffer*/
     if (evpDecrypt(ctx, fileSize, &evpOutputLength, encryptedBuffer, decryptedBuffer) != 0) {
         printError("evpDecrypt");
-
-        free(encryptedBuffer);
-        encryptedBuffer = NULL;
-        free(decryptedBuffer);
-        decryptedBuffer = NULL;
-        free(ctx);
-        ctx = NULL;
-
-        return 1;
+        EVP_CIPHER_CTX_cleanup(ctx);
+        OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
+        goto error;
     }
 
     EVP_CIPHER_CTX_cleanup(ctx);
@@ -2622,36 +2576,34 @@ int updateDbEnc()
     encryptedBuffer = calloc(sizeof(unsigned char), oldFileSize + EVP_MAX_BLOCK_LENGTH);
     if (encryptedBuffer == NULL) {
         printSysError(errno);
-        return errno;
+        OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
+        goto error;
     }
 
     /*Create new databse with new salt, so also need new HMAC and EVP key derived from that salt*/
     if (genEvpSalt() != 0) {
         printError("Could not update salt");
-        return 1;
+        OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
+        goto error;
     }
     if (deriveHMACKey() != 0) {
         printError("Could not create new HMAC key");
-        return 1;
+        OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
+        goto error;
     }
     if (deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations) != 0) {
         printError("Could not create new EVP key");
-        return 1;
+        OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
+        goto error;
     }
 
     EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
 
     if (evpEncrypt(ctx, oldFileSize, &evpOutputLength, encryptedBuffer, decryptedBuffer) != 0) {
         printError("evpEncrypt failed");
-
-        free(encryptedBuffer);
-        encryptedBuffer = NULL;
-        free(decryptedBuffer);
-        decryptedBuffer = NULL;
-        free(ctx);
-        ctx = NULL;
-
-        return 1;
+        EVP_CIPHER_CTX_cleanup(ctx);
+        OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * oldFileSize);
+        goto error;
     }
 
     EVP_CIPHER_CTX_cleanup(ctx);
@@ -2663,8 +2615,10 @@ int updateDbEnc()
     OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * oldFileSize);
 
     /*Sign new ciphertext*/
-    if (signCiphertext(newFileSize, encryptedBuffer) != 0)
-        return 1;
+    if (signCiphertext(newFileSize, encryptedBuffer) != 0) {
+        printError("Could not sign ciphertext\n");
+        goto error;
+    }
 
     free(decryptedBuffer);
     decryptedBuffer = NULL;
@@ -2672,14 +2626,20 @@ int updateDbEnc()
     ctx = NULL;
 
     return 0;
+    
+    error:
+    free(decryptedBuffer);
+    decryptedBuffer = NULL;
+    free(ctx);
+    ctx = NULL;
+    return 1;
 }
 
-int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedBuffer, unsigned char *HMACKey, const EVP_CIPHER *evpCipher, const EVP_MD *evpDigest, unsigned int PBKDF2Iterations, unsigned char *evpIv)
+int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedBuffer, unsigned char *HMACKey, char *encCipherName, char *messageDigestName, unsigned int PBKDF2Iterations, unsigned char *evpIv)
 {
-    /*Generate MAC from both cipher-text and IV*/
-    unsigned int IvLength = EVP_CIPHER_iv_length(evpCipher);
-    unsigned int evpCipherNID = EVP_CIPHER_nid(evpCipher), evpDigestNID = EVP_MD_nid(evpDigest);
-    unsigned int evpCipherSize = sizeof(evpCipherNID), evpDigestSize = sizeof(evpDigestNID);
+    /*Generate MAC from both cipher-text and associated data*/
+    unsigned int IvLength = EVP_CIPHER_iv_length(EVP_get_cipherbyname(encCipherName));
+    unsigned int evpCipherSize = strlen(encCipherName), evpDigestSize = strlen(messageDigestName);
     unsigned int PBKDF2IterationsSize = sizeof(PBKDF2Iterations);
     unsigned int hmacBufferLength = EVP_SALT_SIZE + evpCipherSize + evpDigestSize + PBKDF2IterationsSize + IvLength + encryptedBufferLength;
     
@@ -2691,8 +2651,8 @@ int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encrypte
     
     /*Concatenates evpSalt:evpCipher:evpDigest:PBKDF2Iterations:evpIV:encryptedBuffer into hmacBuffer*/
     memcpy(hmacBuffer,evpSalt,EVP_SALT_SIZE);
-    memcpy(hmacBuffer + EVP_SALT_SIZE,evpCipher,evpCipherSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize,evpDigest,evpDigestSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE,encCipherName,evpCipherSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize,messageDigestName,evpDigestSize);
     memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + evpDigestSize,&PBKDF2Iterations,PBKDF2IterationsSize);
     memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + evpDigestSize + PBKDF2IterationsSize,evpIv,IvLength);
     memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + evpDigestSize + PBKDF2IterationsSize + IvLength,encryptedBuffer,encryptedBufferLength);
@@ -2706,7 +2666,7 @@ int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encrypte
     free(hmacBuffer);
     hmacBuffer = NULL;
 
-    if (compareMAC(MACcipherTextSignedWith, MACcipherTextGenerates, SHA512_DIGEST_LENGTH) != 0)
+    if (constTimeMemCmp(MACcipherTextSignedWith, MACcipherTextGenerates, SHA512_DIGEST_LENGTH) != 0)
         return 1;
     else
         return 0;
@@ -2714,10 +2674,9 @@ int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encrypte
 
 int signCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedBuffer)
 {
-    /*Generate MAC from both cipher-text and IV*/
-    unsigned int IvLength = EVP_CIPHER_iv_length(evpCipher);
-    unsigned int evpCipherNID = EVP_CIPHER_nid(evpCipher), evpDigestNID = EVP_MD_nid(evpDigest);
-    unsigned int evpCipherSize = sizeof(evpCipherNID), evpDigestSize = sizeof(evpDigestNID);
+    /*Generate MAC from both cipher-text and associated data*/
+    unsigned int IvLength = EVP_CIPHER_iv_length(EVP_get_cipherbyname(encCipherName));
+    unsigned int evpCipherSize = strlen(encCipherName), evpDigestSize = strlen(messageDigestName);
     unsigned int PBKDF2IterationsSize = sizeof(PBKDF2Iterations);
     unsigned int hmacBufferLength = EVP_SALT_SIZE + evpCipherSize + evpDigestSize + PBKDF2IterationsSize + IvLength + encryptedBufferLength;
         
@@ -2729,8 +2688,8 @@ int signCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedB
     
     /*Concatenates evpSalt:evpCipher:evpDigest:PBKDF2Iterations:evpIV:encryptedBuffer into hmacBuffer*/
     memcpy(hmacBuffer,evpSalt,EVP_SALT_SIZE);
-    memcpy(hmacBuffer + EVP_SALT_SIZE,evpCipher,evpCipherSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize,evpDigest,evpDigestSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE,encCipherName,evpCipherSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize,messageDigestName,evpDigestSize);
     memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + evpDigestSize,&PBKDF2Iterations,PBKDF2IterationsSize);
     memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + evpDigestSize + PBKDF2IterationsSize,evpIv,IvLength);
     memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + evpDigestSize + PBKDF2IterationsSize + IvLength,encryptedBuffer,encryptedBufferLength);
@@ -3046,7 +3005,7 @@ int fwriteWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream)
     return 0;
 }
 
-int compareMAC(const void *in_a, const void *in_b, size_t len)
+int constTimeMemCmp(const void *in_a, const void *in_b, size_t len)
 {
     /*This is CRYPTO_memcmp from cryptlib.c in OpenSSL 1.1.*/
     /*Added here for backward-compatability to OpenSSL 1.0.1*/
@@ -3172,7 +3131,7 @@ void printDbInfo()
     printf("\tBlock Size: %i bits\n", EVP_CIPHER_block_size(EVP_get_cipherbyname(encCipherName)) * 8);
     printf("\tKey Size: %i bits\n", EVP_CIPHER_key_length(EVP_get_cipherbyname(encCipherName)) * 8);
     printf("\tIV Size: %i bits\n", EVP_CIPHER_iv_length(EVP_get_cipherbyname(encCipherName)) * 8);
-    printf("Ciphertext+IV MAC:\n\t");
+    printf("Ciphertext+Associated Data MAC:\n\t");
     for (int i = 0; i < SHA512_DIGEST_LENGTH; i++) {
         printf("%02x", MACcipherTextSignedWith[i] & 0xff);
     }
