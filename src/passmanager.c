@@ -2911,7 +2911,8 @@ int sendToClipboard(char *textToSend)
         strcpy(wipeCommand, "xsel -b -c");
     }
 
-    char passBuffer[passLength] = {0};
+    char passBuffer[passLength];
+    memset(passBuffer, 0, passLength);
 
     FILE *xselFile = popen(xselCommand, "w");
     pid_t pid = 0;
