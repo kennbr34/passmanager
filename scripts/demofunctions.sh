@@ -100,6 +100,22 @@ echo passmanager -d name -f ./examplepasswords1.dat -x password1
 passmanager -d name -f ./examplepasswords1.dat -x password1
 echo passmanager -U -c bf-ofb -f ./examplepasswords1.dat -x password1
 passmanager -U -c bf-ofb -f ./examplepasswords1.dat -x password1
+echo -e "\nNow let's imagine the database has been corrupted for some reason... (Press enter)"
+read
+echo ./ciphertextmodification.sh ./examplepasswords1.dat ./examplepasswords1.dat.forged
+./ciphertextmodification.sh ./examplepasswords1.dat ./examplepasswords1.dat.forged
+echo -e "\nNow try to read the database.. (Press enter)"
+read
+echo passmanager -r allpasses -f ./examplepasswords1.dat.forged -x password
+passmanager -r allpasses -f ./examplepasswords1.dat.forged -x password
+echo -e "\nNow what if we modified the ciphertext and forged the checksum to match it... (Press enter)"
+read
+echo ./ciphertextforgery.sh ./examplepasswords1.dat ./examplepasswords1.dat.forged
+./ciphertextforgery.sh ./examplepasswords1.dat ./examplepasswords1.dat.forged
+echo -e "\nNow try to read the database... (Press enter)"
+read
+echo passmanager -r allpasses -f ./examplepasswords1.dat.forged -x password
+passmanager -r allpasses -f ./examplepasswords1.dat.forged -x password
 echo -e "\nNow imagine you started to update the database encryption, but didn't like the options you entered press Ctrl-C when prompted for the password... (Press enter)"
 read
 echo passmanager -U -c foocipher-f ./examplepasswords1.dat

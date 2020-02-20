@@ -70,8 +70,9 @@ src/passmanager.o: src/passmanager.c /usr/include/stdc-predef.h config.h \
  /usr/include/openssl/symhacks.h /usr/include/pthread.h \
  /usr/include/sched.h /usr/include/x86_64-linux-gnu/bits/sched.h \
  /usr/include/x86_64-linux-gnu/bits/cpu-set.h \
- /usr/include/x86_64-linux-gnu/bits/setjmp.h /usr/include/openssl/evp.h \
+ /usr/include/x86_64-linux-gnu/bits/setjmp.h /usr/include/openssl/err.h \
  /usr/include/openssl/bio.h /usr/include/openssl/bioerr.h \
+ /usr/include/openssl/lhash.h /usr/include/openssl/evp.h \
  /usr/include/openssl/evperr.h /usr/include/openssl/objects.h \
  /usr/include/openssl/obj_mac.h /usr/include/openssl/asn1.h \
  /usr/include/openssl/asn1err.h /usr/include/openssl/bn.h \
@@ -304,11 +305,15 @@ config.h:
 
 /usr/include/x86_64-linux-gnu/bits/setjmp.h:
 
-/usr/include/openssl/evp.h:
+/usr/include/openssl/err.h:
 
 /usr/include/openssl/bio.h:
 
 /usr/include/openssl/bioerr.h:
+
+/usr/include/openssl/lhash.h:
+
+/usr/include/openssl/evp.h:
 
 /usr/include/openssl/evperr.h:
 
