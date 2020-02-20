@@ -23,13 +23,13 @@
 #include <errno.h>
 #include <limits.h>
 #include <openssl/crypto.h>
+#include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/objects.h>
 #include <openssl/opensslv.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
-#include <openssl/err.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -171,7 +171,7 @@ char encCipherName[NAME_MAX] = {0}, encCipherNameOld[NAME_MAX] = {0};
 char encCipherNameFromCmdLine[NAME_MAX] = {0};
 char cryptoHeader[CRYPTO_HEADER_SIZE] = {0};
 
-unsigned char *HMACKey = NULL, *HMACKeyNew = NULL , *HMACKeyOld = NULL;
+unsigned char *HMACKey = NULL, *HMACKeyNew = NULL, *HMACKeyOld = NULL;
 
 unsigned char *evpSalt = NULL;
 
@@ -327,28 +327,24 @@ int main(int argc, char *argv[])
                 printf("Option -s requires an argument\n");
                 errflg++;
             }
-            for(unsigned int i=0; i < strlen(optarg); i++) {
-                if(isdigit(optarg[i]))
+            for (unsigned int i = 0; i < strlen(optarg); i++) {
+                if (isdigit(optarg[i]))
                     break;
                 printf("Time specified needs a number\n");
                 exit(EXIT_FAILURE);
             }
-            if(optarg[strlen(optarg) - 1] == 's' && optarg[strlen(optarg) - 2] == 'm') {
+            if (optarg[strlen(optarg) - 1] == 's' && optarg[strlen(optarg) - 2] == 'm') {
                 optarg[strlen(optarg) - 2] = '\0';
                 clipboardClearTimeMiliSeconds = atoi(optarg);
-            }
-            else if(optarg[strlen(optarg) - 1] == 's' && optarg[strlen(optarg) - 2] != 'm') {
+            } else if (optarg[strlen(optarg) - 1] == 's' && optarg[strlen(optarg) - 2] != 'm') {
                 optarg[strlen(optarg) - 1] = '\0';
                 clipboardClearTimeMiliSeconds = atoi(optarg) * 1000;
-            }
-            else if(isdigit(optarg[strlen(optarg) - 1])){
+            } else if (isdigit(optarg[strlen(optarg) - 1])) {
                 clipboardClearTimeMiliSeconds = atoi(optarg) * 1000;
-            }
-            else if(isalpha(optarg[strlen(optarg) - 1])) {
+            } else if (isalpha(optarg[strlen(optarg) - 1])) {
                 printf("Only 's' for seconds or 'ms' for miliseconds can be specified. Defaulting to seconds.\n");
                 clipboardClearTimeMiliSeconds = atoi(optarg) * 1000;
-            }
-            else {
+            } else {
                 printf("Don't understand time format.\n");
                 exit(EXIT_FAILURE);
             }
@@ -1425,19 +1421,19 @@ int writeDatabase()
             exit(EXIT_FAILURE);
         }
     }
-    
+
     /*HMAC User Supplied Password*/
     if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), KeyedHashdBPassGenerates, HMACLengthPtr) == NULL) {
         printError("HMAC falied");
         ERR_print_errors_fp(stderr);
         exit(EXIT_FAILURE);
     }
-    
+
     if (fwriteWErrCheck(KeyedHashdBPassGenerates, sizeof(unsigned char), MACSize, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
-    
+
     if (fwriteWErrCheck(MACcipherTextGenerates, sizeof(unsigned char), MACSize, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
@@ -1575,7 +1571,7 @@ int openDatabase()
         printSysError(errno);
         exit(EXIT_FAILURE);
     }
-    
+
     if (freadWErrCheck(KeyedHashdBPassSignedWith, sizeof(unsigned char), MACSize, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
@@ -1585,7 +1581,7 @@ int openDatabase()
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
-    
+
     if (freadWErrCheck(CheckSumDbFileSignedWith, sizeof(unsigned char), MACSize, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
@@ -1617,19 +1613,19 @@ int openDatabase()
 
             exit(EXIT_FAILURE);
         }
-        
+
         /*HMAC User Supplied Password*/
         if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), KeyedHashdBPassGenerates, HMACLengthPtr) == NULL) {
             printError("HMAC falied");
             ERR_print_errors_fp(stderr);
             exit(EXIT_FAILURE);
         }
-        
+
         /*Verify dbPass*/
         if (constTimeMemCmp(KeyedHashdBPassSignedWith, KeyedHashdBPassGenerates, MACSize) != 0) {
             /*Return error status before proceeding and clean up sensitive data*/
             printMACErrMessage(2);
-            
+
             if (fclose(dbFile) == EOF) {
                 printFileError(dbFileName, errno);
                 free(verificationBuffer);
@@ -1784,7 +1780,7 @@ int writePass()
         infoBuffer[i + UI_BUFFERS_SIZE] = entryPass[i];
 
     if (condition.databaseBeingInitalized == false) {
-        
+
         /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
         if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, messageDigestName, PBKDF2Iterations, evpIv) != 0) {
             /*Return error status before proceeding and clean up sensitive data*/
@@ -1827,7 +1823,7 @@ int writePass()
             printError("Could not sign ciphertext\n");
             goto error;
         }
-        
+
         evpDataSize = evpOutputLength;
 
     } else {
@@ -1897,7 +1893,7 @@ int writePass()
     printf("Added \"%s\" to database.\n", entryName);
 
     if (condition.sendToClipboard == true) {
-        
+
         free(infoBuffer);
         infoBuffer = NULL;
         free(decryptedBuffer);
@@ -1908,7 +1904,7 @@ int writePass()
             printClipboardMessage(0);
         }
     } else {
-        
+
         free(infoBuffer);
         infoBuffer = NULL;
         free(decryptedBuffer);
@@ -1918,8 +1914,8 @@ int writePass()
     }
 
     return 0;
-    
-    error:
+
+error:
     free(infoBuffer);
     infoBuffer = NULL;
     free(decryptedBuffer);
@@ -1927,7 +1923,6 @@ int writePass()
     free(ctx);
     ctx = NULL;
     return 1;
-    
 }
 
 int printPasses(char *searchString)
@@ -1944,21 +1939,21 @@ int printPasses(char *searchString)
     long fileSize = evpDataSize;
 
     unsigned char *entryBuffer = calloc(sizeof(char), UI_BUFFERS_SIZE);
-    if(entryBuffer == NULL) {
+    if (entryBuffer == NULL) {
         printSysError(errno);
         goto error;
     }
     unsigned char *passBuffer = calloc(sizeof(char), UI_BUFFERS_SIZE);
-    if(passBuffer == NULL) {
+    if (passBuffer == NULL) {
         printSysError(errno);
         goto error;
     }
     unsigned char *decryptedBuffer = calloc(sizeof(char), fileSize + EVP_MAX_BLOCK_LENGTH);
-    if(decryptedBuffer == NULL) {
+    if (decryptedBuffer == NULL) {
         printSysError(errno);
         goto error;
     }
-        
+
     /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
     if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, messageDigestName, PBKDF2Iterations, evpIv) != 0) {
         /*Return error status before proceeding and clean up sensitive data*/
@@ -2045,8 +2040,8 @@ int printPasses(char *searchString)
     }
 
     return 0;
-    
-    error:
+
+error:
     free(entryBuffer);
     entryBuffer = NULL;
     free(passBuffer);
@@ -2246,8 +2241,8 @@ int deletePass(char *searchString)
     ctx = NULL;
 
     return 0;
-    
-    error:
+
+error:
     free(entryBuffer);
     entryBuffer = NULL;
     free(passBuffer);
@@ -2518,8 +2513,8 @@ int updateEntry(char *searchString)
     }
 
     return 0;
-    
-    error:
+
+error:
     free(entryBuffer);
     entryBuffer = NULL;
     free(passBuffer);
@@ -2626,8 +2621,8 @@ int updateDbEnc()
     ctx = NULL;
 
     return 0;
-    
-    error:
+
+error:
     free(decryptedBuffer);
     decryptedBuffer = NULL;
     free(ctx);
@@ -2642,21 +2637,21 @@ int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encrypte
     unsigned int evpCipherSize = strlen(encCipherName), evpDigestSize = strlen(messageDigestName);
     unsigned int PBKDF2IterationsSize = sizeof(PBKDF2Iterations);
     unsigned int hmacBufferLength = EVP_SALT_SIZE + evpCipherSize + evpDigestSize + PBKDF2IterationsSize + IvLength + encryptedBufferLength;
-    
+
     unsigned char *hmacBuffer = calloc(sizeof(unsigned char), hmacBufferLength);
     if (hmacBuffer == NULL) {
         printSysError(errno);
         return errno;
     }
-    
+
     /*Concatenates evpSalt:evpCipher:evpDigest:PBKDF2Iterations:evpIV:encryptedBuffer into hmacBuffer*/
-    memcpy(hmacBuffer,evpSalt,EVP_SALT_SIZE);
-    memcpy(hmacBuffer + EVP_SALT_SIZE,encCipherName,evpCipherSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize,messageDigestName,evpDigestSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + evpDigestSize,&PBKDF2Iterations,PBKDF2IterationsSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + evpDigestSize + PBKDF2IterationsSize,evpIv,IvLength);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + evpDigestSize + PBKDF2IterationsSize + IvLength,encryptedBuffer,encryptedBufferLength);
-    
+    memcpy(hmacBuffer, evpSalt, EVP_SALT_SIZE);
+    memcpy(hmacBuffer + EVP_SALT_SIZE, encCipherName, evpCipherSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize, messageDigestName, evpDigestSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + evpDigestSize, &PBKDF2Iterations, PBKDF2IterationsSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + evpDigestSize + PBKDF2IterationsSize, evpIv, IvLength);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + evpDigestSize + PBKDF2IterationsSize + IvLength, encryptedBuffer, encryptedBufferLength);
+
     if (HMAC(EVP_sha512(), HMACKey, SHA512_DIGEST_LENGTH, hmacBuffer, hmacBufferLength, MACcipherTextGenerates, HMACLengthPtr) == NULL) {
         printError("verifyCipherText HMAC failure");
         ERR_print_errors_fp(stderr);
@@ -2679,21 +2674,21 @@ int signCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedB
     unsigned int evpCipherSize = strlen(encCipherName), evpDigestSize = strlen(messageDigestName);
     unsigned int PBKDF2IterationsSize = sizeof(PBKDF2Iterations);
     unsigned int hmacBufferLength = EVP_SALT_SIZE + evpCipherSize + evpDigestSize + PBKDF2IterationsSize + IvLength + encryptedBufferLength;
-        
+
     unsigned char *hmacBuffer = calloc(sizeof(unsigned char), hmacBufferLength);
     if (hmacBuffer == NULL) {
         printSysError(errno);
         exit(EXIT_FAILURE);
     }
-    
+
     /*Concatenates evpSalt:evpCipher:evpDigest:PBKDF2Iterations:evpIV:encryptedBuffer into hmacBuffer*/
-    memcpy(hmacBuffer,evpSalt,EVP_SALT_SIZE);
-    memcpy(hmacBuffer + EVP_SALT_SIZE,encCipherName,evpCipherSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize,messageDigestName,evpDigestSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + evpDigestSize,&PBKDF2Iterations,PBKDF2IterationsSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + evpDigestSize + PBKDF2IterationsSize,evpIv,IvLength);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + evpDigestSize + PBKDF2IterationsSize + IvLength,encryptedBuffer,encryptedBufferLength);
-    
+    memcpy(hmacBuffer, evpSalt, EVP_SALT_SIZE);
+    memcpy(hmacBuffer + EVP_SALT_SIZE, encCipherName, evpCipherSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize, messageDigestName, evpDigestSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + evpDigestSize, &PBKDF2Iterations, PBKDF2IterationsSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + evpDigestSize + PBKDF2IterationsSize, evpIv, IvLength);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + evpDigestSize + PBKDF2IterationsSize + IvLength, encryptedBuffer, encryptedBufferLength);
+
     if (HMAC(EVP_sha512(), HMACKey, SHA512_DIGEST_LENGTH, hmacBuffer, hmacBufferLength, MACcipherTextGenerates, HMACLengthPtr) == NULL) {
         printError("signCipherText HMAC failure");
         ERR_print_errors_fp(stderr);
@@ -2958,12 +2953,12 @@ int sendToClipboard(char *textToSend)
 
     /* At this point we are executing as the child process */
     /* Don't return 1 on error after this point*/
-    
+
     struct timespec ts;
 
     ts.tv_sec = clipboardClearTimeMiliSeconds / 1000;
     ts.tv_nsec = (clipboardClearTimeMiliSeconds % 1000) * 1000000;
-    
+
     nanosleep(&ts, &ts);
 
     system(wipeCommand);
@@ -3192,7 +3187,7 @@ bool xselIsInstalled(void)
 {
     char *pathBuffer = NULL;
     char pathString[NAME_MAX] = {0}, pathToCheck[NAME_MAX] = {0};
-    char *token = NULL ;
+    char *token = NULL;
     bool xselInstalled = false;
     struct stat sb;
 
