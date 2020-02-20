@@ -9,6 +9,7 @@
     Improved messages pertaining to integrity/authenticity failure
     Fixed dangling pointers and unitilized variables/arrays
     Fixed memory leaks and unsanitized buffers
+    Streamlined error handling and cleanup routines in processing modes
 2019-11-03
 (+ver 3.2.9)
     Changed strncpy() calls to snprintf() to fix undefined behavior
