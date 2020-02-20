@@ -54,8 +54,7 @@ Options may have different implications depending on operating mode
 
 .SH DESCRIPTION
 
-passmanager  is an ultra simple, but very secure password management program written in C and making use of OpenSSL's Libcrypto API libraries.  The
-passwords can be written, read, updated or deleted from an encrypted database file.  
+passmanager  is an ultra simple, but very secure password management program written in C and making use of OpenSSL's Libcrypto API libraries. The passwords can be written, read, updated or deleted from an encrypted database file.  
 
 
 New passwords can be randomly generated when creating or updating account credentials. Passwords  can  be  matched by entry name, and printed/updated/deleted in bulk or individually. All password entries in the database can be updated at once with ease. If the user updated/deleted a password they didn't intend to, the program lists which entries were matched and edited, and provides an automatically produced backup file to restore from. The database password and encryption method can be changed at any time.
@@ -135,7 +134,7 @@ In \fBRead\fB\fR mode the password database is searched for an entry with the na
 .PP
 Entries can be specifically matched such as "gmail : account1" and "gmail : account2", or both with 'gmail'.
 .PP
-Searching for a specific entry pass can be useful to send the password directly to the clipboard using xsel. Note that if multiple entries match your search string, only the first matched entry will be sent to the clipboard.
+Searching for a specific entry pass can be useful to send the password directly to the clipboard. Note that if multiple entries match your search string, only the first matched entry will be sent to the clipboard.
 .PP
 To display the entire password database, enter 'allpasses' for the \fIentry name\fI\fR argument.
 .PP
@@ -169,7 +168,7 @@ Both the entry name and password can be updated. The new entry name can be suppl
 .PP
 As in \fBAdd\fB\fR mode, entering 'gen' for the \fIentry password\fI\fR argument will generate a random password.  This is especially useful for updating old passwords.
 
-Single new passwords can be sent directly to the clipboard with xsel as well. Note that if multiple entries match your search string, only the first matched entry will be updated and sent to the clipboard.
+Single new passwords can be sent directly to the clipboard as well. Note that if multiple entries match your search string, only the first matched entry will be updated and sent to the clipboard.
 
 All entries can be updated at once with new randomly generated passwords, if \fIentry name\fI\fR is equal to 'allpasses'
 .PP
@@ -199,7 +198,7 @@ updates \fIentry name\fI\fR and \fIentry password\fI\fR, getting \fInew entry pa
 .PP
 In \fBUpdate database\fB\fR mode the password and the underlying OpenSSL encryption of the database can be updated.
 .PP
-If option \fB-c\fB\fR or \fB-H\fB\fR given to update the encryption or digest algorithm ( respectively ) then \fB-P\fB\fR is needed to change the database password as well.
+If option \fB-c\fB\fR or \fB-H\fB\fR given to update the encryption or digest algorithm ( respectively ) then \fB-P\fB\fR is needed if changing the database password is also desired.
 .PP
 If only option \fB-U\fB\fR is present, then only the password is updated.
 .PP
@@ -246,15 +245,16 @@ A password database is created with \fIwriteDatabase()\fI\fR when the first pass
 
 .SS Authenticated Encryption and Associated Data with User Friendliness
 
-Verifying the integrity of the database file with a checksum means that an actual attack can be detected with very litle risk of a false-positive if the integrity check passes but the authenticity check does not. Verifying the authenticity of the cipher-text afer it's loaded into memory will also detect tampering (or faulty memory) after it's loaded from disk. The only circumstance in which a false-positive could happen is if the memory that the ciphertext, associated data or MAC was loaded into is faulty and caused corruption after being loaded from disk and passing the integrity test. Otherwise, a passing integrity test, but a failed authenticity test would imply that the checksum was deliberately forged to match the modified cipher-text and/or associated data, indicating an attack on the cipher-text and/or associated data.
+The cipher-text is authenticated in Encrypt-then-MAC composition. If the database fails an integrity check, the password was incorrect, or the cpher-text/associated-data fails authentication, derivation of the decryption key and the actual decryption process never takes place.
 
-The password used when the database was created is hashed with HMAC using a key derived from the salt. Because every modification of the database results in a newly generated salt, every modification will also result in a new keyed hash.  Failing the password check will preclude an authenticity check. This isn't intended to add an extra security layer, but rather to be more user-friendly.  If the password entered was incorrect, the proper keys for HMAC could not be generated and so it would results in a failed authentication check even if the cipher-text and associated data was authentic but the password was merely mistyped.
+Verifying the integrity of the database file with a checksum means that an actual attack can be detected with very little risk of a false-positive if the integrity check passes but the authenticity check does not. Verifying the authenticity of the cipher-text after it's loaded into memory will also detect tampering (or faulty memory) after it's loaded from disk. The only circumstance in which a false-positive could happen is if the memory that the ciphertext, associated data or MAC was loaded into is faulty and caused corruption after being loaded from disk and passing the integrity test. Otherwise, a passing integrity test, but a failed authenticity test would imply that the checksum was deliberately forged to match the modified cipher-text and/or associated data, indicating an attack on the cipher-text and/or associated data.
 
-Modification of various associated data or the cipher-text and forging the checksum to match will have differing effects (assuming the password's keyed hash is successfully forged). If an attacker modifies the salt or PBKDF2 iteration amount and forges the database checksum to match this modification, it will always result in a password-check failure. This is because modifying the salt or PBKDF2 iteration amount will produce a different keyed hash than the one signed to the database so it will appear that the password was incorrect (even if it actually was correct). Unless the keyed hash was somehow forged to match the supplied password as well. However, the PBKDF2 iteration amount and salt are still authenticated by HMAC as associated data, so the MAC would then have to be successfully forged as well for the modification to pass. Likewise, modifying the cipher or digest information will not effect the keyed hash of the database password, but would still fail the authentication test unless the MAC was forged to match the modifications. Finally, if the actual cipher-text itself is modified and the database checksum forged to match the change, the MAC would have to be forged for it to pass the authenticity test. 
+The password used when the database was created is hashed with HMAC using a key derived from the salt. Because every modification of the database results in a newly generated salt, every modification will also result in a new keyed hash.  Failing the password check will preclude an authenticity check. This isn't intended to add an extra security layer, but rather to be more user-friendly.  If the password entered was incorrect, the proper keys for HMAC could not be generated, and so if only the MAC alone were used, it would result in a failed authentication check even if the cipher-text and associated data was authentic but the password was merely mistyped.
+
+Modification of various associated data or the cipher-text and forging the checksum to match will have differing effects (assuming the password's keyed hash is successfully forged as well). If an attacker modifies the salt or PBKDF2 iteration amount and forges the database checksum to match this modification, it will always result in a password-check failure. This is because modifying the salt or PBKDF2 iteration amount will produce a different keyed hash than the one signed to the database so it will appear that the password was incorrect (even if it actually was correct). Unless the keyed hash was somehow forged to match the supplied password as well. However, the PBKDF2 iteration amount and salt are still authenticated by HMAC as associated data, so the MAC would then have to be successfully forged as well for the modification to pass. Likewise, modifying the cipher or digest information will not affect the keyed hash of the database password, but would still fail the authentication test unless the MAC was forged to match the modifications. Finally, if the actual cipher-text itself is modified and the database checksum forged to match the change, both the keyed hash of the password and the MAC would have to be forged for the modification to pass the authenticity test. 
 
 This design was chosen to alert the user of a critical issue if they encounter a failed authenticity test, a serious issue if they failed an integrity test, and avoid alarm if they simply mistyped a password.
 
-The cipher-text is authenticated in Encrypt-then-MAC composition. If the database fails an integrity check, the password was incorrect, or fails authentication, derivation of the decryption key and the actual decryption process never takes place.
 
 .SS Memory Sanitation
 
@@ -301,7 +301,7 @@ passmanager -U -f ./passwords
 Or you could do both change the password, the encryption and digest algorithms, and PBKDF2 iteration amount in one command
 
 .RS
-passmanager -U -c aes-256-ctr -H whirlpool -i 1000000-P -f ./passwords
+passmanager -U -c aes-256-ctr -H whirlpool -i 1000000 -P -f ./passwords
 .RE
 
 Update the previously added entry name from "gmail : myemail@gmail.com" to "gmail : myemail1@gmail.com" (Note how we're partially matching "gmail", and the need for quotations around the new entry name since it contains whitespace)
