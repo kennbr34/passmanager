@@ -144,7 +144,7 @@ int fwriteWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream);
 int constTimeMemCmp(const void *in_a, const void *in_b, size_t len);
 void printDbInfo();
 void printClipboardMessage(int entriesMatched);
-void backupDatabase();
+int backupDatabase();
 bool xselIsInstalled(void);
 #ifdef HAVE_LIBX11
 int targetWinHandler(Display *xDisplay,
@@ -1511,19 +1511,19 @@ int openDatabase()
     dbFile = fopen(dbFileName, "rb");
     if (dbFile == NULL) {
         printFileError(dbFileName, errno);
-        exit(EXIT_FAILURE);
+        goto cleanup;
     }
 
     /*fread overwrites any randomly generated salt with the one read from file*/
     if (freadWErrCheck(evpSalt, sizeof(char), EVP_SALT_SIZE, dbFile) != 0) {
         printSysError(returnVal);
-        exit(EXIT_FAILURE);
+        goto cleanup;
     }
 
     /*Read the cipher and message digest information in*/
     if (freadWErrCheck(cryptoHeader, sizeof(char), CRYPTO_HEADER_SIZE, dbFile) != 0) {
         printSysError(returnVal);
-        exit(EXIT_FAILURE);
+        goto cleanup;
     }
 
     /*Read PBKDF2Iterations from end of cryptoHeader*/
@@ -1533,7 +1533,7 @@ int openDatabase()
         /*Generate a separate salt and key for HMAC authentication*/
         if (deriveHMACKey() != 0) {
             printError("Could not derive HMAC key");
-            exit(EXIT_FAILURE);
+            goto cleanup;
         }
     }
 
@@ -1541,39 +1541,39 @@ int openDatabase()
     verificationBuffer = calloc(fileSize - MACSize, sizeof(unsigned char));
     if (verificationBuffer == NULL) {
         printSysError(errno);
-        exit(EXIT_FAILURE);
+        goto cleanup;
     }
 
     /*Reset to beginning since reading in the salt and cryptoHeader have advanced the file position*/
     if (fseek(dbFile, 0L, SEEK_SET) != 0) {
         printSysError(errno);
-        exit(EXIT_FAILURE);
+        goto cleanup;
     }
 
     if (freadWErrCheck(verificationBuffer, sizeof(unsigned char), fileSize - MACSize, dbFile) != 0) {
         printSysError(returnVal);
-        exit(EXIT_FAILURE);
+        goto cleanup;
     }
 
     /*Set the file position to the beginning of the first SHA512 hash and read the rest*/
     if (fseek(dbFile, fileSize - (MACSize * 3), SEEK_SET) != 0) {
         printSysError(errno);
-        exit(EXIT_FAILURE);
+        goto cleanup;
     }
 
     if (freadWErrCheck(KeyedHashdBPassSignedWith, sizeof(unsigned char), MACSize, dbFile) != 0) {
         printSysError(returnVal);
-        exit(EXIT_FAILURE);
+        goto cleanup;
     }
 
     if (freadWErrCheck(MACcipherTextSignedWith, sizeof(unsigned char), MACSize, dbFile) != 0) {
         printSysError(returnVal);
-        exit(EXIT_FAILURE);
+        goto cleanup;
     }
 
     if (freadWErrCheck(CheckSumDbFileSignedWith, sizeof(unsigned char), MACSize, dbFile) != 0) {
         printSysError(returnVal);
-        exit(EXIT_FAILURE);
+        goto cleanup;
     }
 
     /*If not just printing database info, check the database for integrity and and if correct password was issued*/
@@ -1583,64 +1583,46 @@ int openDatabase()
         if (SHA512(verificationBuffer, fileSize - MACSize, CheckSumDbFileGenerates) == NULL) {
             printError("SHA512 failed");
             ERR_print_errors_fp(stderr);
-            exit(EXIT_FAILURE);
+            goto cleanup;
         }
 
         if (constTimeMemCmp(CheckSumDbFileSignedWith, CheckSumDbFileGenerates, MACSize) != 0) {
             printMACErrMessage(0);
 
-            if (fclose(dbFile) == EOF) {
-                printFileError(dbFileName, errno);
-                free(verificationBuffer);
-                verificationBuffer = NULL;
-                exit(EXIT_FAILURE);
-            }
-
-            free(verificationBuffer);
-            verificationBuffer = NULL;
-
-            exit(EXIT_FAILURE);
+            goto cleanup;
         }
 
         /*Verify dbPass*/
         if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), KeyedHashdBPassGenerates, HMACLengthPtr) == NULL) {
             printError("HMAC falied");
             ERR_print_errors_fp(stderr);
-            exit(EXIT_FAILURE);
+            goto cleanup;
         }
 
         if (constTimeMemCmp(KeyedHashdBPassSignedWith, KeyedHashdBPassGenerates, MACSize) != 0) {
             printMACErrMessage(2);
 
-            if (fclose(dbFile) == EOF) {
-                printFileError(dbFileName, errno);
-                free(verificationBuffer);
-                verificationBuffer = NULL;
-                exit(EXIT_FAILURE);
-            }
-
-            free(verificationBuffer);
-            verificationBuffer = NULL;
-
-            exit(EXIT_FAILURE);
+            goto cleanup;
         }
     }
 
     /*Create a backup after verification of MAC so that user can recover database if something went wrong in the last modification*/
-    backupDatabase();
+    if(backupDatabase() != 0) {
+        goto cleanup;
+    }
 
     /*Copy verificationBuffer to encryptedBuffer without the header information or MACs*/
     encryptedBuffer = calloc(sizeof(char), evpDataSize);
     if (encryptedBuffer == NULL) {
         printSysError(errno);
-        exit(EXIT_FAILURE);
+        goto cleanup;
     }
 
     memcpy(encryptedBuffer, verificationBuffer + EVP_SALT_SIZE + CRYPTO_HEADER_SIZE, evpDataSize);
 
     if (fclose(dbFile) == EOF) {
         printFileError(dbFileName, errno);
-        exit(EXIT_FAILURE);
+        goto cleanup;
     }
 
     free(verificationBuffer);
@@ -1652,14 +1634,14 @@ int openDatabase()
     token = strtok(cryptoHeader, ":");
     if (token == NULL) {
         printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
-        exit(EXIT_FAILURE);
+        goto cleanup;
     }
     snprintf(encCipherName, NAME_MAX, "%s", token);
 
     token = strtok(NULL, ":");
     if (token == NULL) {
         printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
-        exit(EXIT_FAILURE);
+        goto cleanup;
     }
 
     /*Then the message digest*/
@@ -1669,13 +1651,13 @@ int openDatabase()
     evpCipher = EVP_get_cipherbyname(encCipherName);
     if (!evpCipher) {
         fprintf(stderr, "Could not load cipher %s. Is it installed? Use -c list to list available ciphers\n", encCipherName);
-        exit(EXIT_FAILURE);
+        goto cleanup;
     }
 
     evpDigest = EVP_get_digestbyname(messageDigestName);
     if (!evpDigest) {
         fprintf(stderr, "Could not load digest %s. Is it installed? Use -c list to list available ciphers\n", messageDigestName);
-        exit(EXIT_FAILURE);
+        goto cleanup;
     }
 
     if (condition.updatingDbEnc == true && condition.printingDbInfo == false) {
@@ -1688,52 +1670,75 @@ int openDatabase()
 
         if (deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKeyOld, evpIvOld, PBKDF2IterationsOld) != 0) {
             printError("Could not derive EVP key");
-            exit(EXIT_FAILURE);
+            goto cleanup;
         }
     }
 
     return 0;
+    
+    cleanup:
+    if(dbFile != NULL)
+        fclose(dbFile);
+    free(verificationBuffer);
+    verificationBuffer = NULL;
+    free(encryptedBuffer);
+    encryptedBuffer = NULL;
+    exit(EXIT_FAILURE);
 }
 
-void backupDatabase()
+int backupDatabase()
 {
+    char *backUpFileBuffer;
+    
     if (condition.databaseBeingInitalized == false && condition.readingPass == false && condition.printingDbInfo == false) {
         snprintf(backupFileName, NAME_MAX + BACKUP_FILE_EXT_LEN, "%s%s", dbFileName, backupFileExt);
 
         FILE *backUpFile = fopen(backupFileName, "w");
         if (backUpFile == NULL) {
-            printf("Couldn't make a backup file. Be careful...\n");
+            printFileError(backupFileName, errno);
+            printf("Couldn't make a backup file. Proceed anyway? [Y/n]: ");
+            if(getchar() != 'Y') {
+                printf("Aborting\n");
+                return 1;
+            }
         } else {
             FILE *copyFile = fopen(dbFileName, "r");
-            char *backUpFileBuffer = calloc(sizeof(char), returnFileSize(dbFileName));
+            backUpFileBuffer = calloc(sizeof(char), returnFileSize(dbFileName));
             if (backUpFileBuffer == NULL) {
                 printSysError(errno);
-                exit(EXIT_FAILURE);
+                goto cleanup;
             }
 
             if (freadWErrCheck(backUpFileBuffer, sizeof(char), returnFileSize(dbFileName), copyFile) != 0) {
                 printSysError(returnVal);
-                exit(EXIT_FAILURE);
+                goto cleanup;
             }
 
             if (fwriteWErrCheck(backUpFileBuffer, sizeof(char), returnFileSize(dbFileName), backUpFile) != 0) {
                 printSysError(returnVal);
-                exit(EXIT_FAILURE);
+                goto cleanup;
             }
 
             if (fclose(copyFile) == EOF) {
                 printFileError(dbFileName, errno);
-                exit(EXIT_FAILURE);
+                goto cleanup;
             }
             if (fclose(backUpFile) == EOF) {
                 printFileError(backupFileName, errno);
-                exit(EXIT_FAILURE);
+                goto cleanup;
             }
 
             free(backUpFileBuffer);
             backUpFileBuffer = NULL;
         }
     }
+    
+    return 0;
+    
+    cleanup:
+    free(backUpFileBuffer);
+    backUpFileBuffer = NULL;
+    return 1;
 }
 
 int writePass()
