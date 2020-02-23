@@ -112,8 +112,6 @@ struct conditionsStruct {
 
 struct conditionsStruct condition = {0};
 
-/*Prototype functions*/
-
 int openDatabase();
 int writeDatabase();
 int configEvp();
@@ -656,8 +654,8 @@ int main(int argc, char *argv[])
         if (condition.dbPassGivenasArg == false) {
             getPass("Enter database password to encode with: ", dbPass);
 
-            /*If this function returns 0 then it is the first time entering the database password so input should be verified*/
-            if (returnFileSize(dbFileName) == 0) {
+            /*Verify the database password if the database is being intialized*/
+            if (condition.databaseBeingInitalized == true) {
                 getPass("Verify password:", dbPassToVerify);
                 if (strcmp(dbPass, dbPassToVerify) != 0) {
                     printf("\nPasswords do not match.  Nothing done.\n\n");
@@ -669,8 +667,7 @@ int main(int argc, char *argv[])
         /*Note this will be needed before openDatabase() is called in all modes except Read*/
         configEvp();
 
-        /*If password file exists run openDatabase on it*/
-        /*Test by filesize and not if the file exists because at this point an empty file by this name will be there*/
+        /*If password database has been initialized openDatabase on it*/
         if (condition.databaseBeingInitalized == false) {
             openDatabase();
         } else {
@@ -698,11 +695,11 @@ int main(int argc, char *argv[])
             exit(EXIT_FAILURE);
         }
 
-        /*writePass() appends a new entry to EVPDataFileTmp encrypted with the EVP algorithm chosen*/
+        /*Adds the new enry and sends it to encryptedBuffer*/
         int writePassResult = writePass();
 
         if (writePassResult == 0) {
-            /*writeDatabase attaches prepends salt and header and appends MACs to cipher-text and writes it all as password database*/
+            /*writeDatabase attaches header and footer to encryptedBuffer and writes the new password file*/
             writeDatabase();
         }
 
@@ -750,7 +747,7 @@ int main(int argc, char *argv[])
         }
 
         /*Delete pass actually works by exclusion*/
-        /*It writes all password entries except the one specified to a 3rd temporary file*/
+        /*It writes all password entries except the one specified into encryptedBuffer*/
         int deletePassResult = deletePass(entryName);
 
         if (deletePassResult == 0)
@@ -848,7 +845,7 @@ int main(int argc, char *argv[])
             exit(EXIT_FAILURE);
         }
 
-        /*Works like deletePass() but instead of excluding matched entry, modfies its buffer values and then outputs to 3rd temp file*/
+        /*Works like deletePass() but instead of excluding matched entry, modfies its buffer values and then writes it to encryptedBuffer*/
         int updateEntryResult = updateEntry(entryNameToFind);
 
         if (updateEntryResult == 0) {
@@ -950,7 +947,7 @@ int main(int argc, char *argv[])
         /*This will change to the cipher just specified*/
         configEvp();
 
-        /*The updatingDbEnc function decrypts with the old key and cipher settings, re-encrypts with new key and/or cipher settings and writes to 3rd temp file*/
+        /*The updatingDbEnc function decrypts with the old key and cipher settings, re-encrypts with new key and/or cipher settings writes to encryptedBuffer*/
         int updateDbEncResult = updateDbEnc();
 
         if (updateDbEncResult == 0) {
@@ -1129,7 +1126,6 @@ void genPassWord(int stringLength)
     char *tempPassString = calloc(sizeof(char), stringLength + 1);
     int i = 0;
 
-    /*Go until i has iterated over the length of the pass requested*/
     while (i < stringLength) {
         /*Gets a random byte from OpenSSL CSPRNG*/
         if (!RAND_bytes(&randomByte, 1)) {
@@ -1381,8 +1377,6 @@ int writeDatabase()
         exit(EXIT_FAILURE);
     }
 
-    /*Write crypto information as a header*/
-
     /*Write encCipherName:messageDigestName to cryptoHeader*/
     if (snprintf(cryptoHeader, CRYPTO_HEADER_SIZE, "%s:%s", encCipherName, messageDigestName) < 0) {
         printError("snprintf failed");
@@ -1404,13 +1398,14 @@ int writeDatabase()
         exit(EXIT_FAILURE);
     }
 
+    /*Write the encrypted database information*/
     fileBuffer = calloc(sizeof(char), fileSize);
     if (fileBuffer == NULL) {
         printSysError(errno);
         exit(EXIT_FAILURE);
     }
 
-    if (condition.databaseBeingInitalized == true) {
+    if (condition.databaseBeingInitalized == true) { /*If this is the first entry to the database it will be contained in dbInitBuffer instead*/
         if (fwriteWErrCheck(dbInitBuffer, sizeof(char), fileSize, dbFile) != 0) {
             printSysError(returnVal);
             exit(EXIT_FAILURE);
@@ -1422,13 +1417,14 @@ int writeDatabase()
         }
     }
 
-    /*HMAC User Supplied Password*/
+    /*Generate keyed hash of database password*/
     if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), KeyedHashdBPassGenerates, HMACLengthPtr) == NULL) {
         printError("HMAC falied");
         ERR_print_errors_fp(stderr);
         exit(EXIT_FAILURE);
     }
 
+    /*Write keyed hash of database password and MAC of cipher-text/associated data then close file*/
     if (fwriteWErrCheck(KeyedHashdBPassGenerates, sizeof(unsigned char), MACSize, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
@@ -1447,7 +1443,7 @@ int writeDatabase()
     free(fileBuffer);
     fileBuffer = NULL;
 
-    /*Open the database file to generate a checksum*/
+    /*Load the database file into a buffer to generate a checksum*/
     dbFile = fopen(dbFileName, "rb");
     if (dbFile == NULL) {
         printFileError(dbFileName, errno);
@@ -1466,7 +1462,6 @@ int writeDatabase()
         exit(EXIT_FAILURE);
     }
 
-    /*Hash Database File*/
     if (SHA512(fileBuffer, returnFileSize(dbFileName), CheckSumDbFileGenerates) == NULL) {
         printError("HMAC falied");
         ERR_print_errors_fp(stderr);
@@ -1481,7 +1476,7 @@ int writeDatabase()
         exit(EXIT_FAILURE);
     }
 
-    /*Now append the database checksum*/
+    /*Append the database checksum*/
     dbFile = fopen(dbFileName, "ab");
     if (dbFile == NULL) {
         printFileError(dbFileName, errno);
@@ -1489,7 +1484,6 @@ int writeDatabase()
     }
     chmod(dbFileName, S_IRUSR | S_IWUSR);
 
-    /*Append the database checksum and close the file*/
     if (fwriteWErrCheck(CheckSumDbFileGenerates, sizeof(unsigned char), MACSize, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
@@ -1519,10 +1513,6 @@ int openDatabase()
         printFileError(dbFileName, errno);
         exit(EXIT_FAILURE);
     }
-
-    /*Grab the crypto information from header*/
-    /*Then an EVP_SALT_SIZE byte salt for evpSalt*/
-    /*Then will be the cipher and the message digest names delimited with ':'*/
 
     /*fread overwrites any randomly generated salt with the one read from file*/
     if (freadWErrCheck(evpSalt, sizeof(char), EVP_SALT_SIZE, dbFile) != 0) {
@@ -1560,13 +1550,12 @@ int openDatabase()
         exit(EXIT_FAILURE);
     }
 
-    /*Read in the size of the file minus keyed hash and MAC*/
     if (freadWErrCheck(verificationBuffer, sizeof(unsigned char), fileSize - MACSize, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
 
-    /*Set the file position to the beginning of the first SHA512 hash*/
+    /*Set the file position to the beginning of the first SHA512 hash and read the rest*/
     if (fseek(dbFile, fileSize - (MACSize * 3), SEEK_SET) != 0) {
         printSysError(errno);
         exit(EXIT_FAILURE);
@@ -1587,18 +1576,17 @@ int openDatabase()
         exit(EXIT_FAILURE);
     }
 
+    /*If not just printing database info, check the database for integrity and and if correct password was issued*/
     if (condition.printingDbInfo == false) {
 
-        /*Hash Database File*/
+        /*Verify integrity of database*/
         if (SHA512(verificationBuffer, fileSize - MACSize, CheckSumDbFileGenerates) == NULL) {
             printError("SHA512 failed");
             ERR_print_errors_fp(stderr);
             exit(EXIT_FAILURE);
         }
 
-        /*Verify authenticity of database*/
         if (constTimeMemCmp(CheckSumDbFileSignedWith, CheckSumDbFileGenerates, MACSize) != 0) {
-            /*Return error status before proceeding and clean up sensitive data*/
             printMACErrMessage(0);
 
             if (fclose(dbFile) == EOF) {
@@ -1614,16 +1602,14 @@ int openDatabase()
             exit(EXIT_FAILURE);
         }
 
-        /*HMAC User Supplied Password*/
+        /*Verify dbPass*/
         if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), KeyedHashdBPassGenerates, HMACLengthPtr) == NULL) {
             printError("HMAC falied");
             ERR_print_errors_fp(stderr);
             exit(EXIT_FAILURE);
         }
 
-        /*Verify dbPass*/
         if (constTimeMemCmp(KeyedHashdBPassSignedWith, KeyedHashdBPassGenerates, MACSize) != 0) {
-            /*Return error status before proceeding and clean up sensitive data*/
             printMACErrMessage(2);
 
             if (fclose(dbFile) == EOF) {
@@ -1681,7 +1667,6 @@ int openDatabase()
 
     /*Check the strings read are valid cipher and digest names*/
     evpCipher = EVP_get_cipherbyname(encCipherName);
-    /*If the cipher doesn't exists or there was a problem loading it return with error status*/
     if (!evpCipher) {
         fprintf(stderr, "Could not load cipher %s. Is it installed? Use -c list to list available ciphers\n", encCipherName);
         exit(EXIT_FAILURE);
@@ -1712,7 +1697,6 @@ int openDatabase()
 
 void backupDatabase()
 {
-    /*Before anything else, back up the password database*/
     if (condition.databaseBeingInitalized == false && condition.readingPass == false && condition.printingDbInfo == false) {
         snprintf(backupFileName, NAME_MAX + BACKUP_FILE_EXT_LEN, "%s%s", dbFileName, backupFileExt);
 
@@ -1783,7 +1767,6 @@ int writePass()
 
         /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
         if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, messageDigestName, PBKDF2Iterations, evpIv) != 0) {
-            /*Return error status before proceeding and clean up sensitive data*/
             printMACErrMessage(1);
             OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
             goto error;
@@ -1956,7 +1939,6 @@ int printPasses(char *searchString)
 
     /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
     if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, messageDigestName, PBKDF2Iterations, evpIv) != 0) {
-        /*Return error status before proceeding and clean up sensitive data*/
         printMACErrMessage(1);
         goto error;
     }
@@ -1972,7 +1954,7 @@ int printPasses(char *searchString)
 
     EVP_CIPHER_CTX_cleanup(ctx);
 
-    /*Loop to process the file.*/
+    /*Loop to process the entries*/
     for (ii = 0; ii < evpOutputLength; ii += (UI_BUFFERS_SIZE * 2)) {
 
         /*Copy the decrypted information into entryBuffer and passBuffer*/
@@ -2088,7 +2070,6 @@ int deletePass(char *searchString)
 
     /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
     if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, messageDigestName, PBKDF2Iterations, evpIv) != 0) {
-        /*Return error status before proceeding and clean up sensitive data*/
         printMACErrMessage(1);
         goto error;
     }
@@ -2102,7 +2083,7 @@ int deletePass(char *searchString)
 
     EVP_DecryptInit(ctx, evpCipher, evpKey, evpIv);
 
-    /*Decrypt file and store into temp buffer*/
+    /*Decrypt file and store into decryptedBuffer*/
     if (evpDecrypt(ctx, fileSize, &evpOutputLength, encryptedBuffer, decryptedBuffer) != 0) {
         printError("evpDecrypt failed");
         EVP_CIPHER_CTX_cleanup(ctx);
@@ -2114,6 +2095,7 @@ int deletePass(char *searchString)
 
     oldFileSize = evpOutputLength;
 
+    /*Loop to process the entries*/
     for (ii = 0; ii < oldFileSize; ii += (UI_BUFFERS_SIZE * 2)) {
 
         for (i = 0; i < UI_BUFFERS_SIZE; i++) {
@@ -2294,7 +2276,6 @@ int updateEntry(char *searchString)
 
     /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
     if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, messageDigestName, PBKDF2Iterations, evpIv) != 0) {
-        /*Return error status before proceeding and clean up sensitive data*/
         printMACErrMessage(1);
         goto error;
     }
@@ -2319,6 +2300,7 @@ int updateEntry(char *searchString)
 
     oldFileSize = evpOutputLength;
 
+    /*Loop to process the entries*/
     for (ii = 0; ii < oldFileSize; ii += (UI_BUFFERS_SIZE * 2)) {
 
         for (i = 0; i < UI_BUFFERS_SIZE; i++) {
@@ -2544,7 +2526,6 @@ int updateDbEnc()
 
     /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
     if (verifyCiphertext(fileSize, encryptedBuffer, HMACKeyOld, encCipherNameOld, messageDigestNameOld, PBKDF2IterationsOld, evpIvOld) != 0) {
-        /*Return error status before proceeding and clean up sensitive data*/
         printMACErrMessage(1);
         goto error;
     }
@@ -2797,14 +2778,14 @@ int targetWinHandler(Display *xDisplay,
 
     targetsAtm = XInternAtom(xDisplay, "TARGETS", False);
 
-    /* Set the window and property that is being used */
+    /*Set the window and property that is being used*/
     *targetWindow = XAeventStruct.xselectionrequest.requestor;
     *windowProperty = XAeventStruct.xselectionrequest.property;
 
     if (XAeventStruct.xselectionrequest.target == targetsAtm) {
         Atom dataTypes[2] = {targetsAtm, targetProperty};
 
-        /* Send pass with targets */
+        /*Send pass with targets*/
         XChangeProperty(xDisplay,
                         *targetWindow,
                         *windowProperty,
@@ -2813,13 +2794,13 @@ int targetWinHandler(Display *xDisplay,
                         (int)(sizeof(dataTypes) / sizeof(Atom)));
     } else {
 
-        /* Send pass  */
+        /*Send pass */
         XChangeProperty(xDisplay,
                         *targetWindow,
                         *windowProperty, targetProperty, 8, PropModeReplace, (unsigned char *)passToSend, (int)passLength);
     }
 
-    /* Set values for the response event */
+    /*Set values for the response event*/
     eventResponseStruct.xselection.property = *windowProperty;
     eventResponseStruct.xselection.type = SelectionNotify;
     eventResponseStruct.xselection.display = XAeventStruct.xselectionrequest.display;
@@ -2828,7 +2809,7 @@ int targetWinHandler(Display *xDisplay,
     eventResponseStruct.xselection.target = XAeventStruct.xselectionrequest.target;
     eventResponseStruct.xselection.time = XAeventStruct.xselectionrequest.time;
 
-    /* Send the response event */
+    /*Send the response event*/
     XSendEvent(xDisplay, XAeventStruct.xselectionrequest.requestor, 0, 0, &eventResponseStruct);
     XFlush(xDisplay);
 
@@ -2848,17 +2829,16 @@ int sendWithXlib(char *passToSend, int passLength, int clearTime)
     else if (condition.selectionGiven == false || condition.selectionIsPrimary == true)
         selectionAtm = XA_PRIMARY;
     Atom targetAtm = XA_STRING;
-    int X11fileDescriptor; /* File descriptor on which XEvents appear */
+    int X11fileDescriptor; /*File descriptor on which XEvents appear*/
     fd_set inputFileDescriptors;
     struct timeval timeVariable;
 
     rootWindow = XCreateSimpleWindow(xDisplay, DefaultRootWindow(xDisplay), 0, 0, 1, 1, 0, 0, 0);
     XSetSelectionOwner(xDisplay, selectionAtm, rootWindow, CurrentTime);
 
-    /* ConnectionNumber is a macro, it can't fail */
     X11fileDescriptor = ConnectionNumber(xDisplay);
 
-    /* At this point we are executing as the child process */
+    /*At this point we are executing as the child process*/
     for (;;) {
         static Window targetWindow = 0;
         static Atom windowProperty = 0;
@@ -2878,7 +2858,7 @@ int sendWithXlib(char *passToSend, int passLength, int clearTime)
             timeVariable.tv_sec = clearTime / 1000;
             timeVariable.tv_usec = (clearTime % 1000) * 1000;
 
-            /* Build file descriptors */
+            /*Build file descriptors*/
             FD_ZERO(&inputFileDescriptors);
             FD_SET(X11fileDescriptor, &inputFileDescriptors);
             if (!select(X11fileDescriptor + 1, &inputFileDescriptors, 0, 0, &timeVariable)) {
@@ -2940,19 +2920,19 @@ int sendToClipboard(char *textToSend)
         return 1;
     }
 
-    /* Fork off the parent process and check for error */
+    /*Fork off the parent process and check for error*/
     pid = fork();
     if (pid < 0) {
         return 1;
     }
-    /* If we got a good PID, then we can return the parent process to the calling function.*/
+    /*If we got a good PID, then we can return the parent process to the calling function.*/
     else if (pid > 0) {
         /*Do not change from 0 here or the parent process's calling function won't print information about what was sent to clipboard*/
         return 0;
     }
 
-    /* At this point we are executing as the child process */
-    /* Don't return 1 on error after this point*/
+    /*At this point we are executing as the child process*/
+    /*Don't return 1 on error after this point*/
 
     struct timespec ts;
 
@@ -3254,12 +3234,11 @@ void mdListCallback(const OBJ_NAME *obj, void *arg)
 void signalHandler(int signum)
 {
     printf("\nCaught signal %d\n\nCleaning up buffers...\n", signum);
-    // Cleanup and close up stuff here
-
+    
     /* Restore terminal. */
     (void)tcsetattr(fileno(stdin), TCSAFLUSH, &termisOld);
 
-    // Terminate program
+    /*Terminate program with exit() so that atexit() runs cleanUpBuffers()*/
     exit(signum);
 }
 
