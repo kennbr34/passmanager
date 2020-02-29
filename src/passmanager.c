@@ -1743,7 +1743,6 @@ int backupDatabase()
 
 int writePass()
 {
-    int i = 0;
     long fileSize = evpDataSize, newFileSize, oldFileSize;
 
     int evpOutputLength;
@@ -1845,9 +1844,7 @@ int writePass()
             goto cleanup;
         }
 
-        for (i = 0; i < UI_BUFFERS_SIZE * 2; i++) {
-            decryptedBuffer[evpOutputLength + i] = entryBuffer[i];
-        }
+        memcpy(decryptedBuffer + evpOutputLength,entryBuffer,UI_BUFFERS_SIZE * 2);
 
         OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
 
