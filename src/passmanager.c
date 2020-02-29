@@ -1762,11 +1762,8 @@ int writePass()
         goto cleanup;
     }
 
-    /*Copy bufers entryName and entryPass into infoBuffer, splitting the UI_BUFFERS_SIZE * 2 chars between the two*/
-    for (i = 0; i < UI_BUFFERS_SIZE; i++)
-        infoBuffer[i] = entryName[i];
-    for (i = 0; i < UI_BUFFERS_SIZE; i++)
-        infoBuffer[i + UI_BUFFERS_SIZE] = entryPass[i];
+    memcpy(infoBuffer,entryName,UI_BUFFERS_SIZE);
+    memcpy(infoBuffer + UI_BUFFERS_SIZE,entryPass,UI_BUFFERS_SIZE);
 
     if (condition.databaseBeingInitalized == false) {
 
