@@ -1750,9 +1750,9 @@ int writePass()
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
     EVP_CIPHER_CTX_init(ctx);
 
-    /*entryPass and entryName are both copied into infoBuffer, which is then encrypted*/
-    unsigned char *infoBuffer = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE * 2);
-    if (infoBuffer == NULL) {
+    /*entryPass and entryName are both copied into entryBuffer, which is then encrypted*/
+    unsigned char *entryBuffer = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE * 2);
+    if (entryBuffer == NULL) {
         printSysError(errno);
         goto cleanup;
     }
@@ -1762,15 +1762,15 @@ int writePass()
         goto cleanup;
     }
 
-    memcpy(infoBuffer,entryName,UI_BUFFERS_SIZE);
-    memcpy(infoBuffer + UI_BUFFERS_SIZE,entryPass,UI_BUFFERS_SIZE);
+    memcpy(entryBuffer,entryName,UI_BUFFERS_SIZE);
+    memcpy(entryBuffer + UI_BUFFERS_SIZE,entryPass,UI_BUFFERS_SIZE);
 
     if (condition.databaseBeingInitalized == false) {
 
         /*Verify authenticity of ciphertext loaded into encryptedBuffer*/
         if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, messageDigestName, PBKDF2Iterations, evpIv) != 0) {
             printMACErrMessage(1);
-            OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
+            OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
             goto cleanup;
         }
 
@@ -1781,7 +1781,7 @@ int writePass()
             printError("evpDecrypt failed");
             EVP_CIPHER_CTX_cleanup(ctx);
             OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + (UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH);
-            OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
+            OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
             goto cleanup;
         }
 
@@ -1791,17 +1791,17 @@ int writePass()
     if (condition.databaseBeingInitalized == true) {
         EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
 
-        if (evpEncrypt(ctx, UI_BUFFERS_SIZE * 2, &evpOutputLength, dbInitBuffer, infoBuffer) != 0) {
+        if (evpEncrypt(ctx, UI_BUFFERS_SIZE * 2, &evpOutputLength, dbInitBuffer, entryBuffer) != 0) {
             printError("evpEncrypt failed");
             EVP_CIPHER_CTX_cleanup(ctx);
-            OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
+            OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
             goto cleanup;
         }
 
         EVP_CIPHER_CTX_cleanup(ctx);
 
-        /*Clear out sensitive information in infoBuffer ASAP*/
-        OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
+        /*Clear out sensitive information in entryBuffer ASAP*/
+        OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
 
         /*Sign new ciphertext*/
         if (signCiphertext(evpOutputLength, dbInitBuffer) != 0) {
@@ -1817,19 +1817,19 @@ int writePass()
         if (genEvpSalt() != 0) {
             printError("Could not update salt");
             OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + (UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH);
-            OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
+            OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
             goto cleanup;
         }
         if (deriveHMACKey() != 0) {
             printError("Could not create new HMAC key");
             OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + (UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH);
-            OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
+            OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
             goto cleanup;
         }
         if (deriveEVPKey(dbPass, evpSalt, EVP_SALT_SIZE, evpCipher, evpDigest, evpKey, evpIv, PBKDF2Iterations) != 0) {
             printError("Could not create new EVP key");
             OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + (UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH);
-            OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
+            OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
             goto cleanup;
         }
 
@@ -1841,15 +1841,15 @@ int writePass()
         if (encryptedBuffer == NULL) {
             EVP_CIPHER_CTX_cleanup(ctx);
             OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + (UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH);
-            OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
+            OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
             goto cleanup;
         }
 
         for (i = 0; i < UI_BUFFERS_SIZE * 2; i++) {
-            decryptedBuffer[evpOutputLength + i] = infoBuffer[i];
+            decryptedBuffer[evpOutputLength + i] = entryBuffer[i];
         }
 
-        OPENSSL_cleanse(infoBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
+        OPENSSL_cleanse(entryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
 
         oldFileSize = evpOutputLength;
 
@@ -1879,8 +1879,8 @@ int writePass()
 
     if (condition.sendToClipboard == true) {
 
-        free(infoBuffer);
-        infoBuffer = NULL;
+        free(entryBuffer);
+        entryBuffer = NULL;
         free(decryptedBuffer);
         decryptedBuffer = NULL;
         free(ctx);
@@ -1890,8 +1890,8 @@ int writePass()
         }
     } else {
 
-        free(infoBuffer);
-        infoBuffer = NULL;
+        free(entryBuffer);
+        entryBuffer = NULL;
         free(decryptedBuffer);
         decryptedBuffer = NULL;
         free(ctx);
@@ -1901,8 +1901,8 @@ int writePass()
     return 0;
 
     cleanup:
-    free(infoBuffer);
-    infoBuffer = NULL;
+    free(entryBuffer);
+    entryBuffer = NULL;
     free(decryptedBuffer);
     decryptedBuffer = NULL;
     free(ctx);
