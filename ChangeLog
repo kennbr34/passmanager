@@ -2,6 +2,13 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+2020-03-02
+(+ver 3.4.1)
+    Fixed major flaw in IV derivation
+    Added prompt to ask if user wants to abort if no permissions to lock memory
+    Added prompt to ask if user wants to abort if backup file could not be made
+    Changed variable names and code comments
+    Changed buffer copying methods
 2020-02-17
 (+ver 3.3.10)
     Added ability to distinguish between incorrect password or integrity/aunthenticity failure
