@@ -1345,7 +1345,7 @@ int deriveEVPKey(char *dbPass, unsigned char *evpSalt, unsigned int saltLen, con
     if (EVP_CIPHER_iv_length(evpCipher) != 0) {
         if (!PKCS5_PBKDF2_HMAC((char *)dbPass, strlen(dbPass),
                                evpSalt, saltLen,
-                               PBKDF2Iterations,
+                               1,
                                evpDigest, EVP_CIPHER_iv_length(evpCipher),
                                evpIv)) {
             printError("PBKDF2 failed\n");
@@ -3273,7 +3273,7 @@ int printSyntax(char *arg)
 \n     \t-c 'cipher' - Update encryption algorithm  \
 \n     \t-H 'digest' - Update digest used for algorithms' KDFs \
 \n     \t-i 'iterations' - Update iteration amount used by PBKDF2 to 'iterations'\
-\nVersion 3.3.10\
+\nVersion 3.4.1\
 \n\
 ",
            arg);
