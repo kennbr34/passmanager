@@ -32,10 +32,10 @@ echo -e "\nNow read the database with the password you just changed to... (Press
 read
 echo passmanager -r allpasses -f ./examplepasswords1.dat
 passmanager -r allpasses -f ./examplepasswords1.dat
-echo -e "\nNow try changing the encryption to bf-ofb:bf-ofb and whirlpool:sha512 and the scrypt N factor to 16384... (Press enter)"
+echo -e "\nNow try changing the encryption to blowfish in OFB mode and the scrypt N factor to 16384... (Press enter)"
 read
-echo passmanager -U -c bf-ofb -H whirlpool -w 16384,8,1 -f ./examplepasswords1.dat
-passmanager -U -c bf-ofb -H whirlpool -w 16384,8,1 -f ./examplepasswords1.dat
+echo passmanager -U -c bf-ofb -w 16384,8,1 -f ./examplepasswords1.dat
+passmanager -U -c bf-ofb -w 16384,8,1 -f ./examplepasswords1.dat
 echo -e "\nRead the password database to confirm change... (Press enter)"
 read
 echo passmanager -r allpasses -f ./examplepasswords1.dat
@@ -44,10 +44,10 @@ echo -e "\nNow view database information... (Press enter)"
 read
 echo passmanager -I -f ./examplepasswords1.dat
 passmanager -I -f ./examplepasswords1.dat
-echo -e "\nNow change the password back to 'password' and the encryption and scrypt N factor back to 1024 when prompted... (Press enter)"
+echo -e "\nNow change the password back to 'password', the encryption back to AES in CTR mode, and scrypt N factor back to 1024 when prompted... (Press enter)"
 read
-echo passmanager -U -c aes-256-ctr -H sha512 -w 1024,8,1 -P -f ./examplepasswords1.dat
-passmanager -U -c aes-256-ctr -H sha512 -w 1024,8,1 -P -f ./examplepasswords1.dat
+echo passmanager -U -c aes-256-ctr -w 1024,8,1 -P -f ./examplepasswords1.dat
+passmanager -U -c aes-256-ctr -w 1024,8,1 -P -f ./examplepasswords1.dat
 echo -e "\nNow view database information again... (Press enter)"
 read
 echo passmanager -I -f ./examplepasswords1.dat
