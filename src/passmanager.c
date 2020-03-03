@@ -73,9 +73,11 @@
 
 #define CRYPTO_HEADER_SIZE UI_BUFFERS_SIZE
 
-#define EVP_SALT_SIZE 32
+#define MASTER_SALT_SIZE 32
 
-#define HMAC_SALT_SIZE EVP_SALT_SIZE
+#define EVP_SALT_SIZE MASTER_SALT_SIZE
+
+#define HMAC_SALT_SIZE MASTER_SALT_SIZE
 
 #define DEFAULT_GENPASS_LENGTH 16
 
@@ -174,8 +176,9 @@ char cryptoHeader[CRYPTO_HEADER_SIZE] = {0};
 
 unsigned char *HMACKey = NULL, *HMACKeyNew = NULL, *HMACKeyOld = NULL;
 
-unsigned char *evpSalt = NULL;
+unsigned char *masterSalt = NULL;
 unsigned char hmacSalt[HMAC_SALT_SIZE] = {0};
+unsigned char evpSalt[EVP_SALT_SIZE] = {0};
 
 unsigned char MACcipherTextGenerates[SHA512_DIGEST_LENGTH] = {0};
 unsigned char MACcipherTextSignedWith[SHA512_DIGEST_LENGTH] = {0};
@@ -383,10 +386,17 @@ int main(int argc, char *argv[])
             while (testNumber > 1)
             {
                 if(testNumber % 2 != 0) {
-                    printf("scrypt's N factor must be a power of two\n");
-                    for (i = 1; i < argc; i++)
-                        OPENSSL_cleanse(argv[i], strlen(argv[i]));
-                    exit(EXIT_FAILURE);
+                    /*Bitwise operation to round scryptNFactor up to the nearest power of 2*/
+                    scryptNFactor--;
+                    scryptNFactor |= scryptNFactor >> 1;
+                    scryptNFactor |= scryptNFactor >> 2;
+                    scryptNFactor |= scryptNFactor >> 4;
+                    scryptNFactor |= scryptNFactor >> 8;
+                    scryptNFactor |= scryptNFactor >> 16;
+                    scryptNFactor++;
+                    scryptNFactorStore = scryptNFactor;
+                    printf("scrypt's N factor must be a power of 2. Rounding it up to %i\n", scryptNFactor);
+                    break;
                 }
                 testNumber /= 2;
             }
@@ -1163,8 +1173,8 @@ void allocateBuffers()
         exit(EXIT_FAILURE);
     }
 
-    evpSalt = calloc(sizeof(unsigned char), EVP_SALT_SIZE);
-    if (evpSalt == NULL) {
+    masterSalt = calloc(sizeof(unsigned char), MASTER_SALT_SIZE);
+    if (masterSalt == NULL) {
         printSysError(errno);
         exit(EXIT_FAILURE);
     }
@@ -1326,12 +1336,12 @@ int genEvpSalt()
     unsigned char randomByte;
     int i = 0;
 
-    while (i < EVP_SALT_SIZE) {
+    while (i < MASTER_SALT_SIZE) {
         if (!RAND_bytes(&randomByte, 1)) {
             printError("Failure: CSPRNG bytes could not be made unpredictable\n");
             return 1;
         }
-        evpSalt[i] = randomByte;
+        masterSalt[i] = randomByte;
         i++;
     }
 
@@ -1356,7 +1366,7 @@ int deriveMasterKey()
         ERR_print_errors_fp(stderr);
         return 1;
     }
-    if (EVP_PKEY_CTX_set1_scrypt_salt(pctx, evpSalt, EVP_SALT_SIZE) <= 0) {
+    if (EVP_PKEY_CTX_set1_scrypt_salt(pctx, masterSalt, MASTER_SALT_SIZE) <= 0) {
         printError("scrypt failed\n");
         ERR_print_errors_fp(stderr);
         return 1;
@@ -1390,6 +1400,7 @@ int deriveMasterKey()
 int deriveHMACKey()
 {
 
+    /*First derive a new salt*/
     EVP_PKEY_CTX *pctx;
     size_t outlen = HMAC_SALT_SIZE;
     pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL);
@@ -1405,7 +1416,7 @@ int deriveHMACKey()
         return 1;
     }
 
-    if (EVP_PKEY_CTX_set1_hkdf_key(pctx, evpSalt, EVP_SALT_SIZE) <= 0) {
+    if (EVP_PKEY_CTX_set1_hkdf_key(pctx, masterSalt, MASTER_SALT_SIZE) <= 0) {
         printError("HDKF failed\n");
         ERR_print_errors_fp(stderr);
         return 1;
@@ -1419,6 +1430,7 @@ int deriveHMACKey()
 
     EVP_PKEY_CTX_free(pctx);
 
+    /*Now derive a key using that salt and the masterKey*/
     outlen = SHA512_DIGEST_LENGTH;
     pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL);
 
@@ -1456,11 +1468,10 @@ int deriveHMACKey()
 
 int deriveEVPKey(const EVP_CIPHER *evpCipher, unsigned char *evpKey, unsigned char *evpIv)
 {
-
+    /*First derive a new salt*/
     EVP_PKEY_CTX *pctx;
     size_t outlen = EVP_SALT_SIZE;
     pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL);
-    unsigned char newSalt[EVP_SALT_SIZE] = {0};
 
     if (EVP_PKEY_derive_init(pctx) <= 0) {
         printError("HDKF failed\n");
@@ -1473,13 +1484,13 @@ int deriveEVPKey(const EVP_CIPHER *evpCipher, unsigned char *evpKey, unsigned ch
         return 1;
     }
 
-    if (EVP_PKEY_CTX_set1_hkdf_key(pctx, hmacSalt, EVP_SALT_SIZE) <= 0) {
+    if (EVP_PKEY_CTX_set1_hkdf_key(pctx, hmacSalt, HMAC_SALT_SIZE) <= 0) {
         printError("HDKF failed\n");
         ERR_print_errors_fp(stderr);
         return 1;
     }
 
-    if (EVP_PKEY_derive(pctx, newSalt, &outlen) <= 0) {
+    if (EVP_PKEY_derive(pctx, evpSalt, &outlen) <= 0) {
         printError("HDKF failed\n");
         ERR_print_errors_fp(stderr);
         return 1;
@@ -1487,6 +1498,7 @@ int deriveEVPKey(const EVP_CIPHER *evpCipher, unsigned char *evpKey, unsigned ch
 
     EVP_PKEY_CTX_free(pctx);
 
+    /*Now derive a key using that salt and the masterKey*/
     outlen = EVP_CIPHER_key_length(evpCipher);
     pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL);
 
@@ -1500,7 +1512,7 @@ int deriveEVPKey(const EVP_CIPHER *evpCipher, unsigned char *evpKey, unsigned ch
         ERR_print_errors_fp(stderr);
         return 1;
     }
-    if (EVP_PKEY_CTX_set1_hkdf_salt(pctx, newSalt, EVP_SALT_SIZE) <= 0) {
+    if (EVP_PKEY_CTX_set1_hkdf_salt(pctx, evpSalt, EVP_SALT_SIZE) <= 0) {
         printError("HDKF failed\n");
         ERR_print_errors_fp(stderr);
         return 1;
@@ -1534,7 +1546,7 @@ int deriveEVPKey(const EVP_CIPHER *evpCipher, unsigned char *evpKey, unsigned ch
             ERR_print_errors_fp(stderr);
             return 1;
         }
-        if (EVP_PKEY_CTX_set1_hkdf_salt(pctx, newSalt, EVP_SALT_SIZE) <= 0) {
+        if (EVP_PKEY_CTX_set1_hkdf_salt(pctx, evpSalt, EVP_SALT_SIZE) <= 0) {
             printError("HDKF failed\n");
             ERR_print_errors_fp(stderr);
             return 1;
@@ -1595,7 +1607,7 @@ int writeDatabase()
     memcpy(cryptoHeader + (strlen(cryptoHeader) + 1) + sizeof(scryptNFactor) + sizeof(scryptRFactor) + sizeof(scryptPFactor),&scryptPFactor,sizeof(scryptPFactor));
 
     /*Write the salt*/
-    if (fwriteWErrCheck(evpSalt, sizeof(unsigned char), EVP_SALT_SIZE, dbFile) != 0) {
+    if (fwriteWErrCheck(masterSalt, sizeof(unsigned char), MASTER_SALT_SIZE, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
@@ -1710,7 +1722,7 @@ int openDatabase()
     unsigned char *verificationBuffer = NULL;
     int MACSize = SHA512_DIGEST_LENGTH;
     int fileSize = returnFileSize(dbFileName);
-    evpDataSize = fileSize - (EVP_SALT_SIZE + CRYPTO_HEADER_SIZE + (MACSize * 3));
+    evpDataSize = fileSize - (MASTER_SALT_SIZE + CRYPTO_HEADER_SIZE + (MACSize * 3));
 
     FILE *dbFile = NULL;
 
@@ -1721,7 +1733,7 @@ int openDatabase()
     }
 
     /*fread overwrites any randomly generated salt with the one read from file*/
-    if (freadWErrCheck(evpSalt, sizeof(char), EVP_SALT_SIZE, dbFile) != 0) {
+    if (freadWErrCheck(masterSalt, sizeof(char), MASTER_SALT_SIZE, dbFile) != 0) {
         printSysError(returnVal);
         goto cleanup;
     }
@@ -1830,7 +1842,7 @@ int openDatabase()
         goto cleanup;
     }
 
-    memcpy(encryptedBuffer, verificationBuffer + EVP_SALT_SIZE + CRYPTO_HEADER_SIZE, evpDataSize);
+    memcpy(encryptedBuffer, verificationBuffer + MASTER_SALT_SIZE + CRYPTO_HEADER_SIZE, evpDataSize);
 
     if (fclose(dbFile) == EOF) {
         printFileError(dbFileName, errno);
@@ -2776,7 +2788,7 @@ int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encrypte
     unsigned int IvLength = EVP_CIPHER_iv_length(EVP_get_cipherbyname(encCipherName));
     unsigned int evpCipherSize = strlen(encCipherName);
     unsigned int scryptWorkFactorSize = sizeof(scryptNFactor);
-    unsigned int hmacBufferLength = EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3) + IvLength + encryptedBufferLength;
+    unsigned int hmacBufferLength = MASTER_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3) + IvLength + encryptedBufferLength;
 
     unsigned char *hmacBuffer = calloc(sizeof(unsigned char), hmacBufferLength);
     if (hmacBuffer == NULL) {
@@ -2784,14 +2796,14 @@ int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encrypte
         return errno;
     }
 
-    /*Concatenates evpSalt:evpCipher:scryptNFactor:scryptRFactor:scryptPFactor:evpIV:encryptedBuffer into hmacBuffer*/
-    memcpy(hmacBuffer, evpSalt, EVP_SALT_SIZE);
-    memcpy(hmacBuffer + EVP_SALT_SIZE, encCipherName, evpCipherSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize, &scryptNFactor, scryptWorkFactorSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + scryptWorkFactorSize, &scryptRFactor, scryptWorkFactorSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 2), &scryptPFactor, scryptWorkFactorSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3), evpIv, IvLength);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3) + IvLength, encryptedBuffer, encryptedBufferLength);
+    /*Concatenates masterSalt:evpCipher:scryptNFactor:scryptRFactor:scryptPFactor:evpIV:encryptedBuffer into hmacBuffer*/
+    memcpy(hmacBuffer, masterSalt, MASTER_SALT_SIZE);
+    memcpy(hmacBuffer + MASTER_SALT_SIZE, encCipherName, evpCipherSize);
+    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize, &scryptNFactor, scryptWorkFactorSize);
+    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize + scryptWorkFactorSize, &scryptRFactor, scryptWorkFactorSize);
+    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 2), &scryptPFactor, scryptWorkFactorSize);
+    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3), evpIv, IvLength);
+    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3) + IvLength, encryptedBuffer, encryptedBufferLength);
 
     if (HMAC(EVP_sha512(), HMACKey, SHA512_DIGEST_LENGTH, hmacBuffer, hmacBufferLength, MACcipherTextGenerates, HMACLengthPtr) == NULL) {
         printError("verifyCipherText HMAC failure");
@@ -2814,7 +2826,7 @@ int signCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedB
     unsigned int IvLength = EVP_CIPHER_iv_length(EVP_get_cipherbyname(encCipherName));
     unsigned int evpCipherSize = strlen(encCipherName);
     unsigned int scryptWorkFactorSize = sizeof(scryptNFactor);
-    unsigned int hmacBufferLength = EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3) + IvLength + encryptedBufferLength;
+    unsigned int hmacBufferLength = MASTER_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3) + IvLength + encryptedBufferLength;
 
     unsigned char *hmacBuffer = calloc(sizeof(unsigned char), hmacBufferLength);
     if (hmacBuffer == NULL) {
@@ -2822,14 +2834,14 @@ int signCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedB
         exit(EXIT_FAILURE);
     }
 
-    /*Concatenates evpSalt:evpCipher:scryptNFactor:scryptRFactor:scryptPFactor:evpIV:encryptedBuffer into hmacBuffer*/
-    memcpy(hmacBuffer, evpSalt, EVP_SALT_SIZE);
-    memcpy(hmacBuffer + EVP_SALT_SIZE, encCipherName, evpCipherSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize, &scryptNFactor, scryptWorkFactorSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + scryptWorkFactorSize, &scryptRFactor, scryptWorkFactorSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 2), &scryptPFactor, scryptWorkFactorSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3), evpIv, IvLength);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3) + IvLength, encryptedBuffer, encryptedBufferLength);
+    /*Concatenates masterSalt:evpCipher:scryptNFactor:scryptRFactor:scryptPFactor:evpIV:encryptedBuffer into hmacBuffer*/
+    memcpy(hmacBuffer, masterSalt, MASTER_SALT_SIZE);
+    memcpy(hmacBuffer + MASTER_SALT_SIZE, encCipherName, evpCipherSize);
+    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize, &scryptNFactor, scryptWorkFactorSize);
+    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize + scryptWorkFactorSize, &scryptRFactor, scryptWorkFactorSize);
+    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 2), &scryptPFactor, scryptWorkFactorSize);
+    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3), evpIv, IvLength);
+    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3) + IvLength, encryptedBuffer, encryptedBufferLength);
 
     if (HMAC(EVP_sha512(), HMACKey, SHA512_DIGEST_LENGTH, hmacBuffer, hmacBufferLength, MACcipherTextGenerates, HMACLengthPtr) == NULL) {
         printError("signCipherText HMAC failure");
@@ -3213,8 +3225,8 @@ void printDbInfo()
     printf("Number of entries in database: %i\n", evpDataSize / (UI_BUFFERS_SIZE * 2));
     printf("scrypt configuration:\n");
     printf("\tSalt:");
-    for (int i = 0; i < EVP_SALT_SIZE; i++) {
-        printf("%02x", evpSalt[i] & 0xff);
+    for (int i = 0; i < MASTER_SALT_SIZE; i++) {
+        printf("%02x", masterSalt[i] & 0xff);
     }
     printf("\n");
     printf("\tN factor: %i\n", scryptNFactor);
@@ -3319,8 +3331,10 @@ void cleanUpBuffers()
     free(HMACKeyOld);
     OPENSSL_cleanse(HMACKeyNew, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
     free(HMACKeyNew);
+    OPENSSL_cleanse(hmacSalt, sizeof(unsigned char) * HMAC_SALT_SIZE);
+    OPENSSL_cleanse(evpSalt, sizeof(unsigned char) * EVP_SALT_SIZE);
 
-    free(evpSalt);
+    free(masterSalt);
     free(encryptedBuffer);
 }
 
@@ -3427,7 +3441,7 @@ int printSyntax(char *arg)
 \n-p new entry password - entry password up to 511 characters (don't call to be prompted instead) ('gen' will generate a random password, 'genalpha' will generate a random password with no symbols)\
 \n-l random password length - makes 'gen' or 'genalpha' generate a password random password length digits long (defaults to 16 without this option) \
 \n-c cipher - Specify 'list' for a list of methods available to OpenSSL. Default: aes-256-ctr. \
-\n-w N,r,p - Specify scrypt work factors N,r,p (Must be comma separted with no spaces). Default: 1048576,8,1\
+\n-w N,r,p - Specify scrypt work factors N,r,p (Must be comma separted with no spaces, and N must be a power of 2). Default: 1048576,8,1\
 \n-P - In Update entry or Update database mode (-u and -U respectively) this option enables updating the entry password or database password via prompt instead of as command line argument \
 \n-C - end entry password directly to clipboard. Clipboard is cleared automatically after pasting, or in 30 seconds. \
 \n-t 'n'ms or 'n's - clear password from clipboard in the specified amount of miliseconds or seconds instead of default 30 seconds. \

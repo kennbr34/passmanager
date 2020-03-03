@@ -4,7 +4,7 @@
 passmanager \- manual page for passmanager 3.4.1
 .SH SYNOPSIS
 .PP
-passmanager \fB\-a\fR \fIentry name\fI\fR | \fB\-r\fR \fIentry name\fI\fR | \fB\-d\fR \fIentry name\fI\fR | \fB\-u\fR \fIentry name\fI\fR | \fB\-U\fR [-n \fInew name\fI\fR ] [\-p \fInew entry password\fI\fR] [\-l \fIrandom password length\fI\fR] [\-c \fIcipher\fI\fR] [\-H \fIdigest\fI\fR] [\-i \fIiterations\fI\fR ] [ \-P ] [ \-C ] [ \-O ] [ \-s \fIselection\fI\fR ] [ \-t \fI seconds\fI\fR or \fImiliseconds\fI\fR ] [\-x \fIdatabase password\fI\fR] \fB\-f\fR \fIdatabase file\fI\fR
+passmanager \fB\-a\fR \fIentry name\fI\fR | \fB\-r\fR \fIentry name\fI\fR | \fB\-d\fR \fIentry name\fI\fR | \fB\-u\fR \fIentry name\fI\fR | \fB\-U\fR [-n \fInew name\fI\fR ] [\-p \fInew entry password\fI\fR] [\-l \fIrandom password length\fI\fR] [\-c \fIcipher\fI\fR] [\-w \fIN,r,p\fI\fR ] [ \-P ] [ \-C ] [ \-O ] [ \-s \fIselection\fI\fR ] [ \-t \fI seconds\fI\fR or \fImiliseconds\fI\fR ] [\-x \fIdatabase password\fI\fR] \fB\-f\fR \fIdatabase file\fI\fR
 
 .PP
 .SH OPTIONS SUMMARY
@@ -29,9 +29,7 @@ Options may have different implications depending on operating mode
 .PP
 \fB\-c\fR \fIcipher\fI\fR \- Specify 'list' for a list of methods available to OpenSSL. Default: aes-256-ctr.
 .PP
-\fB\-H\fR \fIdigest\fI\fR \- Specify 'list' for a list of methods available to OpenSSL. Default: sha512.
-.PP
-\fB\-i\fR \fIiterations\fI\fR \- Specify amount of PBKDF2 to be \fIiterations\fI\fR. Default: 1000000
+\fB\-w \fR\fI N,r,p\fI\fR \- Specify scrypt work factors \fR\fIN,r,p\fI\fR (Must be comma separted with no spaces,and N must be a power of 2). Default: 1048576,8,1
 .PP
 \fB\-P\fR - In \fIUpdate entry\fI\fR or \fIUpdate database\fI\fR  mode (\fB\-u\fR and \fB\-U\fR respectively) this option enables updating the \fIentry password\fI\fR or \fIdatabase password\fI\fR via prompt instead of as command line argument
 .PP
@@ -63,7 +61,7 @@ New passwords can be randomly generated when creating or updating account creden
 The program pays special attention to minimize the amount user passwords are displayed on screen or stored in memory, and allows them to be sent directly to the clipboard (via native X librry calls (default), or xsel binary depending on compilation options), with the password being cleared from the clipboard afterward. Allowing the passwords to be sent directly to the clipboard means adding, updating or retrieving a password can be done without it ever being visible on the screen. Even if a user must display an entry's password to verify it, only that pass can be printed, in order to prevent the entire database being displayed on screen.  Authenticated encryption with HMAC protects the database against both data corruption and tampering.
 
 
-Account credentials are encrypted with 256-bit AES in CTR mode with HMAC-SHA512 for authentication. Using OpenSSL's EVP functions also enables the use of any encryption and digest algorithms ( for key derivation using PBKDF2 ) supported by  the EVP interface.
+Account credentials are encrypted with 256-bit AES in CTR mode with HMAC-SHA512 for authentication. Using OpenSSL's EVP functions also enables the use of any encryption supported by  the EVP interface.
 
 
 User input is stored in 512 byte buffers padded by cryptographically strong pseudorandom data: One for an entry's name, and the other for that entry's password.
@@ -115,11 +113,9 @@ Applicable options
 .HP
 \fB\-c\fR \fIcipher\fI\fR \- Initializes a password database with EVP cipher algorithm 'cipher'
 .HP
-\fB\-H\fR \fIdigest\fI\fR \- Derives keys for ciphers with EVP digest algorithm 'digest'
-.HP
 \fB\-C\fR send \fInew entry password\fI\fR to clipboard (useful if randomly generated)
 .HP
-\fB\-i\fR \fIiterations\fI\fR - Specify PBKDF2 iteration amount as \fIiterations\fI\fR.
+\fB\-w \fR\fI N,r,p\fI\fR - Specify scrypt work factors \fR\fI N,r,p\fI\fR.
 .HP
 \fB-t\fB\fR \fIn\fI\fRms or \fIn\fI\fRs - clear password from clipboard in \fIn\fI\fR miliseconds or seconds instead of default 30 seconds.
 .HP
@@ -213,9 +209,7 @@ updates database password. Read via prompt. Cannot be supplied via commandline.
 .HP
 \fB\-c\fR \fIcipher\fI\fR \- Updates algorithms
 .HP
-\fB\-H\fR \fIdigest\fI\fR \- Update digests used
-.HP
-\fB\-i\fR \fIiterations\fI\fR - Update iteration amount used by PBKDF2 to \fIiterations\fI\fR
+\fB\-w \fR\fI N,r,p\fI\fR - Specify scrypt work factors \fR\fI N,r,p\fI\fR.
 .RE
 .PP
 
@@ -223,7 +217,7 @@ updates database password. Read via prompt. Cannot be supplied via commandline.
 
 .SS OpenSSL Ciphers and Digests
 
-The encryption algorithm used by OpenSSL can be chosen between the ciphers provided by the high-level functions in the \fIevp(3)\fI\fR library. By default the program uses 256-bit AES in CTR mode, using the \fIPKCS5_PBKDF2_HMAC(3)\fI\fR function to derive keys (see \fIPKCS5_PBKDF2_HMAC(3)\fI\fR for details), and the SHA512 digest algorithm. Authenticated ciphers using GCM or CCM are not supported as the program uses HMAC for authentication. The ability to choose cipher algorithms is primarily added incase different versions of OpenSSL are installed across different machine, thus making different ciphers available.  For example, ChaCha20 may not be available on one machine while it is on the other.
+The encryption algorithm used by OpenSSL can be chosen between the ciphers provided by the high-level functions in the \fIevp(3)\fI\fR library. By default the program uses 256-bit AES in CTR mode, using scrypt to derive keys. Authenticated ciphers using GCM or CCM are not supported as the program uses HMAC-SHA512 for authentication. The ability to choose cipher algorithms is primarily added incase different versions of OpenSSL are installed across different machine, thus making different ciphers available.  For example, ChaCha20 may not be available on one machine while it is on the other.
 
 .SS CSPRNG
 
@@ -237,21 +231,21 @@ Input buffers will accept any amount of whitespace or special characters up to 5
 
 .SS Database Creation and Modification
 
-A password database is created with \fIwriteDatabase()\fI\fR when the first password entry is added, or when modifications are made. PBKDF2 is used to derive an appropriately sized key and/or IV for the cipher algorithm selected, using the user-supplied database password.  A randomly generated 256-bit salt is supplied to PBKDF2 along with either a default or user-supplied specification of iterations, and a default or user-supplied message digest to use. \fIopenDatabase()\fI\fR is used upon every subsequent reading of the password database to configure these options and check for database integrity, authenticity, and correct password, before any decryption or encryption key-derivation is done. A new salt is generated for PBKDF2 any time a modification is made to the database, so that there is never any key/IV reuse.
+A password database is created with \fIwriteDatabase()\fI\fR when the first password entry is added, or when modifications are made. scrypt uses a randomly generated 256-bit master salt and a user-supplied password to derive a 512-bit master key. HKDF uses this master key, and two distinc 256-bit salts derived from the master salt, to derive an appropriately sized key and/or IV for the cipher algorithm selected, as well as a 512-bit authentication key for HMAC-SHA512. The master salt is written as a header along with the cipher name and scrypt work factors. \fIopenDatabase()\fI\fR is used upon every subsequent reading of the password database to configure these options and check for database integrity, authenticity, and correct password, before any decryption is done. A new master salt is generated for scrypt any time a modification is made to the database, so that there is never any key/IV reuse.
 
-\fIwriteDatabase()\fI\fR first writes a header comprised of the salt, the algorithm for encryption and message-digest algorithm for key derivation to use, as well as the amount iterations for PBKDF2 to use. It then writes the resulting cipher-text of the password entries before a keyed hash, a MAC, and a checksum of all the preceding, are signed to it by concatenation and appended as a footer. HMAC-SHA512 is used to generate a keyed hash of the user-supplied database password, that is then signed so that the database password a user supplies can be checked for correctness. HMAC-SHA512 is then used to generate a MAC of the cipher-text and associated data (salt, cipher and digest configuration, PBKDF2 iteration amount, and IV), that is then signed to ensure authenticity. SHA512 is then used to hash the header, cipher-text, keyed-hash and MAC, and the checksum is signed to ensure general integrity of the database. All modifications to the database are saved in memory and sent to \fIwriteDatabase()\fI\fR to overwrite the previous file.
+\fIwriteDatabase()\fI\fR first writes a header comprised of the master salt, the algorithm for encryption, as well as the work factors for scrypt to use. It then writes the resulting cipher-text of the password entries before a keyed hash, a MAC, and a checksum of all the preceding, are signed to it by concatenation and appended as a footer. HMAC-SHA512 is used to generate a keyed hash of the user-supplied database password, that is then signed so that the database password a user supplies can be checked for correctness. HMAC-SHA512 is then used to generate a MAC of the cipher-text and associated data (master salt, cipher name, scrypt work factors, and IV), that is then signed to ensure authenticity. SHA512 is then used to hash the header, cipher-text, keyed-hash and MAC, and the checksum is signed to ensure general integrity of the database. All modifications to the database are saved in memory and sent to \fIwriteDatabase()\fI\fR to overwrite the previous file.
 
-\fIopenDatabase()\fI\fR parses the header for cipher and key configuration. It then reads in the keyed hash of the password, the MAC of the cipher-text and associated data (salt, cipher and digest configuration, PBKDF2 iteration amount, and IV), and the database checksum. A checksum of the database file is then generated and compared to the one it is signed with to check for general integrity of the database in storage. Following that, the keyed hash of the database password the user entered is compared to the keyed hash the database is siged with to determine if the user-supplied password matches the one the database was created with. Finally, the cipher-text data is passed on to the various operating modes that then generate a MAC with it and the associated data, and compare that to the MAC the database was signed with to verify authenticity of the cipher-text and associated data in memory.  If the database integrity can't be verified, the user-supplied password is not correct, or the cipher-text and associated data can't be authenticated, the program informs which of these was the case (and possible reasons) and exits.  Otherwise, the cipher-text is decrypted and read into memory for processing. If modifications were made, the new data is encrypted, and sent to \fIwriteDatabase()\fI\fR to form the new database.
+\fIopenDatabase()\fI\fR parses the header for the master salt, cipher and scrypt configuration. It then reads in the keyed hash of the password, the MAC of the cipher-text and associated data (master salt, cipher name, scrypt work factors, and IV), and the database checksum. A checksum of the database file is then generated and compared to the one it is signed with to check for general integrity of the database in storage. Following that, the keyed hash of the database password the user entered is compared to the keyed hash the database is siged with to determine if the user-supplied password matches the one the database was created with. Finally, the cipher-text data is passed on to the various operating modes that then generate a MAC with it and the associated data, and compare that to the MAC the database was signed with to verify authenticity of the cipher-text and associated data in memory.  If the database integrity can't be verified, the user-supplied password is not correct, or the cipher-text and associated data can't be authenticated, the program informs which of these was the case (and possible reasons) and exits.  Otherwise, the cipher-text is decrypted and read into memory for processing. If modifications were made, the new data is encrypted, and sent to \fIwriteDatabase()\fI\fR to form the new database.
 
 .SS Authenticated Encryption and Associated Data with User Friendliness
 
-The cipher-text is authenticated in Encrypt-then-MAC composition. If the database fails an integrity check, the password was incorrect, or the cpher-text/associated-data fails authentication, derivation of the decryption key and the actual decryption process never takes place.
+The cipher-text is authenticated in Encrypt-then-MAC composition. If the database fails an integrity check, the password was incorrect, or the cpher-text/associated-data fails authentication, decryption never takes place.
 
 Verifying the integrity of the database file with a checksum means that an actual attack can be detected with very little risk of a false-positive if the integrity check passes but the authenticity check does not. Verifying the authenticity of the cipher-text after it's loaded into memory will also detect tampering (or faulty memory) after it's loaded from disk. The only circumstance in which a false-positive could happen is if the memory that the ciphertext, associated data or MAC was loaded into is faulty and caused corruption after being loaded from disk and passing the integrity test. Otherwise, a passing integrity test, but a failed authenticity test would imply that the checksum was deliberately forged to match the modified cipher-text and/or associated data, indicating an attack on the cipher-text and/or associated data.
 
-The password used when the database was created is hashed with HMAC using a key derived from the salt. Because every modification of the database results in a newly generated salt, every modification will also result in a new keyed hash.  Failing the password check will preclude an authenticity check. This isn't intended to add an extra security layer, but rather to be more user-friendly.  If the password entered was incorrect, the proper keys for HMAC could not be generated, and so if only the MAC alone were used, it would result in a failed authentication check even if the cipher-text and associated data was authentic but the password was merely mistyped.
+The password used when the database was created is hashed with HMAC using a key derived from HKDF. Because every modification of the database results in a newly generated master salt, every modification will also result in a new keyed hash.  Failing the password check will preclude an authenticity check. This isn't intended to add an extra security layer, but rather to be more user-friendly.  If the password entered was incorrect, the proper keys for HMAC could not be generated, and so if only the MAC alone were used, it would result in a failed authentication check even if the cipher-text and associated data was authentic but the password was merely mistyped.
 
-Modification of various associated data or the cipher-text and forging the checksum to match will have differing effects (assuming the password's keyed hash is successfully forged as well). If an attacker modifies the salt or PBKDF2 iteration amount and forges the database checksum to match this modification, it will always result in a password-check failure. This is because modifying the salt or PBKDF2 iteration amount will produce a different keyed hash than the one signed to the database so it will appear that the password was incorrect (even if it actually was correct). Unless the keyed hash was somehow forged to match the supplied password as well. However, the PBKDF2 iteration amount and salt are still authenticated by HMAC as associated data, so the MAC would then have to be successfully forged as well for the modification to pass. Likewise, modifying the cipher or digest information will not affect the keyed hash of the database password, but would still fail the authentication test unless the MAC was forged to match the modifications. Finally, if the actual cipher-text itself is modified and the database checksum forged to match the change, both the keyed hash of the password and the MAC would have to be forged for the modification to pass the authenticity test. 
+Modification of various associated data or the cipher-text and forging the checksum to match will have differing effects (assuming the password's keyed hash is successfully forged as well). If an attacker modifies the salt or scrypt work factors and forges the database checksum to match this modification, it will always result in a password-check failure. This is because modifying the salt or scrypt work factors will produce a different keyed hash than the one signed to the database so it will appear that the password was incorrect (even if it actually was correct). Unless the keyed hash was somehow forged to match the supplied password as well. However, the scrypt work factors and master salt are still authenticated by HMAC as associated data, so the MAC would then have to be successfully forged as well for the modification to pass. Likewise, modifying the cipher or digest information will not affect the keyed hash of the database password, but would still fail the authentication test unless the MAC was forged to match the modifications. Finally, if the actual cipher-text itself is modified and the database checksum forged to match the change, both the keyed hash of the password and the MAC would have to be forged for the modification to pass the authenticity test. 
 
 This design was chosen to alert the user of a critical issue if they encounter a failed authenticity test, a serious issue if they failed an integrity test, and avoid alarm if they simply mistyped a password.
 
@@ -274,10 +268,10 @@ On the contrary, with piping to an external xsel binary, passwords are not clear
 
 .SH EXAMPLES
 
-Initialize a new password database using blowfish encryption, whirlpool for key digest, and 750000 PBKDF2 iterations, and save it to the file 'passwords'.  Also randomly generate a password of 32 characters for the new entry, and send that new password to the clipboard, clearing it from  memory in 5 seconds
+Initialize a new password database using blowfish encryption, scrypt work factors 1024,8,1 for N, r and p (respectively), and save it to the file 'passwords'.  Also randomly generate a password of 32 characters for the new entry, and send that new password to the clipboard, clearing it from  memory in 5 seconds
 
 .RS
-passmanager -a "gmail : myemail@gmail.com" -p gen -c bf-ofb -H whirlpool -i 750000 -l 32 -C -s 5 -f ./passwords
+passmanager -a "gmail : myemail@gmail.com" -p gen -c bf-ofb -w 1024,8,1 -l 32 -C -s 5 -f ./passwords
 .RE
 
 Print a list of available ciphers
@@ -286,22 +280,16 @@ Print a list of available ciphers
 passmanager -c list
 .RE
 
-Print a list of available digests
-
-.RS
-passmanager -H list
-.RE
-
 Can also change password for the database (Will be prompted for input)
 
 .RS
 passmanager -U -f ./passwords
 .RE
 
-Or you could do both change the password, the encryption and digest algorithms, and PBKDF2 iteration amount in one command
+Or you could do both change the password, the encryption and scrypt work factors in one command
 
 .RS
-passmanager -U -c aes-256-ctr -H whirlpool -i 1000000 -P -f ./passwords
+passmanager -U -c aes-256-ctr -w 16384,8,1 -P -f ./passwords
 .RE
 
 Update the previously added entry name from "gmail : myemail@gmail.com" to "gmail : myemail1@gmail.com" (Note how we're partially matching "gmail", and the need for quotations around the new entry name since it contains whitespace)
@@ -376,7 +364,7 @@ passmanager -u allpasses -p gen -f ./passwords
 Dead-store elimination means that some of the sensitive material in memory buffers may not be able to be cleared.  The makefile provided disables optimization, and OPENSSL_cleanse is used if a user wishes to implement optimzation anyway.  Despite that, dead-store elimination has been found to be present in OpenSSL <=1.0.1q itself as well.
 
 .SH "SEE ALSO"
-openssl(1), xsel(1), crypto(3), evp(3), EVP_EncryptInit(3), PKCS5_PBKDF2_HMAC(3), RAND(3), RAND_bytes(3)
+openssl(1), xsel(1), crypto(3), evp(3), EVP_EncryptInit(3), RAND(3), RAND_bytes(3)
 
 
 
