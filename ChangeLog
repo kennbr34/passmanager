@@ -2,6 +2,13 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+2020-03-07
+(+ver 4.0.0)
+    Changed KDF method from PBKDF2 to scrypt
+    Changed the way key for HMAC is derived to be split from a master key that is shared with the cipher key
+    Subtituted salt for IV and removed the IV from authentication as associated data
+    Improved option handling
+    Updated and improved comments
 2020-03-02
 (+ver 3.4.1)
     Fixed major flaw in IV derivation

@@ -73,11 +73,7 @@
 
 #define CRYPTO_HEADER_SIZE UI_BUFFERS_SIZE
 
-#define MASTER_SALT_SIZE 32
-
-#define EVP_SALT_SIZE MASTER_SALT_SIZE
-
-#define HMAC_SALT_SIZE MASTER_SALT_SIZE
+#define EVP_SALT_SIZE 32
 
 #define DEFAULT_GENPASS_LENGTH 16
 
@@ -94,6 +90,7 @@ struct conditionsStruct {
     bool entryPassGivenasArg;
     bool dbPassGivenasArg;
     bool fileGiven;
+    bool fileNeeded;
     bool entryGiven;
     bool updatingEntry;
     bool updatingEntryPass;
@@ -123,9 +120,7 @@ int writeDatabase();
 int configEvp();
 void encListCallback(const OBJ_NAME *obj, void *arg);
 int genEvpSalt();
-int deriveMasterKey();
-int deriveHMACKey();
-int deriveEVPKey(const EVP_CIPHER *evpCipher, unsigned char *evpKey, unsigned char *evpIv);
+int deriveKeys();
 int writePass();
 int printPasses(char *searchString);
 int deletePass(char *searchString);
@@ -141,7 +136,7 @@ void signalHandler(int signum);
 int sendToClipboard();
 int printSyntax(char *arg);
 int printMACErrMessage(int errMessage);
-int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedBuffer, unsigned char *HMACKey, char *encCipherName, unsigned int scryptNFactor, unsigned int scryptRFactor, unsigned int scryptPFactor, unsigned char *evpIv);
+int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedBuffer, unsigned char *HMACKey, char *encCipherName, unsigned int scryptNFactor, unsigned int scryptRFactor, unsigned int scryptPFactor);
 int signCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedBuffer);
 int evpDecrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, unsigned char *encryptedBuffer, unsigned char *decryptedBuffer);
 int evpEncrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, unsigned char *encryptedBuffer, unsigned char *decryptedBuffer);
@@ -160,11 +155,10 @@ int targetWinHandler(Display *xDisplay,
 int sendWithXlib(char *passToSend, int passLength, int clearTime);
 #endif
 
-unsigned char masterKey[SHA512_DIGEST_LENGTH] = {0};
+unsigned char masterKey[EVP_MAX_KEY_LENGTH * 2] = {0};
 
 const EVP_CIPHER *evpCipher = NULL, *evpCipherOld = NULL;
 unsigned char evpKey[EVP_MAX_KEY_LENGTH] = {0}, evpKeyOld[EVP_MAX_KEY_LENGTH] = {0};
-unsigned char evpIv[EVP_MAX_IV_LENGTH] = {0}, evpIvOld[EVP_MAX_KEY_LENGTH] = {0};
 
 char *dbPass = NULL;
 char *dbPassToVerify = NULL;
@@ -174,11 +168,9 @@ char encCipherName[NAME_MAX] = {0}, encCipherNameOld[NAME_MAX] = {0};
 char encCipherNameFromCmdLine[NAME_MAX] = {0};
 char cryptoHeader[CRYPTO_HEADER_SIZE] = {0};
 
-unsigned char *HMACKey = NULL, *HMACKeyNew = NULL, *HMACKeyOld = NULL;
+unsigned char HMACKey[EVP_MAX_KEY_LENGTH] = {0}, HMACKeyOld[EVP_MAX_KEY_LENGTH] = {0};
 
-unsigned char *masterSalt = NULL;
-unsigned char hmacSalt[HMAC_SALT_SIZE] = {0};
-unsigned char evpSalt[EVP_SALT_SIZE] = {0};
+unsigned char *evpSalt = NULL;
 
 unsigned char MACcipherTextGenerates[SHA512_DIGEST_LENGTH] = {0};
 unsigned char MACcipherTextSignedWith[SHA512_DIGEST_LENGTH] = {0};
@@ -241,6 +233,7 @@ int main(int argc, char *argv[])
         /*Structure values for rlimits*/
         struct rlimit memlock;
 
+        /*Set RLIMIT values to inifinity*/
         memlock.rlim_cur = RLIM_INFINITY;
         memlock.rlim_max = RLIM_INFINITY;
 
@@ -306,13 +299,17 @@ int main(int argc, char *argv[])
     int errflg = 0;
 
     int i = 0;
+    
+    char optionsString[] = "s:w:t:l:f:u:n:d:a:r:p:x:c:hUPCIO";
 
     /*Process through arguments*/
-    while ((opt = getopt(argc, argv, "s:w:t:l:f:u:n:d:a:r:p:x:c:hUPCIO")) != -1) {
+    while ((opt = getopt(argc, argv, optionsString)) != -1) {
         switch (opt) {
         case 'h':
             printSyntax("passmanager");
-            return 1;
+            for (i = 1; i < argc; i++)
+                    OPENSSL_cleanse(argv[i], strlen(argv[i]));
+                exit(EXIT_SUCCESS);
             break;
         case 'O':
             clipboardClearTimeMiliSeconds = 55;
@@ -339,9 +336,8 @@ int main(int argc, char *argv[])
                 if (isdigit(optarg[i]))
                     break;
                 printf("Time specified needs a number\n");
-                for (i = 1; i < (unsigned int)argc; i++)
-                    OPENSSL_cleanse(argv[i], strlen(argv[i]));
-                exit(EXIT_FAILURE);
+                errflg++;
+                break;
             }
             if (optarg[strlen(optarg) - 1] == 's' && optarg[strlen(optarg) - 2] == 'm') {
                 optarg[strlen(optarg) - 2] = '\0';
@@ -356,9 +352,8 @@ int main(int argc, char *argv[])
                 clipboardClearTimeMiliSeconds = atoi(optarg) * 1000;
             } else {
                 printf("Don't understand time format.\n");
-                for (i = 1; i < argc; i++)
-                    OPENSSL_cleanse(argv[i], strlen(argv[i]));
-                exit(EXIT_FAILURE);
+                errflg++;
+                break;
             }
             condition.userChoseClipboardClearTime = true;
             break;
@@ -366,15 +361,15 @@ int main(int argc, char *argv[])
             if (optarg[0] == '-' && strlen(optarg) == 2) {
                 printf("Option -w requires an argument\n");
                 errflg++;
+                break;
             }
             
             /*First parse the N factor*/
             char *token = strtok(optarg, ",");
             if (token == NULL) {
                 printf("Could not parse scrypt work factors\n");
-                for (i = 1; i < argc; i++)
-                    OPENSSL_cleanse(argv[i], strlen(argv[i]));
-                exit(EXIT_FAILURE);
+                errflg++;
+                break;
             }
             
             /*Test if N factor is power of 2*/
@@ -405,9 +400,8 @@ int main(int argc, char *argv[])
             token = strtok(NULL, ",");
             if (token == NULL) {
                 printf("Could not parse scrypt work factors\n");
-                for (i = 1; i < argc; i++)
-                    OPENSSL_cleanse(argv[i], strlen(argv[i]));
-                exit(EXIT_FAILURE);;
+                errflg++;
+                break;
             }
             scryptRFactor = atoi(token);
             scryptRFactorStore = scryptRFactor;
@@ -416,9 +410,8 @@ int main(int argc, char *argv[])
             token = strtok(NULL, ",");
             if (token == NULL) {
                 printf("Could not parse scrypt work factors\n");
-                for (i = 1; i < argc; i++)
-                    OPENSSL_cleanse(argv[i], strlen(argv[i]));
-                exit(EXIT_FAILURE);
+                errflg++;
+                break;
             }
             scryptPFactor = atoi(token);
             scryptPFactorStore = scryptPFactor;
@@ -429,6 +422,7 @@ int main(int argc, char *argv[])
             if (optarg[0] == '-' && strlen(optarg) == 2) {
                 printf("Option -l requires an argument\n");
                 errflg++;
+                break;
             }
             genPassLength = atoi(optarg);
             if ((UI_BUFFERS_SIZE - 1) < genPassLength) {
@@ -438,6 +432,7 @@ int main(int argc, char *argv[])
             break;
         case 'U':
             condition.updatingDbEnc = true;
+            condition.fileNeeded = true;
             break;
         case 'C':
 #ifndef HAVE_LIBX11
@@ -446,9 +441,8 @@ int main(int argc, char *argv[])
             else {
                 printf("Program wasn't compiled with X11 headers and no executable xsel binary found. Will now quit to prevent password from being printed to screen.\n");
                 /*Sanitize argv and argc of any sensitive information*/
-                for (i = 1; i < argc; i++)
-                    OPENSSL_cleanse(argv[i], strlen(argv[i]));
-                exit(EXIT_FAILURE);
+                errflg++;
+                break;
             }
 #endif
 #ifdef HAVE_LIBX11
@@ -457,6 +451,7 @@ int main(int argc, char *argv[])
             break;
         case 'I':
             condition.printingDbInfo = true;
+            condition.fileNeeded = true;
             break;
         case 'P':
             condition.updatingEntryPass = true;
@@ -465,58 +460,68 @@ int main(int argc, char *argv[])
             if (optarg[0] == '-' && strlen(optarg) == 2) {
                 printf("Option -a requires an argument\n");
                 errflg++;
+                break;
             } else
                 condition.addingPass = true;
             if (strlen(optarg) > (UI_BUFFERS_SIZE - 1)) {
                 printf("\nentry name too long\n");
-                return 1;
+                errflg++;
+                break;
             }
             snprintf(entryName, UI_BUFFERS_SIZE, "%s", optarg);
             condition.entryGiven = true;
+            condition.fileNeeded = true;
             break;
         case 'r':
             condition.readingPass = true;
             if (optarg[0] == '-' && strlen(optarg) == 2) {
                 printf("Option -r requires an argument\n");
                 errflg++;
+                break;
             } else
                 condition.searchForEntry = true;
             if (strlen(optarg) > (UI_BUFFERS_SIZE - 1)) {
                 printf("\nentry name too long\n");
-                return 1;
+                errflg++;
+                break;
             }
             if (strcmp(optarg, "allpasses") == 0)
                 condition.printAllPasses = true;
             snprintf(entryName, UI_BUFFERS_SIZE, "%s", optarg);
             condition.entryGiven = true;
+            condition.fileNeeded = true;
             break;
         case 'd':
             if (optarg[0] == '-' && strlen(optarg) == 2) {
                 printf("Option -d requires an argument\n");
                 errflg++;
+                break;
             } else
                 condition.deletingPass = true;
             if (strlen(optarg) > (UI_BUFFERS_SIZE - 1)) {
                 printf("\nentry name too long\n");
-                for (i = 1; i < argc; i++)
-                    OPENSSL_cleanse(argv[i], strlen(argv[i]));
-                exit(EXIT_FAILURE);
+                errflg++;
+                break;
             }
             snprintf(entryName, UI_BUFFERS_SIZE, "%s", optarg);
             condition.entryGiven = true;
             condition.searchForEntry = true;
+            condition.fileNeeded = true;
             break;
         case 'c':
             if (optarg[0] == '-' && strlen(optarg) == 2) {
                 printf("Option -c requires an argument\n");
                 errflg++;
+                break;
             }
             if (strcmp(optarg, "list") == 0) {
+                /*Print a list of available ciphers*/
                 OBJ_NAME_do_all(OBJ_NAME_TYPE_CIPHER_METH, encListCallback, NULL);
-                return 0;
+                for (i = 1; i < argc; i++)
+                    OPENSSL_cleanse(argv[i], strlen(argv[i]));
+                exit(EXIT_SUCCESS);
             }
-            condition.userChoseCipher = true;
-
+            
             snprintf(encCipherName, NAME_MAX, "%s", optarg);
             snprintf(encCipherNameFromCmdLine, NAME_MAX, "%s", encCipherName);
 
@@ -526,6 +531,7 @@ int main(int argc, char *argv[])
             if (optarg[0] == '-' && strlen(optarg) == 2) {
                 printf("Option -f requires an argument\n");
                 errflg++;
+                break;
             } else
                 condition.fileGiven = true;
             snprintf(dbFileName, NAME_MAX, "%s", optarg);
@@ -534,13 +540,13 @@ int main(int argc, char *argv[])
             if (optarg[0] == '-' && strlen(optarg) == 2) {
                 printf("Option -n requires an argument\n");
                 errflg++;
+                break;
             } else
                 condition.searchForEntry = true;
             if (strlen(optarg) > (UI_BUFFERS_SIZE - 1)) {
                 printf("\nentry name too long\n");
-                for (i = 1; i < argc; i++)
-                    OPENSSL_cleanse(argv[i], strlen(argv[i]));
-                exit(EXIT_FAILURE);
+                errflg++;
+                break;
             }
             snprintf(entryName, UI_BUFFERS_SIZE, "%s", optarg);
             condition.entryGiven = true;
@@ -549,29 +555,30 @@ int main(int argc, char *argv[])
             if (optarg[0] == '-' && strlen(optarg) == 2) {
                 printf("Option -u requires an argument\n");
                 errflg++;
+                break;
             } else
                 condition.updatingEntry = true;
             if (strlen(optarg) > (UI_BUFFERS_SIZE - 1)) {
                 printf("\nentry name too long\n");
-                for (i = 1; i < argc; i++)
-                    OPENSSL_cleanse(argv[i], strlen(argv[i]));
-                exit(EXIT_FAILURE);
+                errflg++;
+                break;
             }
             if (strcmp(optarg, "allpasses") == 0)
                 condition.updateAllPasses = true;
             snprintf(entryNameToFind, UI_BUFFERS_SIZE, "%s", optarg);
+            condition.fileNeeded = true;
             break;
         case 'p':
             condition.entryPassGivenasArg = true;
             if (optarg[0] == '-' && strlen(optarg) == 2) {
                 printf("Option -p requires an argument\n");
                 errflg++;
+                break;
             }
             if (strlen(optarg) > (UI_BUFFERS_SIZE - 1)) {
                 printf("\npassword too long\n");
-                for (i = 1; i < argc; i++)
-                    OPENSSL_cleanse(argv[i], strlen(argv[i]));
-                exit(EXIT_FAILURE);
+                errflg++;
+                break;
             }
             if (strcmp(optarg, "gen") == 0)
                 condition.generateEntryPass = true;
@@ -582,8 +589,9 @@ int main(int argc, char *argv[])
         case 'x':
             condition.dbPassGivenasArg = true;
             if (optarg[0] == '-' && strlen(optarg) == 2) {
-                errflg++;
                 printf("Option -x requires an argument\n");
+                errflg++;
+                break;
             }
             snprintf(dbPass, UI_BUFFERS_SIZE, "%s", optarg);
             break;
@@ -591,37 +599,9 @@ int main(int argc, char *argv[])
             printf("Option -%c requires an argument\n", optopt);
             errflg++;
             break;
-        case '?': /*Get opt error handling, these check that the options were entered in correct syntax but not that the options are right*/
-            if (optopt == 's')
-                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            if (optopt == 'w')
-                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            if (optopt == 't')
-                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            if (optopt == 'l')
-                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            if (optopt == 'f')
-                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            if (optopt == 'u')
-                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            if (optopt == 'n')
-                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            if (optopt == 'd')
-                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            if (optopt == 'a')
-                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            if (optopt == 'r')
-                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            if (optopt == 'p')
-                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            if (optopt == 'x')
-                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            if (optopt == 'H')
-                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            if (optopt == 'c')
-                fprintf(stderr, "Option -%c requires an argument.\n", optopt);
-            printf("Unrecognized option: -%c\n", optopt);
+        case '?':
             errflg++;
+            break;
         }
     }
 
@@ -629,9 +609,11 @@ int main(int argc, char *argv[])
     for (i = 1; i < argc; i++)
         OPENSSL_cleanse(argv[i], strlen(argv[i]));
 
-    /*If the user didn't specify a file with -f set error flag on*/
-    if (condition.fileGiven == false)
+    /*If the user didn't specify a file with -f, and one was needed, set error flag on*/
+    if (condition.fileGiven == false && condition.fileNeeded == true) {
+        printf("Must specify a database file with -f\n");
         errflg++;
+    }
 
     /*Test if database is being initialized and if not if it is readable*/
     if (fileNonExistant(dbFileName) == true) {
@@ -650,11 +632,11 @@ int main(int argc, char *argv[])
 
     /*Finally test for errflag and halt program if on*/
     if (errflg) {
-        printSyntax("passmanger"); /*Print proper usage of program*/
+        printf("Use -h to print help\n");
         exit(EXIT_FAILURE);
     }
 
-    if (condition.printingDbInfo == true) {
+    if (condition.printingDbInfo == true) { /*Just print the database information*/
         if (condition.databaseBeingInitalized == false) {
             openDatabase();
         } else {
@@ -730,32 +712,15 @@ int main(int argc, char *argv[])
         /*If password database has been initialized openDatabase on it*/
         if (condition.databaseBeingInitalized == false) {
             openDatabase();
-        } else { /*Otherwise run these functions to initialize a database*/
+        } else { /*Otherwise key material must be created now*/
             if (genEvpSalt() != 0) {
                 printError("Could not create salt");
                 exit(EXIT_FAILURE);
             }
-            if (deriveMasterKey() != 0) {
+            if (deriveKeys() != 0) {
                 printError("Could not create master key");
                 exit(EXIT_FAILURE);
             }
-            if (deriveHMACKey() != 0) {
-                printError("Could not create HMAC key");
-                exit(EXIT_FAILURE);
-            }
-            /*HMAC User Supplied Password*/
-            if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), KeyedHashdBPassGenerates, HMACLengthPtr) == NULL) {
-                printError("HMAC falied");
-                ERR_print_errors_fp(stderr);
-                exit(EXIT_FAILURE);
-            }
-        }
-
-        /*Derives a key for the EVP algorithm*/
-
-        if (deriveEVPKey(evpCipher, evpKey, evpIv) != 0) {
-            printError("Could not derive EVP key");
-            exit(EXIT_FAILURE);
         }
 
         /*Adds the new enry and sends it to encryptedBuffer*/
@@ -766,7 +731,7 @@ int main(int argc, char *argv[])
             writeDatabase();
         }
 
-    } else if (condition.readingPass == true) /*Read passwords mode*/
+    } else if (condition.readingPass == true) /*This will read a password or passwords*/
     {
 
         if (condition.dbPassGivenasArg == false) {
@@ -776,12 +741,7 @@ int main(int argc, char *argv[])
         /*Note no configEvp() needed before openDatabase() in Read mode*/
         openDatabase();
 
-        if (deriveEVPKey(evpCipher, evpKey, evpIv) != 0) {
-            printError("Could not derive EVP key");
-            exit(EXIT_FAILURE);
-        }
-
-        if (condition.searchForEntry == true && strcmp(entryName, "allpasses") != 0) /*Find a specific entry to print*/
+        if (condition.searchForEntry == true && strcmp(entryName, "allpasses") != 0) /*Print entry or entries that match searchString*/
         {
             printPasses(entryName); /*Decrypt and print pass specified by entryName*/
         } else if (condition.searchForEntry == true && condition.printAllPasses == true)
@@ -804,11 +764,6 @@ int main(int argc, char *argv[])
 
         openDatabase();
 
-        if (deriveEVPKey(evpCipher, evpKey, evpIv) != 0) {
-            printError("Could not derive EVP Key");
-            exit(EXIT_FAILURE);
-        }
-
         /*Delete pass actually works by exclusion*/
         /*It writes all password entries except the one specified into encryptedBuffer*/
         int deletePassResult = deletePass(entryName);
@@ -816,18 +771,18 @@ int main(int argc, char *argv[])
         if (deletePassResult == 0)
             writeDatabase();
 
-    } else if (condition.updatingEntry == true) /*Update an entry name*/
+    } else if (condition.updatingEntry == true) /*Update an entry or entries*/
     {
 
         if (condition.dbPassGivenasArg == false) {
             getPass("Enter database password: ", dbPass);
         }
 
-        /*Get new entry*/
+        /*Get new entry name*/
         if (condition.entryGiven == true) {
             snprintf(newEntry, UI_BUFFERS_SIZE, "%s", entryName);
         } else {
-            /*If no new entry was specified then just update the password*/
+            /*If no new entry name was specified then just update the password*/
             snprintf(newEntry, UI_BUFFERS_SIZE, "%s", entryNameToFind);
             condition.updatingEntryPass = true;
         }
@@ -903,27 +858,29 @@ int main(int argc, char *argv[])
 
         openDatabase();
 
-        if (deriveEVPKey(evpCipher, evpKey, evpIv) != 0) {
-            printError("Could not derive EVP Key");
-            exit(EXIT_FAILURE);
-        }
-
         /*Works like deletePass() but instead of excluding matched entry, modfies its buffer values and then writes it to encryptedBuffer*/
         int updateEntryResult = updateEntry(entryNameToFind);
 
         if (updateEntryResult == 0) {
             writeDatabase();
         }
-    } else if (condition.updatingDbEnc == true) {
+    } else if (condition.updatingDbEnc == true) { /*Updates the database password, cipher algorithm, or scrypt configuration of the database*/
+        
         if (condition.dbPassGivenasArg == false) {
             getPass("Enter current database password: ", dbPass);
         }
 
         openDatabase();
 
-        /*Must store old EVP key data to decrypt database before new key material is generated*/
+        /*Must store old key data before new key material is generated*/
         snprintf(dbPassOld, UI_BUFFERS_SIZE, "%s", dbPass);
-        memcpy(HMACKeyOld, HMACKey, sizeof(char) * SHA512_DIGEST_LENGTH);
+        memcpy(HMACKeyOld, HMACKey, sizeof(char) * EVP_MAX_KEY_LENGTH);
+        memcpy(evpKeyOld, evpKey, sizeof(char) * EVP_MAX_KEY_LENGTH);
+        evpCipherOld = evpCipher;
+        strcpy(encCipherNameOld, encCipherName);
+        scryptNFactorOld = scryptNFactor;
+        scryptRFactorOld = scryptRFactor;
+        scryptPFactorOld = scryptPFactor;
 
         /*If -w was given along with nothing else*/
         if (condition.userChoseScryptWorkFactors == true && (condition.updatingEntryPass == false && condition.userChoseCipher == false)) {
@@ -932,7 +889,7 @@ int main(int argc, char *argv[])
             scryptPFactor = scryptPFactorStore;
             printf("Scrypt work factors changed to N=%i,r=%i,p=%i\n", scryptNFactor, scryptRFactor, scryptPFactor);
         }
-        /*If -U was given but neither -c or -H*/
+        /*If -U was given but not -c*/
         else if (condition.updatingDbEnc == true && (condition.userChoseCipher == false)) {
             /*Get new encryption password from user*/
             getPass("Enter new database password: ", dbPass);
@@ -945,15 +902,10 @@ int main(int argc, char *argv[])
                 return 1;
             } else {
                 printf("Changed password.\n");
-                if (deriveMasterKey() != 0) {
+                if (deriveKeys() != 0) {
                     printError("Could not derive HMAC key");
                     exit(EXIT_FAILURE);
                 }
-                if (deriveHMACKey() != 0) {
-                    printError("Could not derive HMAC key");
-                    exit(EXIT_FAILURE);
-                }
-                memcpy(HMACKeyNew, HMACKey, sizeof(char) * SHA512_DIGEST_LENGTH);
             }
 
             /*Change cipher if specified*/
@@ -962,15 +914,14 @@ int main(int argc, char *argv[])
                 printf("Changing cipher to %s\n", encCipherNameFromCmdLine);
             }
         }
-        /*-U was given but not -P and -c and/or -H might be there*/
+        /*-U was given but not -P and -c*/
         else if (condition.updatingDbEnc == true && condition.updatingEntryPass == false) {
             if (condition.userChoseCipher == true) {
                 snprintf(encCipherName, NAME_MAX, "%s", encCipherNameFromCmdLine);
                 printf("Changing cipher to %s\n", encCipherNameFromCmdLine);
             }
-            memcpy(HMACKeyNew, HMACKey, sizeof(char) * SHA512_DIGEST_LENGTH);
         }
-        /*If -P is given along with -c or -H*/
+        /*If -P is given along with -c*/
         else {
             /*Get new encryption password from user*/
             getPass("Enter new database password: ", dbPass);
@@ -982,24 +933,20 @@ int main(int argc, char *argv[])
                 exit(EXIT_FAILURE);
             } else {
                 printf("Changed password.\n");
-                if (deriveMasterKey() != 0) {
+                if (deriveKeys() != 0) {
                     printError("Could not derive HMAC key");
                     exit(EXIT_FAILURE);
                 }
-                if (deriveHMACKey() != 0) {
-                    printError("Could not derive HMAC key");
-                    exit(EXIT_FAILURE);
-                }
-                memcpy(HMACKeyNew, HMACKey, sizeof(char) * SHA512_DIGEST_LENGTH);
             }
 
-            /*Change crypto settings*/
+            /*Change cipher algorithm*/
             if (condition.userChoseCipher == true) {
                 snprintf(encCipherName, NAME_MAX, "%s", encCipherNameFromCmdLine);
                 printf("Changing cipher to %s\n", encCipherNameFromCmdLine);
             }
         }
         
+        /*Change scrypt configuration*/
         if (condition.userChoseScryptWorkFactors == true && (condition.updatingEntryPass == true || condition.userChoseCipher == true)) {
             scryptNFactor = scryptNFactorStore;
             scryptRFactor = scryptRFactorStore;
@@ -1010,15 +957,15 @@ int main(int argc, char *argv[])
         /*This will change to the cipher just specified*/
         configEvp();
 
-        /*The updatingDbEnc function decrypts with the old key and cipher settings, re-encrypts with new key and/or cipher settings writes to encryptedBuffer*/
+        /*The updatingDbEnc function decrypts with the old key and cipher settings, re-encrypts with new key and/or cipher settings then writes to encryptedBuffer*/
         int updateDbEncResult = updateDbEnc();
 
         if (updateDbEncResult == 0) {
             writeDatabase();
         }
 
-    } else {
-        printSyntax("passmanager"); /*Just in case something else happens...*/
+    } else { /*If the user didn't specify an operation mode, and didn't use '-c list'*/
+        printf("Must use -a,-r,-d,-u or -U\nUse -h t print help\n");
         return EXIT_FAILURE;
     }
 
@@ -1027,160 +974,111 @@ int main(int argc, char *argv[])
 
 void allocateBuffers()
 {
-    unsigned char *tmpBuffer = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE);
-    if (tmpBuffer == NULL) {
-        printSysError(errno);
-        exit(EXIT_FAILURE);
-    }
-
     entryPass = calloc(sizeof(char), UI_BUFFERS_SIZE);
     if (entryPass == NULL) {
         printSysError(errno);
         exit(EXIT_FAILURE);
     }
-    if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
+    if (!RAND_bytes((unsigned char *)entryPass, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(EXIT_FAILURE);
     }
-    memcpy(entryPass, tmpBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
     entryPassToVerify = calloc(sizeof(char), UI_BUFFERS_SIZE);
     if (entryPassToVerify == NULL) {
         printSysError(errno);
         exit(EXIT_FAILURE);
     }
-    if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
+    if (!RAND_bytes((unsigned char *)entryPassToVerify, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(EXIT_FAILURE);
     }
-    memcpy(entryPassToVerify, tmpBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
     entryName = calloc(sizeof(char), UI_BUFFERS_SIZE);
     if (entryName == NULL) {
         printSysError(errno);
         exit(EXIT_FAILURE);
     }
-    if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
+    if (!RAND_bytes((unsigned char *)entryName, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(EXIT_FAILURE);
     }
-    memcpy(entryName, tmpBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
     entryNameToFind = calloc(sizeof(char), UI_BUFFERS_SIZE);
     if (entryNameToFind == NULL) {
         printSysError(errno);
         exit(EXIT_FAILURE);
     }
-    if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
+    if (!RAND_bytes((unsigned char *)entryNameToFind, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(EXIT_FAILURE);
     }
-    memcpy(entryNameToFind, tmpBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
     newEntry = calloc(sizeof(char), UI_BUFFERS_SIZE);
     if (newEntry == NULL) {
         printSysError(errno);
         exit(EXIT_FAILURE);
     }
-    if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
+    if (!RAND_bytes((unsigned char *)newEntry, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(EXIT_FAILURE);
     }
-    memcpy(entryPass, tmpBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
     newEntryPass = calloc(sizeof(char), UI_BUFFERS_SIZE);
     if (newEntryPass == NULL) {
         printSysError(errno);
         exit(EXIT_FAILURE);
     }
-    if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
+    if (!RAND_bytes((unsigned char *)newEntryPass, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(EXIT_FAILURE);
     }
-    memcpy(newEntryPass, tmpBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
     newEntryPassToVerify = calloc(sizeof(char), UI_BUFFERS_SIZE);
     if (newEntryPassToVerify == NULL) {
         printSysError(errno);
         exit(EXIT_FAILURE);
     }
-    if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
+    if (!RAND_bytes((unsigned char *)newEntryPassToVerify, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(EXIT_FAILURE);
     }
-    memcpy(newEntryPassToVerify, tmpBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
     dbPass = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE);
     if (dbPass == NULL) {
         printSysError(errno);
         exit(EXIT_FAILURE);
     }
-    if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
+    if (!RAND_bytes((unsigned char *)dbPass, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(EXIT_FAILURE);
     }
-    memcpy(dbPass, tmpBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
     dbPassToVerify = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE);
     if (dbPassToVerify == NULL) {
         printSysError(errno);
         exit(EXIT_FAILURE);
     }
-    if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
+    if (!RAND_bytes((unsigned char *)dbPassToVerify, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(EXIT_FAILURE);
     }
-    memcpy(dbPassToVerify, tmpBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
 
     dbPassOld = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE);
     if (dbPassOld == NULL) {
         printSysError(errno);
         exit(EXIT_FAILURE);
     }
-    if (!RAND_bytes(tmpBuffer, UI_BUFFERS_SIZE)) {
-        printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-        exit(EXIT_FAILURE);
-    }
-    memcpy(dbPassOld, tmpBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
-
-    HMACKey = calloc(sizeof(unsigned char), SHA512_DIGEST_LENGTH);
-    if (HMACKey == NULL) {
-        printSysError(errno);
-        exit(EXIT_FAILURE);
-    }
-    if (!RAND_bytes(HMACKey, SHA512_DIGEST_LENGTH)) {
+    if (!RAND_bytes((unsigned char *)dbPassOld, UI_BUFFERS_SIZE)) {
         printf("Failure: CSPRNG bytes could not be made unpredictable\n");
         exit(EXIT_FAILURE);
     }
 
-    HMACKeyOld = calloc(sizeof(unsigned char), SHA512_DIGEST_LENGTH);
-    if (HMACKeyOld == NULL) {
+    evpSalt = calloc(sizeof(unsigned char), EVP_SALT_SIZE);
+    if (evpSalt == NULL) {
         printSysError(errno);
         exit(EXIT_FAILURE);
     }
-    if (!RAND_bytes(HMACKeyOld, SHA512_DIGEST_LENGTH)) {
-        printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-        exit(EXIT_FAILURE);
-    }
-
-    HMACKeyNew = calloc(sizeof(unsigned char), SHA512_DIGEST_LENGTH);
-    if (HMACKeyNew == NULL) {
-        printSysError(errno);
-        exit(EXIT_FAILURE);
-    }
-    if (!RAND_bytes(HMACKeyNew, SHA512_DIGEST_LENGTH)) {
-        printf("Failure: CSPRNG bytes could not be made unpredictable\n");
-        exit(EXIT_FAILURE);
-    }
-
-    masterSalt = calloc(sizeof(unsigned char), MASTER_SALT_SIZE);
-    if (masterSalt == NULL) {
-        printSysError(errno);
-        exit(EXIT_FAILURE);
-    }
-
-    free(tmpBuffer);
-    tmpBuffer = NULL;
 }
 
 void genPassWord(int stringLength)
@@ -1196,9 +1094,9 @@ void genPassWord(int stringLength)
             exit(EXIT_FAILURE);
         }
 
-        /*Tests that byte to be printable and not blank*/
-        /*If it is it fills the temporary pass string buffer with that byte*/
         if (condition.generateEntryPass == true) {
+            /*Tests that byte to be printable and not blank*/
+            /*If it is it fills the temporary pass string buffer with that byte*/
             if ((isalnum(randomByte) != 0 || ispunct(randomByte) != 0) && isblank(randomByte) == 0) {
                 tempPassString[i] = randomByte;
                 i++;
@@ -1336,24 +1234,24 @@ int genEvpSalt()
     unsigned char randomByte;
     int i = 0;
 
-    while (i < MASTER_SALT_SIZE) {
+    while (i < EVP_SALT_SIZE) {
         if (!RAND_bytes(&randomByte, 1)) {
             printError("Failure: CSPRNG bytes could not be made unpredictable\n");
             return 1;
         }
-        masterSalt[i] = randomByte;
+        evpSalt[i] = randomByte;
         i++;
     }
 
     return 0;
 }
 
-int deriveMasterKey()
+int deriveKeys()
 {
 
     EVP_PKEY_CTX *pctx;
 
-    size_t outlen = SHA512_DIGEST_LENGTH;
+    size_t outlen = EVP_MAX_KEY_LENGTH * 2;
     pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_SCRYPT, NULL);
 
     if (EVP_PKEY_derive_init(pctx) <= 0) {
@@ -1366,7 +1264,7 @@ int deriveMasterKey()
         ERR_print_errors_fp(stderr);
         return 1;
     }
-    if (EVP_PKEY_CTX_set1_scrypt_salt(pctx, masterSalt, MASTER_SALT_SIZE) <= 0) {
+    if (EVP_PKEY_CTX_set1_scrypt_salt(pctx, evpSalt, EVP_SALT_SIZE) <= 0) {
         printError("scrypt failed\n");
         ERR_print_errors_fp(stderr);
         return 1;
@@ -1393,177 +1291,10 @@ int deriveMasterKey()
     }
 
     EVP_PKEY_CTX_free(pctx);
-
-    return 0;
-}
-
-int deriveHMACKey()
-{
-
-    /*First derive a new salt*/
-    EVP_PKEY_CTX *pctx;
-    size_t outlen = HMAC_SALT_SIZE;
-    pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL);
-
-    if (EVP_PKEY_derive_init(pctx) <= 0) {
-        printError("HDKF failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-    if (EVP_PKEY_CTX_set_hkdf_md(pctx, EVP_sha512()) <= 0) {
-        printError("HDKF failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-
-    if (EVP_PKEY_CTX_set1_hkdf_key(pctx, masterSalt, MASTER_SALT_SIZE) <= 0) {
-        printError("HDKF failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-
-    if (EVP_PKEY_derive(pctx, hmacSalt, &outlen) <= 0) {
-        printError("HDKF failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-
-    EVP_PKEY_CTX_free(pctx);
-
-    /*Now derive a key using that salt and the masterKey*/
-    outlen = SHA512_DIGEST_LENGTH;
-    pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL);
-
-    if (EVP_PKEY_derive_init(pctx) <= 0) {
-        printError("HDKF failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-    if (EVP_PKEY_CTX_set_hkdf_md(pctx, EVP_sha512()) <= 0) {
-        printError("HDKF failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-    if (EVP_PKEY_CTX_set1_hkdf_salt(pctx, hmacSalt, HMAC_SALT_SIZE) <= 0) {
-        printError("HDKF failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-    if (EVP_PKEY_CTX_set1_hkdf_key(pctx, masterKey, SHA512_DIGEST_LENGTH) <= 0) {
-        printError("HDKF failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-
-    if (EVP_PKEY_derive(pctx, HMACKey, &outlen) <= 0) {
-        printError("HDKF failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-
-    EVP_PKEY_CTX_free(pctx);
-
-    return 0;
-}
-
-int deriveEVPKey(const EVP_CIPHER *evpCipher, unsigned char *evpKey, unsigned char *evpIv)
-{
-    /*First derive a new salt*/
-    EVP_PKEY_CTX *pctx;
-    size_t outlen = EVP_SALT_SIZE;
-    pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL);
-
-    if (EVP_PKEY_derive_init(pctx) <= 0) {
-        printError("HDKF failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-    if (EVP_PKEY_CTX_set_hkdf_md(pctx, EVP_sha512()) <= 0) {
-        printError("HDKF failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-
-    if (EVP_PKEY_CTX_set1_hkdf_key(pctx, hmacSalt, HMAC_SALT_SIZE) <= 0) {
-        printError("HDKF failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-
-    if (EVP_PKEY_derive(pctx, evpSalt, &outlen) <= 0) {
-        printError("HDKF failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-
-    EVP_PKEY_CTX_free(pctx);
-
-    /*Now derive a key using that salt and the masterKey*/
-    outlen = EVP_CIPHER_key_length(evpCipher);
-    pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL);
-
-    if (EVP_PKEY_derive_init(pctx) <= 0) {
-        printError("HDKF failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-    if (EVP_PKEY_CTX_set_hkdf_md(pctx, EVP_sha512()) <= 0) {
-        printError("HDKF failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-    if (EVP_PKEY_CTX_set1_hkdf_salt(pctx, evpSalt, EVP_SALT_SIZE) <= 0) {
-        printError("HDKF failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-    if (EVP_PKEY_CTX_set1_hkdf_key(pctx, masterKey, SHA512_DIGEST_LENGTH) <= 0) {
-        printError("HDKF failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-
-    if (EVP_PKEY_derive(pctx, evpKey, &outlen) <= 0) {
-        printError("HDKF failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-
-    EVP_PKEY_CTX_free(pctx);
-
-    /*If this cipher uses an IV, generate that as well*/
-    if (EVP_CIPHER_iv_length(evpCipher) != 0) {
-        outlen = EVP_CIPHER_iv_length(evpCipher);
-        pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_HKDF, NULL);
-
-        if (EVP_PKEY_derive_init(pctx) <= 0) {
-            printError("HDKF failed\n");
-            ERR_print_errors_fp(stderr);
-            return 1;
-        }
-        if (EVP_PKEY_CTX_set_hkdf_md(pctx, EVP_sha512()) <= 0) {
-            printError("HDKF failed\n");
-            ERR_print_errors_fp(stderr);
-            return 1;
-        }
-        if (EVP_PKEY_CTX_set1_hkdf_salt(pctx, evpSalt, EVP_SALT_SIZE) <= 0) {
-            printError("HDKF failed\n");
-            ERR_print_errors_fp(stderr);
-            return 1;
-        }
-        if (EVP_PKEY_CTX_set1_hkdf_key(pctx, evpKey, EVP_CIPHER_key_length(evpCipher)) <= 0) {
-            printError("HDKF failed\n");
-            ERR_print_errors_fp(stderr);
-            return 1;
-        }
-        if (EVP_PKEY_derive(pctx, evpIv, &outlen) <= 0) {
-            printError("HDKF failed\n");
-            ERR_print_errors_fp(stderr);
-            return 1;
-        }
-
-        EVP_PKEY_CTX_free(pctx);
-    }
+    
+    /*Copy halves of masterKey into evpKey and HMACKey respectively*/
+    memcpy(evpKey,masterKey,EVP_MAX_KEY_LENGTH);
+    memcpy(HMACKey,masterKey+EVP_MAX_KEY_LENGTH,EVP_MAX_KEY_LENGTH);
 
     return 0;
 }
@@ -1607,7 +1338,7 @@ int writeDatabase()
     memcpy(cryptoHeader + (strlen(cryptoHeader) + 1) + sizeof(scryptNFactor) + sizeof(scryptRFactor) + sizeof(scryptPFactor),&scryptPFactor,sizeof(scryptPFactor));
 
     /*Write the salt*/
-    if (fwriteWErrCheck(masterSalt, sizeof(unsigned char), MASTER_SALT_SIZE, dbFile) != 0) {
+    if (fwriteWErrCheck(evpSalt, sizeof(unsigned char), EVP_SALT_SIZE, dbFile) != 0) {
         printSysError(returnVal);
         exit(EXIT_FAILURE);
     }
@@ -1638,7 +1369,7 @@ int writeDatabase()
     }
 
     /*Generate keyed hash of database password*/
-    if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), KeyedHashdBPassGenerates, HMACLengthPtr) == NULL) {
+    if (HMAC(EVP_sha512(), HMACKey, EVP_MAX_KEY_LENGTH, (const unsigned char *)dbPass, strlen(dbPass), KeyedHashdBPassGenerates, HMACLengthPtr) == NULL) {
         printError("HMAC falied");
         ERR_print_errors_fp(stderr);
         exit(EXIT_FAILURE);
@@ -1722,7 +1453,7 @@ int openDatabase()
     unsigned char *verificationBuffer = NULL;
     int MACSize = SHA512_DIGEST_LENGTH;
     int fileSize = returnFileSize(dbFileName);
-    evpDataSize = fileSize - (MASTER_SALT_SIZE + CRYPTO_HEADER_SIZE + (MACSize * 3));
+    evpDataSize = fileSize - (EVP_SALT_SIZE + CRYPTO_HEADER_SIZE + (MACSize * 3));
 
     FILE *dbFile = NULL;
 
@@ -1733,7 +1464,7 @@ int openDatabase()
     }
 
     /*fread overwrites any randomly generated salt with the one read from file*/
-    if (freadWErrCheck(masterSalt, sizeof(char), MASTER_SALT_SIZE, dbFile) != 0) {
+    if (freadWErrCheck(evpSalt, sizeof(char), EVP_SALT_SIZE, dbFile) != 0) {
         printSysError(returnVal);
         goto cleanup;
     }
@@ -1750,13 +1481,8 @@ int openDatabase()
     memcpy(&scryptPFactor, cryptoHeader + (strlen(cryptoHeader) + 1) + sizeof(int) + sizeof(int) + sizeof(int), sizeof(int));
 
     if (condition.printingDbInfo == false) {
-        if (deriveMasterKey() != 0) {
+        if (deriveKeys() != 0) {
             printError("Could not create master key");
-            exit(EXIT_FAILURE);
-        }
-        /*Generate a separate salt and key for HMAC authentication*/
-        if (deriveHMACKey() != 0) {
-            printError("Could not derive HMAC key");
             goto cleanup;
         }
     }
@@ -1817,7 +1543,7 @@ int openDatabase()
         }
 
         /*Verify dbPass*/
-        if (HMAC(EVP_sha512(), HMACKey, MACSize, (const unsigned char *)dbPass, strlen(dbPass), KeyedHashdBPassGenerates, HMACLengthPtr) == NULL) {
+        if (HMAC(EVP_sha512(), HMACKey, EVP_MAX_KEY_LENGTH, (const unsigned char *)dbPass, strlen(dbPass), KeyedHashdBPassGenerates, HMACLengthPtr) == NULL) {
             printError("HMAC falied");
             ERR_print_errors_fp(stderr);
             goto cleanup;
@@ -1842,7 +1568,7 @@ int openDatabase()
         goto cleanup;
     }
 
-    memcpy(encryptedBuffer, verificationBuffer + MASTER_SALT_SIZE + CRYPTO_HEADER_SIZE, evpDataSize);
+    memcpy(encryptedBuffer, verificationBuffer + EVP_SALT_SIZE + CRYPTO_HEADER_SIZE, evpDataSize);
 
     if (fclose(dbFile) == EOF) {
         printFileError(dbFileName, errno);
@@ -1852,6 +1578,7 @@ int openDatabase()
     free(verificationBuffer);
     verificationBuffer = NULL;
 
+    /*Load cipher name from header*/
     snprintf(encCipherName, NAME_MAX, "%s", cryptoHeader);
 
     /*Check the string read is a valid name*/
@@ -1859,25 +1586,6 @@ int openDatabase()
     if (!evpCipher) {
         fprintf(stderr, "Could not load cipher %s. Is it installed? Use -c list to list available ciphers\n", encCipherName);
         goto cleanup;
-    }
-
-    if (condition.updatingDbEnc == true && condition.printingDbInfo == false) {
-        /*Copy old evpCipher to evpCipherOld and generate evpKeyOld based on this*/
-        /*This needs to be done in openDatabase() before cipher parameters are changed later on */
-        evpCipherOld = evpCipher;
-        strcpy(encCipherNameOld, encCipherName);
-        scryptNFactorOld = scryptNFactor;
-        scryptRFactorOld = scryptRFactor;
-        scryptPFactorOld = scryptPFactor;
-
-        if (deriveMasterKey() != 0) {
-            printError("Could not derive master key");
-            goto cleanup;
-        }
-        if (deriveEVPKey(evpCipher, evpKeyOld, evpIvOld) != 0) {
-            printError("Could not derive EVP key");
-            goto cleanup;
-        }
     }
 
     return 0;
@@ -1972,13 +1680,13 @@ int writePass()
 
     if (condition.databaseBeingInitalized == false) {
 
-        if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, scryptNFactor, scryptRFactor, scryptPFactor, evpIv) != 0) {
+        if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, scryptNFactor, scryptRFactor, scryptPFactor) != 0) {
             printMACErrMessage(1);
             OPENSSL_cleanse(newEntryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
             goto cleanup;
         }
 
-        EVP_DecryptInit(ctx, evpCipher, evpKey, evpIv);
+        EVP_DecryptInit(ctx, evpCipher, evpKey, evpSalt);
 
         if (evpDecrypt(ctx, fileSize, &evpOutputLength, encryptedBuffer, decryptedBuffer) != 0) {
             printError("evpDecrypt failed");
@@ -1992,7 +1700,7 @@ int writePass()
     }
 
     if (condition.databaseBeingInitalized == true) {
-        EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
+        EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpSalt);
 
         if (evpEncrypt(ctx, UI_BUFFERS_SIZE * 2, &evpOutputLength, dbInitBuffer, newEntryBuffer) != 0) {
             printError("evpEncrypt failed");
@@ -2015,33 +1723,21 @@ int writePass()
 
     } else {
 
-        /*Create new databse with new salt, so also need new HMAC and EVP key derived from that salt*/
+        /*Creating a new databse with new salt, so also need new HMAC and EVP key derived from that salt*/
         if (genEvpSalt() != 0) {
             printError("Could not update salt");
             OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + (UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH);
             OPENSSL_cleanse(newEntryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
             goto cleanup;
         }
-        if (deriveMasterKey() != 0) {
+        if (deriveKeys() != 0) {
             printError("Could not create new HMAC key");
-            OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + (UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH);
-            OPENSSL_cleanse(newEntryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
-            goto cleanup;
-        }
-        if (deriveHMACKey() != 0) {
-            printError("Could not create new HMAC key");
-            OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + (UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH);
-            OPENSSL_cleanse(newEntryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
-            goto cleanup;
-        }
-        if (deriveEVPKey(evpCipher, evpKey, evpIv) != 0) {
-            printError("Could not create new EVP key");
             OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + (UI_BUFFERS_SIZE * 2) + EVP_MAX_BLOCK_LENGTH);
             OPENSSL_cleanse(newEntryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
             goto cleanup;
         }
 
-        EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
+        EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpSalt);
 
         OPENSSL_cleanse(encryptedBuffer, sizeof(unsigned char) * fileSize);
         free(encryptedBuffer);
@@ -2142,12 +1838,12 @@ int printPasses(char *searchString)
         goto cleanup;
     }
 
-    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, scryptNFactor, scryptRFactor, scryptPFactor, evpIv) != 0) {
+    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, scryptNFactor, scryptRFactor, scryptPFactor) != 0) {
         printMACErrMessage(1);
         goto cleanup;
     }
 
-    EVP_DecryptInit(ctx, evpCipher, evpKey, evpIv);
+    EVP_DecryptInit(ctx, evpCipher, evpKey, evpSalt);
 
     if (evpDecrypt(ctx, fileSize, &evpOutputLength, encryptedBuffer, decryptedBuffer) != 0) {
         printError("evpDecrypt failed\n");
@@ -2265,7 +1961,7 @@ int deletePass(char *searchString)
         goto cleanup;
     }
 
-    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, scryptNFactor, scryptRFactor, scryptPFactor, evpIv) != 0) {
+    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, scryptNFactor, scryptRFactor, scryptPFactor) != 0) {
         printMACErrMessage(1);
         goto cleanup;
     }
@@ -2277,7 +1973,7 @@ int deletePass(char *searchString)
         goto cleanup;
     }
 
-    EVP_DecryptInit(ctx, evpCipher, evpKey, evpIv);
+    EVP_DecryptInit(ctx, evpCipher, evpKey, evpSalt);
 
     if (evpDecrypt(ctx, fileSize, &evpOutputLength, encryptedBuffer, decryptedBuffer) != 0) {
         printError("evpDecrypt failed");
@@ -2353,25 +2049,17 @@ int deletePass(char *searchString)
         goto cleanup;
     }
 
-    /*Create new databse with new salt, so also need new HMAC and EVP key derived from that salt*/
+    /*Creating a new databse with new salt, so also need new HMAC and EVP key derived from that salt*/
     if (genEvpSalt() != 0) {
         printError("Could not update salt");
         goto cleanup;
     }
-    if (deriveMasterKey() != 0) {
+    if (deriveKeys() != 0) {
         printError("Could not create new HMAC key");
-        goto cleanup;
-    }
-    if (deriveHMACKey() != 0) {
-        printError("Could not create new HMAC key");
-        goto cleanup;
-    }
-    if (deriveEVPKey(evpCipher, evpKey, evpIv) != 0) {
-        printError("Could not create new EVP key");
         goto cleanup;
     }
 
-    EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
+    EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpSalt);
 
     if (evpEncrypt(ctx, newFileSize, &evpOutputLength, encryptedBuffer, fileBuffer) != 0) {
         printError("evpEncrypt failed");
@@ -2458,7 +2146,7 @@ int updateEntry(char *searchString)
         goto cleanup;
     }
 
-    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, scryptNFactor, scryptRFactor, scryptPFactor, evpIv) != 0) {
+    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, scryptNFactor, scryptRFactor, scryptPFactor) != 0) {
         printMACErrMessage(1);
         goto cleanup;
     }
@@ -2469,7 +2157,7 @@ int updateEntry(char *searchString)
         goto cleanup;
     }
 
-    EVP_DecryptInit(ctx, evpCipher, evpKey, evpIv);
+    EVP_DecryptInit(ctx, evpCipher, evpKey, evpSalt);
 
     if (evpDecrypt(ctx, fileSize, &evpOutputLength, encryptedBuffer, decryptedBuffer) != 0) {
         printError("evpDecrypt failed");
@@ -2586,25 +2274,17 @@ int updateEntry(char *searchString)
         goto cleanup;
     }
 
-    /*Create new databse with new salt, so also need new HMAC and EVP key derived from that salt*/
+    /*Creating a new databse with new salt, so also need new HMAC and EVP key derived from that salt*/
     if (genEvpSalt() != 0) {
         printError("Could not update salt");
         goto cleanup;
     }
-    if (deriveMasterKey() != 0) {
+    if (deriveKeys() != 0) {
         printError("Could not create new HMAC key");
-        goto cleanup;
-    }
-    if (deriveHMACKey() != 0) {
-        printError("Could not create new HMAC key");
-        goto cleanup;
-    }
-    if (deriveEVPKey(evpCipher, evpKey, evpIv) != 0) {
-        printError("Could not create new EVP key");
         goto cleanup;
     }
 
-    EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
+    EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpSalt);
 
     if (evpEncrypt(ctx, oldFileSize, &evpOutputLength, encryptedBuffer, fileBuffer) != 0) {
         printError("evpEncrypt failed");
@@ -2693,14 +2373,12 @@ int updateDbEnc()
         goto cleanup;
     }
 
-    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKeyOld, encCipherNameOld, scryptNFactorOld, scryptRFactorOld, scryptPFactorOld, evpIvOld) != 0) {
+    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKeyOld, encCipherNameOld, scryptNFactorOld, scryptRFactorOld, scryptPFactorOld) != 0) {
         printMACErrMessage(1);
         goto cleanup;
     }
 
-    memcpy(HMACKey, HMACKeyOld, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
-
-    EVP_DecryptInit(ctx, evpCipherOld, evpKeyOld, evpIvOld);
+    EVP_DecryptInit(ctx, evpCipherOld, evpKeyOld, evpSalt);
 
     if (evpDecrypt(ctx, fileSize, &evpOutputLength, encryptedBuffer, decryptedBuffer) != 0) {
         printError("evpDecrypt");
@@ -2713,8 +2391,6 @@ int updateDbEnc()
 
     oldFileSize = evpOutputLength;
 
-    memcpy(HMACKey, HMACKeyNew, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
-
     free(encryptedBuffer);
     encryptedBuffer = calloc(sizeof(unsigned char), oldFileSize + EVP_MAX_BLOCK_LENGTH);
     if (encryptedBuffer == NULL) {
@@ -2723,29 +2399,19 @@ int updateDbEnc()
         goto cleanup;
     }
 
-    /*Create new databse with new salt, so also need new HMAC and EVP key derived from that salt*/
+    /*Creating a new databse with new salt, so also need new HMAC and EVP key derived from that salt*/
     if (genEvpSalt() != 0) {
         printError("Could not update salt");
         OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
         goto cleanup;
     }
-    if (deriveMasterKey() != 0) {
+    if (deriveKeys() != 0) {
         printError("Could not create new HMAC key");
-        OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
-        goto cleanup;
-    }
-    if (deriveHMACKey() != 0) {
-        printError("Could not create new HMAC key");
-        OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
-        goto cleanup;
-    }
-    if (deriveEVPKey(evpCipher, evpKey, evpIv) != 0) {
-        printError("Could not create new EVP key");
         OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
         goto cleanup;
     }
 
-    EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpIv);
+    EVP_EncryptInit_ex(ctx, evpCipher, NULL, evpKey, evpSalt);
 
     if (evpEncrypt(ctx, oldFileSize, &evpOutputLength, encryptedBuffer, decryptedBuffer) != 0) {
         printError("evpEncrypt failed");
@@ -2782,13 +2448,12 @@ cleanup:
     return 1;
 }
 
-int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedBuffer, unsigned char *HMACKey, char *encCipherName, unsigned int scryptNFactor, unsigned int scryptRFactor, unsigned scryptPFactor, unsigned char *evpIv)
+int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedBuffer, unsigned char *HMACKey, char *encCipherName, unsigned int scryptNFactor, unsigned int scryptRFactor, unsigned scryptPFactor)
 {
     /*Generate MAC from both cipher-text and associated data*/
-    unsigned int IvLength = EVP_CIPHER_iv_length(EVP_get_cipherbyname(encCipherName));
     unsigned int evpCipherSize = strlen(encCipherName);
     unsigned int scryptWorkFactorSize = sizeof(scryptNFactor);
-    unsigned int hmacBufferLength = MASTER_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3) + IvLength + encryptedBufferLength;
+    unsigned int hmacBufferLength = EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3) + encryptedBufferLength;
 
     unsigned char *hmacBuffer = calloc(sizeof(unsigned char), hmacBufferLength);
     if (hmacBuffer == NULL) {
@@ -2796,16 +2461,16 @@ int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encrypte
         return errno;
     }
 
-    /*Concatenates masterSalt:evpCipher:scryptNFactor:scryptRFactor:scryptPFactor:evpIV:encryptedBuffer into hmacBuffer*/
-    memcpy(hmacBuffer, masterSalt, MASTER_SALT_SIZE);
-    memcpy(hmacBuffer + MASTER_SALT_SIZE, encCipherName, evpCipherSize);
-    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize, &scryptNFactor, scryptWorkFactorSize);
-    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize + scryptWorkFactorSize, &scryptRFactor, scryptWorkFactorSize);
-    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 2), &scryptPFactor, scryptWorkFactorSize);
-    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3), evpIv, IvLength);
-    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3) + IvLength, encryptedBuffer, encryptedBufferLength);
+    /*Concatenates evpSalt:evpCipher:scryptNFactor:scryptRFactor:scryptPFactor:encryptedBuffer into hmacBuffer*/
+    memcpy(hmacBuffer, evpSalt, EVP_SALT_SIZE);
+    memcpy(hmacBuffer + EVP_SALT_SIZE, encCipherName, evpCipherSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize, &scryptNFactor, scryptWorkFactorSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + scryptWorkFactorSize, &scryptRFactor, scryptWorkFactorSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 2), &scryptPFactor, scryptWorkFactorSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3), encryptedBuffer, encryptedBufferLength);
 
-    if (HMAC(EVP_sha512(), HMACKey, SHA512_DIGEST_LENGTH, hmacBuffer, hmacBufferLength, MACcipherTextGenerates, HMACLengthPtr) == NULL) {
+    /*Generate a SHA512 hash from the cipher-text and associated data copied into hmacBuffer and store into MACcipherTextGenerates*/
+    if (HMAC(EVP_sha512(), HMACKey, EVP_MAX_KEY_LENGTH, hmacBuffer, hmacBufferLength, MACcipherTextGenerates, HMACLengthPtr) == NULL) {
         printError("verifyCipherText HMAC failure");
         ERR_print_errors_fp(stderr);
         return 1;
@@ -2823,10 +2488,9 @@ int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encrypte
 int signCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedBuffer)
 {
     /*Generate MAC from both cipher-text and associated data*/
-    unsigned int IvLength = EVP_CIPHER_iv_length(EVP_get_cipherbyname(encCipherName));
     unsigned int evpCipherSize = strlen(encCipherName);
     unsigned int scryptWorkFactorSize = sizeof(scryptNFactor);
-    unsigned int hmacBufferLength = MASTER_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3) + IvLength + encryptedBufferLength;
+    unsigned int hmacBufferLength = EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3) + encryptedBufferLength;
 
     unsigned char *hmacBuffer = calloc(sizeof(unsigned char), hmacBufferLength);
     if (hmacBuffer == NULL) {
@@ -2834,16 +2498,16 @@ int signCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedB
         exit(EXIT_FAILURE);
     }
 
-    /*Concatenates masterSalt:evpCipher:scryptNFactor:scryptRFactor:scryptPFactor:evpIV:encryptedBuffer into hmacBuffer*/
-    memcpy(hmacBuffer, masterSalt, MASTER_SALT_SIZE);
-    memcpy(hmacBuffer + MASTER_SALT_SIZE, encCipherName, evpCipherSize);
-    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize, &scryptNFactor, scryptWorkFactorSize);
-    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize + scryptWorkFactorSize, &scryptRFactor, scryptWorkFactorSize);
-    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 2), &scryptPFactor, scryptWorkFactorSize);
-    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3), evpIv, IvLength);
-    memcpy(hmacBuffer + MASTER_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3) + IvLength, encryptedBuffer, encryptedBufferLength);
+    /*Concatenates evpSalt:evpCipher:scryptNFactor:scryptRFactor:scryptPFactor:encryptedBuffer into hmacBuffer*/
+    memcpy(hmacBuffer, evpSalt, EVP_SALT_SIZE);
+    memcpy(hmacBuffer + EVP_SALT_SIZE, encCipherName, evpCipherSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize, &scryptNFactor, scryptWorkFactorSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + scryptWorkFactorSize, &scryptRFactor, scryptWorkFactorSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 2), &scryptPFactor, scryptWorkFactorSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3), encryptedBuffer, encryptedBufferLength);
 
-    if (HMAC(EVP_sha512(), HMACKey, SHA512_DIGEST_LENGTH, hmacBuffer, hmacBufferLength, MACcipherTextGenerates, HMACLengthPtr) == NULL) {
+    /*Generate MAC from the cipher-text and associated data copied into hmacBuffer and store into MACcipherTextGenerates*/
+    if (HMAC(EVP_sha512(), HMACKey, EVP_MAX_KEY_LENGTH, hmacBuffer, hmacBufferLength, MACcipherTextGenerates, HMACLengthPtr) == NULL) {
         printError("signCipherText HMAC failure");
         ERR_print_errors_fp(stderr);
         return 1;
@@ -2907,6 +2571,7 @@ int evpEncrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, un
     return 0;
 }
 
+/*If compilation was configured with X11 libraries*/
 #ifdef HAVE_LIBX11
 int sendToClipboard(char *textToSend)
 {
@@ -3045,6 +2710,7 @@ int sendWithXlib(char *passToSend, int passLength, int clearTime)
 }
 #endif
 
+/*If compilation was configured without X11 libraries*/
 #ifndef HAVE_LIBX11
 int sendToClipboard(char *textToSend)
 {
@@ -3124,6 +2790,7 @@ int sendToClipboard(char *textToSend)
 }
 #endif
 
+/*A wrapper to run fread with error checking*/
 int freadWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
     if (fread(ptr, size, nmemb, stream) != nmemb / size) {
@@ -3139,6 +2806,7 @@ int freadWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream)
     return 0;
 }
 
+/*A wrapper to run fwrite with error checking*/
 int fwriteWErrCheck(void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
     if (fwrite(ptr, size, nmemb, stream) != nmemb / size) {
@@ -3225,8 +2893,8 @@ void printDbInfo()
     printf("Number of entries in database: %i\n", evpDataSize / (UI_BUFFERS_SIZE * 2));
     printf("scrypt configuration:\n");
     printf("\tSalt:");
-    for (int i = 0; i < MASTER_SALT_SIZE; i++) {
-        printf("%02x", masterSalt[i] & 0xff);
+    for (int i = 0; i < EVP_SALT_SIZE; i++) {
+        printf("%02x", evpSalt[i] & 0xff);
     }
     printf("\n");
     printf("\tN factor: %i\n", scryptNFactor);
@@ -3320,21 +2988,13 @@ void cleanUpBuffers()
     free(dbPassOld);
     OPENSSL_cleanse(dbPassToVerify, sizeof(unsigned char) * UI_BUFFERS_SIZE);
     free(dbPassToVerify);
-    OPENSSL_cleanse(masterKey, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
+    OPENSSL_cleanse(masterKey, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
     OPENSSL_cleanse(evpKey, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
-    OPENSSL_cleanse(evpIv, sizeof(unsigned char) * EVP_MAX_IV_LENGTH);
     OPENSSL_cleanse(evpKeyOld, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
-    OPENSSL_cleanse(evpIvOld, sizeof(unsigned char) * EVP_MAX_IV_LENGTH);
-    OPENSSL_cleanse(HMACKey, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
-    free(HMACKey);
-    OPENSSL_cleanse(HMACKeyOld, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
-    free(HMACKeyOld);
-    OPENSSL_cleanse(HMACKeyNew, sizeof(unsigned char) * SHA512_DIGEST_LENGTH);
-    free(HMACKeyNew);
-    OPENSSL_cleanse(hmacSalt, sizeof(unsigned char) * HMAC_SALT_SIZE);
-    OPENSSL_cleanse(evpSalt, sizeof(unsigned char) * EVP_SALT_SIZE);
-
-    free(masterSalt);
+    OPENSSL_cleanse(HMACKey, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
+    OPENSSL_cleanse(HMACKeyOld, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
+    
+    free(evpSalt);
     free(encryptedBuffer);
 }
 
@@ -3343,7 +3003,6 @@ bool xselIsInstalled(void)
     char *pathBuffer = NULL;
     char pathString[NAME_MAX] = {0}, pathToCheck[NAME_MAX] = {0};
     char *token = NULL;
-    bool xselInstalled = false;
     struct stat sb;
 
     pathBuffer = (char *)getenv("PATH");
@@ -3360,8 +3019,7 @@ bool xselIsInstalled(void)
         snprintf(pathToCheck, NAME_MAX, "%s/xsel", token);
 
         if (stat(pathToCheck, &sb) == 0 && sb.st_mode & S_IXUSR) {
-            xselInstalled = true;
-            break;
+            return true;
         } else {
             token = strtok(NULL, ":");
             if (token == NULL)
@@ -3370,10 +3028,7 @@ bool xselIsInstalled(void)
         }
     }
 
-    if (xselInstalled == true)
-        return true;
-    else
-        return false;
+    return false;
 }
 
 bool fileNonExistant(const char *filename)
@@ -3486,7 +3141,7 @@ int printSyntax(char *arg)
 \n     \t-c 'cipher' - Update encryption algorithm  \
 \n     \t-H 'digest' - Update digest used for algorithms' KDFs \
 \n     \t-w 'N,r,p' - Specify scrypt work factors. \
-\nVersion scrypt-implementation\
+\nVersion 4.0.0\
 \n\
 ",
            arg);
