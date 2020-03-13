@@ -77,11 +77,7 @@
 
 #define DEFAULT_GENPASS_LENGTH 16
 
-#define DEFAULT_SCRYPT_N 1048576
-
-#define DEFAULT_SCRYPT_R 8
-
-#define DEFAULT_SCRYPT_P 1
+#define DEFAULT_PBKDF2_ITER 1000000
 
 struct conditionsStruct {
     bool addingPass;
@@ -97,10 +93,11 @@ struct conditionsStruct {
     bool updatingDbEnc;
     bool searchForEntry;
     bool userChoseCipher;
+    bool userChoseDigest;
     bool genPassLengthGiven;
     bool sendToClipboard;
     bool userChoseClipboardClearTime;
-    bool userChoseScryptWorkFactors;
+    bool userChosePBKDF2Iterations;
     bool databaseBeingInitalized;
     bool generateEntryPass;
     bool generateEntryPassAlpha;
@@ -119,6 +116,7 @@ int openDatabase();
 int writeDatabase();
 int configEvp();
 void encListCallback(const OBJ_NAME *obj, void *arg);
+void mdListCallback(const OBJ_NAME *obj, void *arg);
 int genEvpSalt();
 int deriveKeys();
 int writePass();
@@ -136,7 +134,7 @@ void signalHandler(int signum);
 int sendToClipboard();
 int printSyntax(char *arg);
 int printMACErrMessage(int errMessage);
-int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedBuffer, unsigned char *HMACKey, char *encCipherName, unsigned int scryptNFactor, unsigned int scryptRFactor, unsigned int scryptPFactor);
+int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedBuffer, unsigned char *HMACKey, char *encCipherName, unsigned int PBKDF2Iterations);
 int signCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedBuffer);
 int evpDecrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, unsigned char *encryptedBuffer, unsigned char *decryptedBuffer);
 int evpEncrypt(EVP_CIPHER_CTX *ctx, int evpInputLength, int *evpOutputLength, unsigned char *encryptedBuffer, unsigned char *decryptedBuffer);
@@ -158,12 +156,15 @@ int sendWithXlib(char *passToSend, int passLength, int clearTime);
 unsigned char masterKey[EVP_MAX_KEY_LENGTH * 2] = {0};
 
 const EVP_CIPHER *evpCipher = NULL, *evpCipherOld = NULL;
+const EVP_MD *evpDigest = NULL, *evpDigestOld = NULL;
 unsigned char evpKey[EVP_MAX_KEY_LENGTH] = {0}, evpKeyOld[EVP_MAX_KEY_LENGTH] = {0};
 
 char *dbPass = NULL;
 char *dbPassToVerify = NULL;
 char *dbPassOld = NULL;
 
+char messageDigestName[NAME_MAX] = {0}, messageDigestNameOld[NAME_MAX] = {0};
+char messageDigestNameFromCmdLine[NAME_MAX] = {0};
 char encCipherName[NAME_MAX] = {0}, encCipherNameOld[NAME_MAX] = {0};
 char encCipherNameFromCmdLine[NAME_MAX] = {0};
 char cryptoHeader[CRYPTO_HEADER_SIZE] = {0};
@@ -181,9 +182,9 @@ unsigned char KeyedHashdBPassGenerates[SHA512_DIGEST_LENGTH] = {0};
 unsigned int *HMACLengthPtr = NULL;
 int MACSize = SHA512_DIGEST_LENGTH;
 
-int scryptNFactor = DEFAULT_SCRYPT_N, scryptRFactor = DEFAULT_SCRYPT_R, scryptPFactor = DEFAULT_SCRYPT_P;
-int scryptNFactorStore = 0, scryptRFactorStore = 0,scryptPFactorStore = 0;
-int scryptNFactorOld = 0, scryptRFactorOld = 0,scryptPFactorOld = 0;
+int PBKDF2Iterations = DEFAULT_PBKDF2_ITER;
+int PBKDF2IterationsStore = 0;
+int PBKDF2IterationsOld = 0;
 
 char dbFileName[NAME_MAX] = {0};
 char backupFileExt[] = ".autobak";
@@ -300,7 +301,7 @@ int main(int argc, char *argv[])
 
     int i = 0;
     
-    char optionsString[] = "s:w:t:l:f:u:n:d:a:r:p:x:c:hUPCIO";
+    char optionsString[] = "s:i:t:l:f:u:n:d:a:r:p:x:H:c:hUPCIO";
 
     /*Process through arguments*/
     while ((opt = getopt(argc, argv, optionsString)) != -1) {
@@ -357,66 +358,14 @@ int main(int argc, char *argv[])
             }
             condition.userChoseClipboardClearTime = true;
             break;
-        case 'w':
+        case 'i':
             if (optarg[0] == '-' && strlen(optarg) == 2) {
-                printf("Option -w requires an argument\n");
+                printf("Option -i requires an argument\n");
                 errflg++;
-                break;
             }
-            
-            /*First parse the N factor*/
-            char *token = strtok(optarg, ",");
-            if (token == NULL) {
-                printf("Could not parse scrypt work factors\n");
-                errflg++;
-                break;
-            }
-            
-            /*Test if N factor is power of 2*/
-            
-            scryptNFactor = atoi(token);
-            scryptNFactorStore = scryptNFactor;
-            
-            int testNumber = scryptNFactor;
-            while (testNumber > 1)
-            {
-                if(testNumber % 2 != 0) {
-                    /*Bitwise operation to round scryptNFactor up to the nearest power of 2*/
-                    scryptNFactor--;
-                    scryptNFactor |= scryptNFactor >> 1;
-                    scryptNFactor |= scryptNFactor >> 2;
-                    scryptNFactor |= scryptNFactor >> 4;
-                    scryptNFactor |= scryptNFactor >> 8;
-                    scryptNFactor |= scryptNFactor >> 16;
-                    scryptNFactor++;
-                    scryptNFactorStore = scryptNFactor;
-                    printf("scrypt's N factor must be a power of 2. Rounding it up to %i\n", scryptNFactor);
-                    break;
-                }
-                testNumber /= 2;
-            }
-        
-            /*Second parse the R factor*/
-            token = strtok(NULL, ",");
-            if (token == NULL) {
-                printf("Could not parse scrypt work factors\n");
-                errflg++;
-                break;
-            }
-            scryptRFactor = atoi(token);
-            scryptRFactorStore = scryptRFactor;
-            
-            /*Third parse the P factor*/
-            token = strtok(NULL, ",");
-            if (token == NULL) {
-                printf("Could not parse scrypt work factors\n");
-                errflg++;
-                break;
-            }
-            scryptPFactor = atoi(token);
-            scryptPFactorStore = scryptPFactor;
-            
-            condition.userChoseScryptWorkFactors = true;
+            PBKDF2Iterations = atoi(optarg);
+            PBKDF2IterationsStore = PBKDF2Iterations;
+            condition.userChosePBKDF2Iterations = true;
             break;
         case 'l':
             if (optarg[0] == '-' && strlen(optarg) == 2) {
@@ -507,6 +456,26 @@ int main(int argc, char *argv[])
             condition.entryGiven = true;
             condition.searchForEntry = true;
             condition.fileNeeded = true;
+            break;
+        case 'H':
+            if (optarg[0] == '-' && strlen(optarg) == 2) {
+                printf("Option -H requires an argument\n");
+                errflg++;
+            }
+            if (strcmp(optarg, "list") == 0) {
+                /*Borrowed from StackOverflow*/
+                /*https://stackoverflow.com/questions/47476427/get-a-list-of-all-supported-digest-algorithms*/
+                OBJ_NAME_do_all(OBJ_NAME_TYPE_MD_METH, mdListCallback, NULL);
+                return 0;
+            }
+            condition.userChoseDigest = true;
+
+            /*Copy optarg into both variables because openDatabase() will replace what's in messageDigestName afer reading the header
+			But only if the database is being initialized. This way the program doesn't need extra code for both conditions*/
+            snprintf(messageDigestName, NAME_MAX, "%s", optarg);
+            snprintf(messageDigestNameFromCmdLine, NAME_MAX, "%s", messageDigestName);
+
+            condition.userChoseDigest = true;
             break;
         case 'c':
             if (optarg[0] == '-' && strlen(optarg) == 2) {
@@ -864,7 +833,7 @@ int main(int argc, char *argv[])
         if (updateEntryResult == 0) {
             writeDatabase();
         }
-    } else if (condition.updatingDbEnc == true) { /*Updates the database password, cipher algorithm, or scrypt configuration of the database*/
+    } else if (condition.updatingDbEnc == true) { /*Updates the database password, cipher algorithm, or PBKDF2 configuration of the database*/
         
         if (condition.dbPassGivenasArg == false) {
             getPass("Enter current database password: ", dbPass);
@@ -878,19 +847,16 @@ int main(int argc, char *argv[])
         memcpy(evpKeyOld, evpKey, sizeof(char) * EVP_MAX_KEY_LENGTH);
         evpCipherOld = evpCipher;
         strcpy(encCipherNameOld, encCipherName);
-        scryptNFactorOld = scryptNFactor;
-        scryptRFactorOld = scryptRFactor;
-        scryptPFactorOld = scryptPFactor;
+        strcpy(messageDigestNameOld, messageDigestName);
+        PBKDF2IterationsOld = PBKDF2Iterations;
 
-        /*If -w was given along with nothing else*/
-        if (condition.userChoseScryptWorkFactors == true && (condition.updatingEntryPass == false && condition.userChoseCipher == false)) {
-            scryptNFactor = scryptNFactorStore;
-            scryptRFactor = scryptRFactorStore;
-            scryptPFactor = scryptPFactorStore;
-            printf("Scrypt work factors changed to N=%i,r=%i,p=%i\n", scryptNFactor, scryptRFactor, scryptPFactor);
+        /*If -i was given along with nothing else*/
+        if (condition.userChosePBKDF2Iterations == true && (condition.updatingEntryPass == false && condition.userChoseCipher == false && condition.userChoseDigest == false)) {
+            PBKDF2Iterations = PBKDF2IterationsStore;
+            printf("PBKDF2 iterations changed to %i\n", PBKDF2Iterations);
         }
-        /*If -U was given but not -c*/
-        else if (condition.updatingDbEnc == true && (condition.userChoseCipher == false)) {
+        /*If -U was given but neither -c or -H*/
+        else if (condition.updatingDbEnc == true && (condition.userChoseCipher == false && condition.userChoseDigest == false)) {
             /*Get new encryption password from user*/
             getPass("Enter new database password: ", dbPass);
 
@@ -908,20 +874,28 @@ int main(int argc, char *argv[])
                 }
             }
 
-            /*Change cipher if specified*/
+            /*Change cipher and digest if specified*/
             if (condition.userChoseCipher == true) {
                 snprintf(encCipherName, NAME_MAX, "%s", encCipherNameFromCmdLine);
                 printf("Changing cipher to %s\n", encCipherNameFromCmdLine);
             }
+            if (condition.userChoseDigest == true) {
+                snprintf(messageDigestName, NAME_MAX, "%s", messageDigestNameFromCmdLine);
+                printf("Changing digest to %s\n", messageDigestNameFromCmdLine);
+            }
         }
-        /*-U was given but not -P and -c*/
+        /*-U was given but not -P and -c and/or -H might be there*/
         else if (condition.updatingDbEnc == true && condition.updatingEntryPass == false) {
             if (condition.userChoseCipher == true) {
                 snprintf(encCipherName, NAME_MAX, "%s", encCipherNameFromCmdLine);
                 printf("Changing cipher to %s\n", encCipherNameFromCmdLine);
             }
+            if (condition.userChoseDigest == true) {
+                snprintf(messageDigestName, NAME_MAX, "%s", messageDigestNameFromCmdLine);
+                printf("Changing digest to %s\n", messageDigestNameFromCmdLine);
+            }
         }
-        /*If -P is given along with -c*/
+        /*If -P is given along with -c or -H*/
         else {
             /*Get new encryption password from user*/
             getPass("Enter new database password: ", dbPass);
@@ -939,21 +913,22 @@ int main(int argc, char *argv[])
                 }
             }
 
-            /*Change cipher algorithm*/
+            /*Change crypto settings*/
             if (condition.userChoseCipher == true) {
                 snprintf(encCipherName, NAME_MAX, "%s", encCipherNameFromCmdLine);
                 printf("Changing cipher to %s\n", encCipherNameFromCmdLine);
             }
+            if (condition.userChoseDigest == true) {
+                snprintf(messageDigestName, NAME_MAX, "%s", messageDigestNameFromCmdLine);
+                printf("Changing digest to %s\n", messageDigestNameFromCmdLine);
+            }
         }
         
-        /*Change scrypt configuration*/
-        if (condition.userChoseScryptWorkFactors == true && (condition.updatingEntryPass == true || condition.userChoseCipher == true)) {
-            scryptNFactor = scryptNFactorStore;
-            scryptRFactor = scryptRFactorStore;
-            scryptPFactor = scryptPFactorStore;
-            printf("Scrypt work factors changed to N=%i,r=%i,p=%i\n", scryptNFactor, scryptRFactor, scryptPFactor);
+        if (condition.userChosePBKDF2Iterations == true && (condition.updatingEntryPass == true || condition.userChoseCipher == true || condition.userChoseDigest == true)) {
+            PBKDF2Iterations = PBKDF2IterationsStore;
+            printf("PBKDF2 iterations changed to %i\n", PBKDF2Iterations);
         }
-
+        
         /*This will change to the cipher just specified*/
         configEvp();
 
@@ -1224,6 +1199,22 @@ int configEvp()
             exit(EXIT_FAILURE);
         }
     }
+    
+    /*If the user has specified a digest to use*/
+    if (condition.userChoseDigest == true) {
+        evpDigest = EVP_get_digestbyname(messageDigestName);
+        if (!evpDigest) {
+            fprintf(stderr, "Could not load digest: %s Check if available with -H list\n", messageDigestName);
+            exit(EXIT_FAILURE);
+        }
+    } else { /*If not default to sha512*/
+        strcpy(messageDigestName, "sha512");
+        evpDigest = EVP_get_digestbyname(messageDigestName);
+        if (!evpDigest) {
+            fprintf(stderr, "Could not load digest: %s Check if available with -H list\n", messageDigestName);
+            exit(EXIT_FAILURE);
+        }
+    }
 
     return 0;
 }
@@ -1249,48 +1240,16 @@ int genEvpSalt()
 int deriveKeys()
 {
 
-    EVP_PKEY_CTX *pctx;
-
-    size_t outlen = EVP_MAX_KEY_LENGTH * 2;
-    pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_SCRYPT, NULL);
-
-    if (EVP_PKEY_derive_init(pctx) <= 0) {
-        printError("scrypt failed\n");
+    /*First generate the key*/
+    if (!PKCS5_PBKDF2_HMAC((char *)dbPass, strlen(dbPass),
+                           evpSalt, EVP_SALT_SIZE,
+                           PBKDF2Iterations,
+                           evpDigest, EVP_MAX_KEY_LENGTH * 2,
+                           masterKey)) {
+        printError("PBKDF2 failed\n");
         ERR_print_errors_fp(stderr);
         return 1;
     }
-    if (EVP_PKEY_CTX_set1_pbe_pass(pctx, dbPass, strlen(dbPass)) <= 0) {
-        printError("scrypt failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-    if (EVP_PKEY_CTX_set1_scrypt_salt(pctx, evpSalt, EVP_SALT_SIZE) <= 0) {
-        printError("scrypt failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-    if (EVP_PKEY_CTX_set_scrypt_N(pctx, scryptNFactor) <= 0) {
-        printError("scrypt failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-    if (EVP_PKEY_CTX_set_scrypt_r(pctx, scryptRFactor) <= 0) {
-        printError("scrypt failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-    if (EVP_PKEY_CTX_set_scrypt_p(pctx, scryptPFactor) <= 0) {
-        printError("scrypt failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-    if (EVP_PKEY_derive(pctx, masterKey, &outlen) <= 0) {
-        printError("scrypt failed\n");
-        ERR_print_errors_fp(stderr);
-        return 1;
-    }
-
-    EVP_PKEY_CTX_free(pctx);
     
     /*Copy halves of masterKey into evpKey and HMACKey respectively*/
     memcpy(evpKey,masterKey,EVP_MAX_KEY_LENGTH);
@@ -1326,16 +1285,14 @@ int writeDatabase()
         exit(EXIT_FAILURE);
     }
 
-    /*Write encCipherName to cryptoHeader*/
-    if (snprintf(cryptoHeader, CRYPTO_HEADER_SIZE, "%s", encCipherName) < 0) {
+    /*Write encCipherName:messageDigestName to cryptoHeader*/
+    if (snprintf(cryptoHeader, CRYPTO_HEADER_SIZE, "%s:%s", encCipherName, messageDigestName) < 0) {
         printError("snprintf failed");
         exit(EXIT_FAILURE);
     }
 
-    /*Append scrypt work factors to end of cryptoHeader*/
-    memcpy(cryptoHeader + (strlen(cryptoHeader) + 1),&scryptNFactor,sizeof(scryptNFactor));
-    memcpy(cryptoHeader + (strlen(cryptoHeader) + 1) + sizeof(scryptNFactor) + sizeof(scryptRFactor),&scryptRFactor,sizeof(scryptRFactor));
-    memcpy(cryptoHeader + (strlen(cryptoHeader) + 1) + sizeof(scryptNFactor) + sizeof(scryptRFactor) + sizeof(scryptPFactor),&scryptPFactor,sizeof(scryptPFactor));
+    /*Append PBKDF2Iterations to end of cryptoHeader*/
+    memcpy(cryptoHeader + (strlen(cryptoHeader) + 1), &PBKDF2Iterations, sizeof(PBKDF2Iterations));
 
     /*Write the salt*/
     if (fwriteWErrCheck(evpSalt, sizeof(unsigned char), EVP_SALT_SIZE, dbFile) != 0) {
@@ -1450,6 +1407,8 @@ int writeDatabase()
 
 int openDatabase()
 {
+    char *token = NULL;
+    
     unsigned char *verificationBuffer = NULL;
     int MACSize = SHA512_DIGEST_LENGTH;
     int fileSize = returnFileSize(dbFileName);
@@ -1475,10 +1434,40 @@ int openDatabase()
         goto cleanup;
     }
 
-    /*Read scrypt work factors from end of cryptoHeader*/
-    memcpy(&scryptNFactor, cryptoHeader + (strlen(cryptoHeader) + 1), sizeof(int));
-    memcpy(&scryptRFactor, cryptoHeader + (strlen(cryptoHeader) + 1) + sizeof(int) + sizeof(int), sizeof(int));
-    memcpy(&scryptPFactor, cryptoHeader + (strlen(cryptoHeader) + 1) + sizeof(int) + sizeof(int) + sizeof(int), sizeof(int));
+    /*Read PBKDF2Iterations from end of cryptoHeader*/
+    memcpy(&PBKDF2Iterations, cryptoHeader + (strlen(cryptoHeader) + 1), sizeof(int));
+    
+    /*Use strtok to parse the strings delimited by ':'*/
+
+    /*First the cipher*/
+    token = strtok(cryptoHeader, ":");
+    if (token == NULL) {
+        printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
+        goto cleanup;
+    }
+    snprintf(encCipherName, NAME_MAX, "%s", token);
+
+    token = strtok(NULL, ":");
+    if (token == NULL) {
+        printf("Could not parse header.\nIs %s a password file?\n", dbFileName);
+        goto cleanup;
+    }
+
+    /*Then the message digest*/
+    snprintf(messageDigestName, NAME_MAX, "%s", token);
+
+    /*Check the strings read are valid cipher and digest names*/
+    evpCipher = EVP_get_cipherbyname(encCipherName);
+    if (!evpCipher) {
+        fprintf(stderr, "Could not load cipher %s. Is it installed? Use -c list to list available ciphers\n", encCipherName);
+        goto cleanup;
+    }
+
+    evpDigest = EVP_get_digestbyname(messageDigestName);
+    if (!evpDigest) {
+        fprintf(stderr, "Could not load digest %s. Is it installed? Use -c list to list available ciphers\n", messageDigestName);
+        goto cleanup;
+    }
 
     if (condition.printingDbInfo == false) {
         if (deriveKeys() != 0) {
@@ -1578,16 +1567,6 @@ int openDatabase()
     free(verificationBuffer);
     verificationBuffer = NULL;
 
-    /*Load cipher name from header*/
-    snprintf(encCipherName, NAME_MAX, "%s", cryptoHeader);
-
-    /*Check the string read is a valid name*/
-    evpCipher = EVP_get_cipherbyname(encCipherName);
-    if (!evpCipher) {
-        fprintf(stderr, "Could not load cipher %s. Is it installed? Use -c list to list available ciphers\n", encCipherName);
-        goto cleanup;
-    }
-
     return 0;
 
 cleanup:
@@ -1680,7 +1659,7 @@ int writePass()
 
     if (condition.databaseBeingInitalized == false) {
 
-        if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, scryptNFactor, scryptRFactor, scryptPFactor) != 0) {
+        if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, PBKDF2Iterations) != 0) {
             printMACErrMessage(1);
             OPENSSL_cleanse(newEntryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
             goto cleanup;
@@ -1838,7 +1817,7 @@ int printPasses(char *searchString)
         goto cleanup;
     }
 
-    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, scryptNFactor, scryptRFactor, scryptPFactor) != 0) {
+    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, PBKDF2Iterations) != 0) {
         printMACErrMessage(1);
         goto cleanup;
     }
@@ -1961,7 +1940,7 @@ int deletePass(char *searchString)
         goto cleanup;
     }
 
-    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, scryptNFactor, scryptRFactor, scryptPFactor) != 0) {
+    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, PBKDF2Iterations) != 0) {
         printMACErrMessage(1);
         goto cleanup;
     }
@@ -2146,7 +2125,7 @@ int updateEntry(char *searchString)
         goto cleanup;
     }
 
-    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, scryptNFactor, scryptRFactor, scryptPFactor) != 0) {
+    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKey, encCipherName, PBKDF2Iterations) != 0) {
         printMACErrMessage(1);
         goto cleanup;
     }
@@ -2373,7 +2352,7 @@ int updateDbEnc()
         goto cleanup;
     }
 
-    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKeyOld, encCipherNameOld, scryptNFactorOld, scryptRFactorOld, scryptPFactorOld) != 0) {
+    if (verifyCiphertext(fileSize, encryptedBuffer, HMACKeyOld, encCipherNameOld, PBKDF2IterationsOld) != 0) {
         printMACErrMessage(1);
         goto cleanup;
     }
@@ -2448,12 +2427,12 @@ cleanup:
     return 1;
 }
 
-int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedBuffer, unsigned char *HMACKey, char *encCipherName, unsigned int scryptNFactor, unsigned int scryptRFactor, unsigned scryptPFactor)
+int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedBuffer, unsigned char *HMACKey, char *encCipherName, unsigned int PBKDF2Iterations)
 {
     /*Generate MAC from both cipher-text and associated data*/
     unsigned int evpCipherSize = strlen(encCipherName);
-    unsigned int scryptWorkFactorSize = sizeof(scryptNFactor);
-    unsigned int hmacBufferLength = EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3) + encryptedBufferLength;
+    unsigned int PBKDF2IterationsSize = sizeof(PBKDF2Iterations);
+    unsigned int hmacBufferLength = EVP_SALT_SIZE + evpCipherSize + PBKDF2IterationsSize + encryptedBufferLength;
 
     unsigned char *hmacBuffer = calloc(sizeof(unsigned char), hmacBufferLength);
     if (hmacBuffer == NULL) {
@@ -2461,13 +2440,11 @@ int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encrypte
         return errno;
     }
 
-    /*Concatenates evpSalt:evpCipher:scryptNFactor:scryptRFactor:scryptPFactor:encryptedBuffer into hmacBuffer*/
+    /*Concatenates evpSalt:evpCipher:PBKDF2Iterations:encryptedBuffer into hmacBuffer*/
     memcpy(hmacBuffer, evpSalt, EVP_SALT_SIZE);
     memcpy(hmacBuffer + EVP_SALT_SIZE, encCipherName, evpCipherSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize, &scryptNFactor, scryptWorkFactorSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + scryptWorkFactorSize, &scryptRFactor, scryptWorkFactorSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 2), &scryptPFactor, scryptWorkFactorSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3), encryptedBuffer, encryptedBufferLength);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize, &PBKDF2Iterations, PBKDF2IterationsSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + PBKDF2IterationsSize, encryptedBuffer, encryptedBufferLength);
 
     /*Generate a SHA512 hash from the cipher-text and associated data copied into hmacBuffer and store into MACcipherTextGenerates*/
     if (HMAC(EVP_sha512(), HMACKey, EVP_MAX_KEY_LENGTH, hmacBuffer, hmacBufferLength, MACcipherTextGenerates, HMACLengthPtr) == NULL) {
@@ -2489,22 +2466,20 @@ int signCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedB
 {
     /*Generate MAC from both cipher-text and associated data*/
     unsigned int evpCipherSize = strlen(encCipherName);
-    unsigned int scryptWorkFactorSize = sizeof(scryptNFactor);
-    unsigned int hmacBufferLength = EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3) + encryptedBufferLength;
+    unsigned int PBKDF2IterationsSize = sizeof(PBKDF2Iterations);
+    unsigned int hmacBufferLength = EVP_SALT_SIZE + evpCipherSize + PBKDF2IterationsSize + encryptedBufferLength;
 
     unsigned char *hmacBuffer = calloc(sizeof(unsigned char), hmacBufferLength);
     if (hmacBuffer == NULL) {
         printSysError(errno);
-        exit(EXIT_FAILURE);
+        return errno;
     }
 
-    /*Concatenates evpSalt:evpCipher:scryptNFactor:scryptRFactor:scryptPFactor:encryptedBuffer into hmacBuffer*/
+    /*Concatenates evpSalt:evpCipher:PBKDF2Iterations:encryptedBuffer into hmacBuffer*/
     memcpy(hmacBuffer, evpSalt, EVP_SALT_SIZE);
     memcpy(hmacBuffer + EVP_SALT_SIZE, encCipherName, evpCipherSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize, &scryptNFactor, scryptWorkFactorSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + scryptWorkFactorSize, &scryptRFactor, scryptWorkFactorSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 2), &scryptPFactor, scryptWorkFactorSize);
-    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + (scryptWorkFactorSize * 3), encryptedBuffer, encryptedBufferLength);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize, &PBKDF2Iterations, PBKDF2IterationsSize);
+    memcpy(hmacBuffer + EVP_SALT_SIZE + evpCipherSize + PBKDF2IterationsSize, encryptedBuffer, encryptedBufferLength);
 
     /*Generate MAC from the cipher-text and associated data copied into hmacBuffer and store into MACcipherTextGenerates*/
     if (HMAC(EVP_sha512(), HMACKey, EVP_MAX_KEY_LENGTH, hmacBuffer, hmacBufferLength, MACcipherTextGenerates, HMACLengthPtr) == NULL) {
@@ -2891,15 +2866,13 @@ void printClipboardMessage(int entriesMatched)
 void printDbInfo()
 {
     printf("Number of entries in database: %i\n", evpDataSize / (UI_BUFFERS_SIZE * 2));
-    printf("scrypt configuration:\n");
+    printf("PBKDF2 configuration:\n");
     printf("\tSalt:");
     for (int i = 0; i < EVP_SALT_SIZE; i++) {
         printf("%02x", evpSalt[i] & 0xff);
     }
     printf("\n");
-    printf("\tN factor: %i\n", scryptNFactor);
-    printf("\tr factor: %i\n", scryptRFactor);
-    printf("\tp factor: %i\n", scryptPFactor);
+    printf("\tIterations: %i\n", PBKDF2Iterations);
     printf("Encryption configuration: %s \n\tAlgorithm: ", encCipherName);
     if (strncmp(encCipherName, "aes", 3) == 0)
         printf("AES\n");
@@ -3054,6 +3027,13 @@ void encListCallback(const OBJ_NAME *obj, void *arg)
     printf("Cipher: %s\n", obj->name);
 }
 
+void mdListCallback(const OBJ_NAME *obj, void *arg)
+{
+    arg = arg;
+
+    printf("Digest: %s\n", obj->name);
+}
+
 void signalHandler(int signum)
 {
     printf("\nCaught signal %d\n\nCleaning up buffers...\n", signum);
@@ -3090,13 +3070,14 @@ int printSyntax(char *arg)
 {
     printf("\
 \nReccomend Syntax: \
-\n\n%s passmanager  -a entry name | -r entry name | -d entry name | -u entry name | -U  [-n new name ] [-p new entry password] [-l random password length] [-c cipher] [-w N,r,p ] [ -P ] [-x database password] [ -C ] [ -O ] [ -s selection ] [ -t seconds or miliseconds ] -f database file\
+\n\n%s passmanager  -a entry name | -r entry name | -d entry name | -u entry name | -U  [-n new name ] [-p new entry password] [-l random password length] [-c cipher] [-H digest] [-i iterations ] [ -P ] [-x database password] [ -C ] [ -O ] [ -s selection ] [ -t seconds or miliseconds ] -f database file\
 \nOptions: \
 \n-n new name - entry name up to 511 characters (can contain white space or special characters) \
 \n-p new entry password - entry password up to 511 characters (don't call to be prompted instead) ('gen' will generate a random password, 'genalpha' will generate a random password with no symbols)\
 \n-l random password length - makes 'gen' or 'genalpha' generate a password random password length digits long (defaults to 16 without this option) \
 \n-c cipher - Specify 'list' for a list of methods available to OpenSSL. Default: aes-256-ctr. \
-\n-w N,r,p - Specify scrypt work factors N,r,p (Must be comma separted with no spaces, and N must be a power of 2). Default: 1048576,8,1\
+\n-H digest - Specify 'list' for a list of methods available to OpenSSL. Default: sha512. \
+\n-i iterations - Specify amount of PBKDF2 to be iterations. Default: 1000000\
 \n-P - In Update entry or Update database mode (-u and -U respectively) this option enables updating the entry password or database password via prompt instead of as command line argument \
 \n-C - end entry password directly to clipboard. Clipboard is cleared automatically after pasting, or in 30 seconds. \
 \n-t 'n'ms or 'n's - clear password from clipboard in the specified amount of miliseconds or seconds instead of default 30 seconds. \
@@ -3112,7 +3093,8 @@ int printSyntax(char *arg)
 \n     \t-l 'password length'\
 \n     \t-x 'database password'\
 \n     \t-c 'cipher' - Initializes a password database with encryption of 'cipher' \
-\n     \t-w 'N,r,p' - Specify scrypt work factors. \
+\n     \t-H 'digest' - Derives keys for 'cipher' with digest 'digest'.\
+\n     \t-i 'iterations' - Specify PBKDF2 iteration amount as iterations. \
 \n     \t-C send new entry's password to clipboard (useful if randomly generated)\
 \n     \t-t 'n'ms or 'n's - clear password from clipboard in the specified amount of miliseconds or seconds instead of default 30 seconds.\
 \n     \t-O implies '-t 55ms' to allow only one pasting of pssword before its cleared \
@@ -3140,8 +3122,8 @@ int printSyntax(char *arg)
 \n     \t-x 'database password' (the current database password to decrypt/with) \
 \n     \t-c 'cipher' - Update encryption algorithm  \
 \n     \t-H 'digest' - Update digest used for algorithms' KDFs \
-\n     \t-w 'N,r,p' - Specify scrypt work factors. \
-\nVersion 4.0.0\
+\n     \t-i 'iterations' - Specify PBKDF2 iteration amount as iterations. \
+\nVersion 3.5\
 \n\
 ",
            arg);
