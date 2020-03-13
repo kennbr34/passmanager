@@ -2448,7 +2448,7 @@ cleanup:
     return 1;
 }
 
-int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedBuffer, unsigned char *HMACKey, char *encCipherName, unsigned int scryptNFactor, unsigned int scryptRFactor, unsigned scryptPFactor)
+int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encryptedBuffer, unsigned char *HMACKey, char *encCipherName, unsigned int scryptNFactor, unsigned int scryptRFactor, unsigned int scryptPFactor)
 {
     /*Generate MAC from both cipher-text and associated data*/
     unsigned int evpCipherSize = strlen(encCipherName);
