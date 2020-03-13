@@ -897,9 +897,7 @@ int main(int argc, char *argv[])
             getPass("Verify password:", dbPassToVerify);
             if (strcmp(dbPass, dbPassToVerify) != 0) {
                 printf("Passwords don't match, not changing.\n");
-                /*If not changing, replace old dbPass back into dbPass*/
-                snprintf(dbPass, UI_BUFFERS_SIZE, "%s", dbPassOld);
-                return 1;
+                exit(EXIT_FAILURE);
             } else {
                 printf("Changed password.\n");
                 if (deriveKeys() != 0) {
@@ -929,7 +927,6 @@ int main(int argc, char *argv[])
             getPass("Verify password:", dbPassToVerify);
             if (strcmp(dbPass, dbPassToVerify) != 0) {
                 printf("Passwords don't match, not changing.\n");
-                snprintf(dbPass, UI_BUFFERS_SIZE, "%s", dbPassOld);
                 exit(EXIT_FAILURE);
             } else {
                 printf("Changed password.\n");
