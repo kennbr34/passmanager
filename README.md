@@ -20,7 +20,7 @@ Confirmed Operational On:
 
 # DEPENDENCIES
 
-OpenSSL development files (1.0.1.g or higher)
+OpenSSL development files (1.1.1 or higher)
 
 (Optional)
 
