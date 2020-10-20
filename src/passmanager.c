@@ -3138,7 +3138,7 @@ int printSyntax(char *arg)
 \n     \t-c 'cipher' - Update encryption algorithm  \
 \n     \t-H 'digest' - Update digest used for algorithms' KDFs \
 \n     \t-w 'N,r,p' - Specify scrypt work factors. \
-\nVersion 4.0.0\
+\nVersion 4.0.1\
 \n\
 ",
            arg);
