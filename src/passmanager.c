@@ -2985,7 +2985,7 @@ void cleanUpBuffers()
     free(dbPassOld);
     OPENSSL_cleanse(dbPassToVerify, sizeof(unsigned char) * UI_BUFFERS_SIZE);
     free(dbPassToVerify);
-    OPENSSL_cleanse(masterKey, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
+    OPENSSL_cleanse(masterKey, sizeof(unsigned char) * (EVP_MAX_KEY_LENGTH*2));
     OPENSSL_cleanse(evpKey, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
     OPENSSL_cleanse(evpKeyOld, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
     OPENSSL_cleanse(HMACKey, sizeof(unsigned char) * EVP_MAX_KEY_LENGTH);
