@@ -2,13 +2,13 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([passmanager], [3.2.9])
-AC_CONFIG_SRCDIR([src/passmanager.c])
+AC_INIT([passmanager], [4.0.0])
+AC_CONFIG_SRCDIR([src])
 AM_INIT_AUTOMAKE([subdir-objects foreign])
 AC_CONFIG_HEADERS([config.h])
 AM_MAINTAINER_MODE
 
-: ${CFLAGS="-g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -fsanitize=undefined"}
+: ${CFLAGS="-g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -Wno-format-truncation -fsanitize=undefined"}
 
 # Checks for programs.
 AC_PROG_CC
@@ -26,7 +26,7 @@ AC_ARG_ENABLE([x11],
           
           X11LIB=
           AS_IF([test "x$with_x11" != xno],
-            [AC_CHECK_LIB([X11], [main],
+            [AC_CHECK_LIB([X11], [XChangeProperty],
               [AC_SUBST([X11LIB], ["-lX11"])
                AC_DEFINE([HAVE_LIBX11], [1],
                          [Define if you have libX11])
