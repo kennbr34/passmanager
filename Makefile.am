@@ -1,6 +1,6 @@
 bin_PROGRAMS = passmanager
 
-passmanager_SOURCES = src/passmanager.c
+passmanager_SOURCES = src/printdbinfo.c src/evpencrypt.c src/evpdecrypt.c src/configevp.c src/sendwithclipboard.c src/derivekeys.c src/addentry.c src/disableptrace.c src/misc.c src/deleteentry.c src/allocatebuffers.c src/genevpsalt.c src/signciphertext.c src/main.c src/writedatabase.c src/verifyciphertext.c src/printmacerrmessage.c src/updateentry.c src/parseoptions.c src/printentry.c src/opendatabase.c src/backupdatabase.c src/updatedbenc.c src/genpassword.c src/printsyntax.c src/lockmemory.c src/printclipboardmessage.c src/cleanupbuffers.c src/getpass.c
 
 bin_SCRIPTS =
 
