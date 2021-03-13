@@ -10,7 +10,7 @@
 	Added ability to pipe entry passwords to standard output when read, added or udpated
 2020-10-20
 (+Ver 4.0.1)
-	Fixed bug where masterKey was not being fully sanitized #37
+    Fixed bug where masterKey was not being fully sanitized https://github.com/kennbr34/passmanager/pull/37
 2020-03-07
 (+ver 4.0.0)
     Changed KDF method from PBKDF2 to scrypt
