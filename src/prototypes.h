@@ -63,3 +63,5 @@ int targetWinHandler(Display *xDisplay,
 int sendWithXlib(char *passToSend, int passLength, int clearTime, struct conditionBoolsStruct *conditionsStruct);
 #endif
 int regExComp(char *regexPattern, char *stringToCompare, int cflags);
+size_t checkFreeMem(void);
+int checkNeededMem(struct cryptoVar *cryptoStructPtr);

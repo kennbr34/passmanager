@@ -65,6 +65,13 @@ int deriveKeys(struct cryptoVar *cryptoStructPtr, struct authVar *authStructPtr)
         ERR_print_errors_fp(stderr);
         return 1;
     }
+    
+    if (EVP_PKEY_CTX_set_scrypt_maxmem_bytes(pctx, checkFreeMem()) <= 0)
+        return 1;
+        
+    if (checkNeededMem(cryptoStructPtr) != 0)
+        return 1;
+    
     if (EVP_PKEY_derive(pctx, cryptoStructPtr->masterKey, &outlen) <= 0) {
         PRINT_ERROR("scrypt failed\n");
         ERR_print_errors_fp(stderr);
