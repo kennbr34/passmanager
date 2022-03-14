@@ -2845,7 +2845,7 @@ fi
 
 
 
-: ${CFLAGS="-g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -Wno-format-truncation -fsanitize=undefined"}
+: ${CFLAGS="-fno-common -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -Wno-format-truncation -fsanitize=undefined"}
 
 # Checks for programs.
 ac_ext=c

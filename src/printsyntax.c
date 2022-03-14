@@ -84,11 +84,11 @@ int printSyntax(char *arg)
 \n     \t-c 'cipher' - Update encryption algorithm  \
 \n     \t-H 'digest' - Update digest used for algorithms' KDFs \
 \n     \t-w 'N,r,p' - Specify scrypt work factors. \
-\nVersion 4.0.3\
+\nVersion 4.0.4\
 \n\
 ",
             arg);
     fprintf(stderr, "\nThis product includes software developed by the OpenSSL Project for use in the OpenSSL Toolkit. (http://www.openssl.org/)\n");
-    fprintf(stderr, "Using OpenSSL %s\n", OpenSSL_version(OPENSSL_VERSION));
+    fprintf(stderr, "Using %s\n", OpenSSL_version(OPENSSL_VERSION));
     return 1;
 }

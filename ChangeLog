@@ -2,6 +2,10 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+2022-03-10
+(+ver 4.0.4)
+        Fixed multiple defititions issue with globals.h after gcc >=10 switched to -fno-common by default
+
 2022-03-08
 (+ver 4.0.3)
         Added ability for scrypt to use more than 1 GB of memory

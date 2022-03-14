@@ -21,6 +21,7 @@
 */
 
 #include "headers.h"
+#include "globals.c"
 
 int main(int argc, char *argv[])
 {

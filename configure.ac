@@ -8,7 +8,7 @@ AM_INIT_AUTOMAKE([subdir-objects foreign])
 AC_CONFIG_HEADERS([config.h])
 AM_MAINTAINER_MODE
 
-: ${CFLAGS="-g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -Wno-format-truncation -fsanitize=undefined"}
+: ${CFLAGS="-fno-common -g -Wall -Wextra -pedantic -Wno-overlength-strings -Wno-self-assign -Wno-format-truncation -fsanitize=undefined"}
 
 # Checks for programs.
 AC_PROG_CC

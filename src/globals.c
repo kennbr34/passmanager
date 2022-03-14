@@ -1,4 +1,4 @@
-/* globals.h - global variables */
+/* globals.c - global variables */
 
 /* Copyright 2020 Kenneth Brown */
 
@@ -20,34 +20,10 @@
   for use in the OpenSSL Toolkit (http://www.openssl.org/)
 */
 
-#ifndef GLOBALS_H
-#define GLOBALS_H
+#include "globals.h"
 
-/*Global buffer pointers needed to be able to sanitize and free sensitive buffers in cleanUpBuffers registered with atexit*/
-struct bufferPointers {
-    char *entryPass;
-    char *entryName;
-    char *entryNameToFind;
-    char *entryPassToVerify;
-    char *newEntry;
-    char *newEntryPass;
-    char *newEntryPassToVerify;
-    char *dbPass;
-    char *dbPassOld;
-    char *dbPassToVerify;
-    unsigned char *masterKey;
-    unsigned char *evpKey;
-    unsigned char *evpKeyOld;
-    unsigned char *HMACKey;
-    unsigned char *HMACKeyOld;
-    unsigned char *evpSalt;
-    unsigned char *encryptedBuffer;
-};
-
-#endif
-
-extern struct bufferPointers globalBufferPtr;
+struct bufferPointers globalBufferPtr;
 
 /*Structs needed to hold termios info when resetting terminal echo'ing after taking password*/
 /*Need to be global to register signalHandler() with sigaction*/
-extern struct termios termiosOld, termiosNew;
+struct termios termiosOld, termiosNew;
