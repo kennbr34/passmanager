@@ -1,6 +1,6 @@
 /* getpass.c - gets a password from user */
 
-/* Copyright 2020 Kenneth Brown */
+/* Copyright 2022 Kenneth Brown */
 
 /* Licensed under the Apache License, Version 2.0 (the "License"); */
 /* you may not use this file except in compliance with the License. */
@@ -23,8 +23,9 @@
 #include "headers.h"
 
 /*Allows the user to enter a password without echo'ing the input and without leaving it uncleansed in memory*/
-char *getPass(const char *prompt, char *paddedPass)
+int getPass(const char *prompt, char *paddedPass)
 {
+    struct termios termiosOld, termiosNew;
     size_t len = 0;
     int i = 0;
     int passLength = 0;
@@ -32,7 +33,7 @@ char *getPass(const char *prompt, char *paddedPass)
     unsigned char *paddedPassTmp = calloc(sizeof(unsigned char), UI_BUFFERS_SIZE);
     if (paddedPassTmp == NULL) {
         PRINT_SYS_ERROR(errno);
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     if (!RAND_bytes(paddedPassTmp, UI_BUFFERS_SIZE)) {
@@ -40,7 +41,7 @@ char *getPass(const char *prompt, char *paddedPass)
         /* Restore terminal. */
         (void)tcsetattr(fileno(stdin), TCSAFLUSH, &termiosOld);
         fprintf(stderr, "\nPassword was too large\n");
-        exit(EXIT_FAILURE);
+        return 1;
     }
     memcpy(paddedPass, paddedPassTmp, sizeof(char) * UI_BUFFERS_SIZE);
     OPENSSL_cleanse(paddedPassTmp, sizeof(char) * UI_BUFFERS_SIZE);
@@ -51,17 +52,17 @@ char *getPass(const char *prompt, char *paddedPass)
 
     /* Turn echoing off and fail if we can’t. */
     if (tcgetattr(fileno(stdin), &termiosOld) != 0)
-        exit(EXIT_FAILURE);
+        return 1;
     termiosNew = termiosOld;
     termiosNew.c_lflag &= ~ECHO;
     if (tcsetattr(fileno(stdin), TCSAFLUSH, &termiosNew) != 0)
-        exit(EXIT_FAILURE);
+        return 1;
 
     /* Read the password. */
     fprintf(stderr, "\n%s", prompt);
     nread = getline(&pass, &len, stdin);
     if (nread == -1)
-        exit(EXIT_FAILURE);
+        return 1;
     else if (nread > (UI_BUFFERS_SIZE - 1)) {
         /* Restore terminal. */
         (void)tcsetattr(fileno(stdin), TCSAFLUSH, &termiosOld);
@@ -69,7 +70,7 @@ char *getPass(const char *prompt, char *paddedPass)
         free(pass);
         pass = NULL;
         fprintf(stderr, "\nPassword was too large\n");
-        exit(EXIT_FAILURE);
+        return 1;
     } else {
         /*Replace newline with null terminator*/
         pass[nread - 1] = '\0';
@@ -89,5 +90,5 @@ char *getPass(const char *prompt, char *paddedPass)
     free(pass);
     pass = NULL;
 
-    return paddedPass;
+    return 0;
 }

@@ -1,6 +1,6 @@
 /* verifyciphertext.c - verify cipher-text and associated data of password database*/
 
-/* Copyright 2020 Kenneth Brown */
+/* Copyright 2022 Kenneth Brown */
 
 /* Licensed under the Apache License, Version 2.0 (the "License"); */
 /* you may not use this file except in compliance with the License. */
@@ -36,7 +36,7 @@ int verifyCiphertext(unsigned int encryptedBufferLength, unsigned char *encrypte
     unsigned char *hmacBuffer = calloc(sizeof(unsigned char), hmacBufferLength);
     if (hmacBuffer == NULL) {
         PRINT_SYS_ERROR(errno);
-        return errno;
+        return 1;
     }
 
     /*Concatenates evpSalt:evpCipher:scryptNFactorLcl:scryptRFactorLcl:scryptPFactorLcl:encryptedBufferLcl into hmacBuffer*/

@@ -1,6 +1,6 @@
 /* misc.c - miscellaneous helper functions */
 
-/* Copyright 2020 Kenneth Brown */
+/* Copyright 2022 Kenneth Brown */
 
 /* Licensed under the Apache License, Version 2.0 (the "License"); */
 /* you may not use this file except in compliance with the License. */
@@ -137,18 +137,6 @@ void encListCallback(const OBJ_NAME *obj, void *arg)
     arg = arg;
 
     fprintf(stderr, "Cipher: %s\n", obj->name);
-}
-
-/*Handles interrupt signal*/
-void signalHandler(int signum)
-{
-    fprintf(stderr, "\nCaught signal %d\n\nCleaning up buffers...\n", signum);
-
-    /* Restore terminal. */
-    (void)tcsetattr(fileno(stdin), TCSAFLUSH, &termiosOld);
-
-    /*Terminate program with exit() so that atexit() runs cleanUpBuffers()*/
-    exit(signum);
 }
 
 int regExComp(char *regexPattern, char *stringToCompare, int cflags)

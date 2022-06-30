@@ -1,6 +1,6 @@
 /* main.c - password manager using OpenSSL crypto libraries */
 
-/* Copyright 2020 Kenneth Brown */
+/* Copyright 2022 Kenneth Brown */
 
 /* Licensed under the Apache License, Version 2.0 (the "License"); */
 /* you may not use this file except in compliance with the License. */
@@ -21,7 +21,6 @@
 */
 
 #include "headers.h"
-#include "globals.c"
 
 int main(int argc, char *argv[])
 {
@@ -57,36 +56,15 @@ int main(int argc, char *argv[])
 
     allocateBuffers(&cryptoStruct, &authStruct, &textBuffersStruct);
 
-    /*Point global buffers to sensitive bufers that need to be cleared in cleanUpBuffers*/
-    globalBufferPtr.entryPass = textBuffersStruct.entryPass;
-    globalBufferPtr.entryName = textBuffersStruct.entryName;
-    globalBufferPtr.entryNameToFind = textBuffersStruct.entryNameToFind;
-    globalBufferPtr.entryPassToVerify = textBuffersStruct.entryPassToVerify;
-    globalBufferPtr.newEntry = textBuffersStruct.newEntry;
-    globalBufferPtr.newEntryPass = textBuffersStruct.newEntryPass;
-    globalBufferPtr.newEntryPassToVerify = textBuffersStruct.newEntryPassToVerify;
-    globalBufferPtr.dbPass = cryptoStruct.dbPass;
-    globalBufferPtr.dbPassOld = cryptoStruct.dbPassOld;
-    globalBufferPtr.dbPassToVerify = cryptoStruct.dbPassToVerify;
-    globalBufferPtr.masterKey = cryptoStruct.masterKey;
-    globalBufferPtr.evpKey = cryptoStruct.evpKey;
-    globalBufferPtr.evpKeyOld = cryptoStruct.evpKeyOld;
-    globalBufferPtr.HMACKey = authStruct.HMACKey;
-    globalBufferPtr.HMACKeyOld = authStruct.HMACKeyOld;
-    globalBufferPtr.evpSalt = cryptoStruct.evpSalt;
-    globalBufferPtr.encryptedBuffer = cryptoStruct.encryptedBuffer;
-
-    atexit(cleanUpBuffers);
-
-    signal(SIGINT, signalHandler);
-
     FILE *dbFile = NULL;
 
     /*This loads up all names of alogirithms for OpenSSL into an object structure so we can call them by name later*/
     /*It is also needed for the mdListCallback() and encListCallback() functions to work*/
     OpenSSL_add_all_algorithms();
 
-    parseOptions(argc, argv, &cryptoStruct, &dbStruct, &textBuffersStruct, &miscStruct, &conditionsStruct);
+    if( parseOptions(argc, argv, &cryptoStruct, &dbStruct, &textBuffersStruct, &miscStruct, &conditionsStruct) != 0 ) {
+        goto error;
+    }
 
     /*Test if database is being initialized and if not if it is readable*/
     if (fileNonExistant(dbStruct.dbFileName) == true) {
@@ -95,115 +73,133 @@ int main(int argc, char *argv[])
         dbFile = fopen(dbStruct.dbFileName, "rb");
         if (dbFile == NULL) {
             PRINT_FILE_ERROR(dbStruct.dbFileName, errno);
-            exit(EXIT_FAILURE);
+            goto error;
         }
         if (fclose(dbFile) == EOF) {
             PRINT_FILE_ERROR(dbStruct.dbFileName, errno);
-            exit(EXIT_FAILURE);
+            goto error;
         }
     }
 
     if (conditionsStruct.printingDbInfo == true) { /*Just print the database information*/
         if (conditionsStruct.databaseBeingInitalized == false) {
-            openDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct);
+            if (openDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct) != 0) {
+                goto error;
+            }
         } else {
             fprintf(stderr, "Database file not initialized\n");
-            exit(EXIT_FAILURE);
+            goto error;
         }
 
         printDbInfo(&cryptoStruct, &authStruct);
 
-        return EXIT_SUCCESS;
+        goto error;
     } else if (conditionsStruct.addingPass == true) /*This mode will add an entry*/
     {
 
         /*If generating a random password was specified on command line*/
         if (strcmp(textBuffersStruct.entryPass, "gen") == 0) {
             conditionsStruct.generateEntryPass = true;
-            if (conditionsStruct.genPassLengthGiven == true)
-                genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct);
-            else
-                genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct);
+            if (genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct) != 0) {
+                goto error;
+            }
         } else if (strcmp(textBuffersStruct.entryPass, "genalpha") == 0) {
             conditionsStruct.generateEntryPassAlpha = true;
-            if (conditionsStruct.genPassLengthGiven == true)
-                genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct);
-            else
-                genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct);
+            if (genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct) != 0) {
+                goto error;
+            }
         } else if (conditionsStruct.entryPassGivenasArg == false) {
             /*Prompt for entry password*/
-            getPass("Enter entry password to be saved: ", textBuffersStruct.entryPass);
+            if (getPass("Enter entry password to be saved: ", textBuffersStruct.entryPass) != 0) {
+                goto error;
+            }
 
             /*If user entered gen or genalpha at prompt*/
             if (strcmp(textBuffersStruct.entryPass, "gen") == 0) {
                 conditionsStruct.generateEntryPass = true;
                 fprintf(stderr, "\nGenerating a random password\n");
-                if (conditionsStruct.genPassLengthGiven == true)
-                    genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct);
-                else
-                    genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct);
+                if (genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct) != 0) {
+                    goto error;
+                }
             } else if (strcmp(textBuffersStruct.entryPass, "genalpha") == 0) {
                 conditionsStruct.generateEntryPassAlpha = true;
                 fprintf(stderr, "\nGenerating a random password\n");
-                if (conditionsStruct.genPassLengthGiven == true)
-                    genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct);
-                else
-                    genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct);
+                if (genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct) != 0) {
+                    goto error;
+                }
             } else {
                 /*Verify user gentered password if not gen or genalpha*/
-                getPass("Verify password:", textBuffersStruct.entryPassToVerify);
+                if (getPass("Verify password:", textBuffersStruct.entryPassToVerify) != 0) {
+                    goto error;
+                }
                 if (strcmp(textBuffersStruct.entryPass, textBuffersStruct.entryPassToVerify) != 0) {
                     fprintf(stderr, "\nPasswords do not match.  Nothing done.\n\n");
-                    exit(EXIT_FAILURE);
+                    goto error;
                 }
             }
         }
 
         /*Prompt for database password if not supplied as argument*/
         if (conditionsStruct.dbPassGivenasArg == false) {
-            getPass("Enter database password to encode with: ", cryptoStruct.dbPass);
+            if (getPass("Enter database password to encode with: ", cryptoStruct.dbPass) != 0) {
+                goto error;
+            }
 
             /*Verify the database password if the database is being intialized*/
             if (conditionsStruct.databaseBeingInitalized == true) {
-                getPass("Verify password:", cryptoStruct.dbPassToVerify);
+                if (getPass("Verify password:", cryptoStruct.dbPassToVerify) != 0) {
+                    goto error;
+                }
                 if (strcmp(cryptoStruct.dbPass, cryptoStruct.dbPassToVerify) != 0) {
                     fprintf(stderr, "\nPasswords do not match.  Nothing done.\n\n");
-                    exit(EXIT_FAILURE);
+                    goto error;
                 }
             }
         }
 
         /*Note this will be needed before openDatabase() is called in all modes except Read*/
-        configEvp(&cryptoStruct, &conditionsStruct);
+        if (configEvp(&cryptoStruct, &conditionsStruct) != 0) { 
+            goto error;
+        }
 
         /*If password database has been initialized openDatabase on it*/
         if (conditionsStruct.databaseBeingInitalized == false) {
-            openDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct);
+            if (openDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct) != 0) {
+                goto error;
+            }
         } else { /*Otherwise key material must be created now*/
             if (genEvpSalt(&cryptoStruct) != 0) {
                 PRINT_ERROR("Could not create salt");
-                exit(EXIT_FAILURE);
+                goto error;
             }
             if (deriveKeys(&cryptoStruct, &authStruct) != 0) {
                 PRINT_ERROR("Could not create master key");
-                exit(EXIT_FAILURE);
+                goto error;
             }
         }
 
         /*Adds the new enry and sends it to encryptedBuffer*/
         if (addEntry(&cryptoStruct, &authStruct, &textBuffersStruct, &miscStruct, &conditionsStruct) == 0) {
-            writeDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct);
+            if (writeDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct) != 0) {
+                goto error;
+            }
+        } else {
+            goto error;
         }
 
     } else if (conditionsStruct.readingPass == true) /*This will read a password or passwords*/
     {
 
         if (conditionsStruct.dbPassGivenasArg == false) {
-            getPass("Enter database password: ", cryptoStruct.dbPass);
+            if (getPass("Enter database password: ", cryptoStruct.dbPass) != 0) {
+                goto error;
+            }
         }
 
         /*Note no configEvp() needed before openDatabase() in Read mode*/
-        openDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct);
+        if (openDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct) != 0) {
+            goto error;
+        }
 
         if (conditionsStruct.searchForEntry == true && strcmp(textBuffersStruct.entryName, "allpasses") != 0) /*Print entry or entries that match searchString*/
         {
@@ -214,30 +210,43 @@ int main(int argc, char *argv[])
     } else if (conditionsStruct.deletingPass == true) /*Delete a specified entry*/
     {
         if (conditionsStruct.dbPassGivenasArg == false) {
-            getPass("Enter database password: ", cryptoStruct.dbPass);
+            if (getPass("Enter database password: ", cryptoStruct.dbPass) != 0) {
+                goto error;
+            }
         }
 
         /*Must specify an entry to delete*/
         if (conditionsStruct.entryGiven == false) /*Fail if no entry specified*/
         {
             fprintf(stderr, "\nNo entry name was specified\n");
-            exit(EXIT_FAILURE);
+            goto error;
         }
 
-        configEvp(&cryptoStruct, &conditionsStruct);
+        if (configEvp(&cryptoStruct, &conditionsStruct) != 0) { 
+            goto error;
+        }
 
-        openDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct);
+        if (openDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct) != 0) {
+            goto error;
+        }
 
         /*Delete pass actually works by exclusion*/
         /*It writes all password entries except the one specified into encryptedBuffer*/
-        if (deleteEntry(textBuffersStruct.entryName, &cryptoStruct, &authStruct, &dbStruct, &conditionsStruct) == 0)
-            writeDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct);
+        if (deleteEntry(textBuffersStruct.entryName, &cryptoStruct, &authStruct, &dbStruct, &conditionsStruct) == 0) {
+            if (writeDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct) != 0) {
+                goto error;
+            }
+        } else {
+            goto error;
+        }
 
     } else if (conditionsStruct.updatingEntry == true) /*Update an entry or entries*/
     {
 
         if (conditionsStruct.dbPassGivenasArg == false) {
-            getPass("Enter database password: ", cryptoStruct.dbPass);
+            if (getPass("Enter database password: ", cryptoStruct.dbPass) != 0) {
+                goto error;
+            }
         }
 
         /*Get new entry name*/
@@ -257,54 +266,46 @@ int main(int argc, char *argv[])
         if (conditionsStruct.updatingEntryPass) {
             /*If textBuffersStruct.entryPass supplied by command line, and generated randomly if it is 'gen'*/
             if (strcmp(textBuffersStruct.entryPass, "gen") == 0) {
-                if (conditionsStruct.genPassLengthGiven == true) {
-                    conditionsStruct.generateEntryPass = true;
-                    genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct);
-                    /*Have to copy over textBuffersStruct.entryPass to textBuffersStruct.newEntryPass since genPassWord() operates on textBuffersStruct.entryPass buffer*/
-                    snprintf(textBuffersStruct.newEntryPass, UI_BUFFERS_SIZE, "%s", textBuffersStruct.entryPass);
-                } else {
-                    genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct);
-                    snprintf(textBuffersStruct.newEntryPass, UI_BUFFERS_SIZE, "%s", textBuffersStruct.entryPass);
+                conditionsStruct.generateEntryPass = true;
+                if (genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct) != 0) {
+                    goto error;
                 }
+                /*Have to copy over textBuffersStruct.entryPass to textBuffersStruct.newEntryPass since genPassWord() operates on textBuffersStruct.entryPass buffer*/
+                snprintf(textBuffersStruct.newEntryPass, UI_BUFFERS_SIZE, "%s", textBuffersStruct.entryPass);
             } else if (strcmp(textBuffersStruct.entryPass, "genalpha") == 0) {
                 conditionsStruct.generateEntryPassAlpha = true;
-                if (conditionsStruct.genPassLengthGiven == true) {
-                    genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct);
-                    /*Have to copy over textBuffersStruct.entryPass to textBuffersStruct.newEntryPass since genPassWord() operates on textBuffersStruct.entryPass buffer*/
-                    snprintf(textBuffersStruct.newEntryPass, UI_BUFFERS_SIZE, "%s", textBuffersStruct.entryPass);
-                } else {
-                    genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct);
-                    snprintf(textBuffersStruct.newEntryPass, UI_BUFFERS_SIZE, "%s", textBuffersStruct.entryPass);
+                if (genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct) != 0) {
+                    goto error;
                 }
+                /*Have to copy over textBuffersStruct.entryPass to textBuffersStruct.newEntryPass since genPassWord() operates on textBuffersStruct.entryPass buffer*/
+                snprintf(textBuffersStruct.newEntryPass, UI_BUFFERS_SIZE, "%s", textBuffersStruct.entryPass);
             } else if (conditionsStruct.entryPassGivenasArg == false) {
-                getPass("Enter entry password to be saved: ", textBuffersStruct.newEntryPass);
+                if (getPass("Enter entry password to be saved: ", textBuffersStruct.newEntryPass) != 0) {
+                    goto error;
+                }
 
                 /*If password retrieved by prompt was gen/genalpha generate a random password*/
                 if (strcmp(textBuffersStruct.newEntryPass, "gen") == 0) {
                     conditionsStruct.generateEntryPass = true;
                     fprintf(stderr, "\nGenerating a random password\n");
-                    if (conditionsStruct.genPassLengthGiven == true) {
-                        genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct);
-                        /*Have to copy over textBuffersStruct.entryPass to textBuffersStruct.newEntryPass since genPassWord() operates on textBuffersStruct.entryPass buffer*/
-                        snprintf(textBuffersStruct.newEntryPass, UI_BUFFERS_SIZE, "%s", textBuffersStruct.entryPass);
-                    } else {
-                        genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct);
-                        snprintf(textBuffersStruct.newEntryPass, UI_BUFFERS_SIZE, "%s", textBuffersStruct.entryPass);
+                    if (genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct) != 0) {
+                        goto error;
                     }
+                    /*Have to copy over textBuffersStruct.entryPass to textBuffersStruct.newEntryPass since genPassWord() operates on textBuffersStruct.entryPass buffer*/
+                    snprintf(textBuffersStruct.newEntryPass, UI_BUFFERS_SIZE, "%s", textBuffersStruct.entryPass);
                 } else if (strcmp(textBuffersStruct.newEntryPass, "genalpha") == 0) {
                     conditionsStruct.generateEntryPassAlpha = true;
                     fprintf(stderr, "\nGenerating a random password\n");
-                    if (conditionsStruct.genPassLengthGiven == true) {
-                        genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct);
-                        /*Have to copy over textBuffersStruct.entryPass to textBuffersStruct.newEntryPass since genPassWord() operates on textBuffersStruct.entryPass buffer*/
-                        snprintf(textBuffersStruct.newEntryPass, UI_BUFFERS_SIZE, "%s", textBuffersStruct.entryPass);
-                    } else {
-                        genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct);
-                        snprintf(textBuffersStruct.newEntryPass, UI_BUFFERS_SIZE, "%s", textBuffersStruct.entryPass);
+                    if (genPassWord(&miscStruct, &textBuffersStruct, &conditionsStruct) != 0) {
+                        goto error;
                     }
+                    /*Have to copy over textBuffersStruct.entryPass to textBuffersStruct.newEntryPass since genPassWord() operates on textBuffersStruct.entryPass buffer*/
+                    snprintf(textBuffersStruct.newEntryPass, UI_BUFFERS_SIZE, "%s", textBuffersStruct.entryPass);
                 } else {
                     /*If retrieved password was not gen/genalpha verify it was not mistyped*/
-                    getPass("Veryify password:", textBuffersStruct.newEntryPassToVerify);
+                    if (getPass("Veryify password:", textBuffersStruct.newEntryPassToVerify) != 0) {
+                        goto error;
+                    }
                     if (strcmp(textBuffersStruct.newEntryPass, textBuffersStruct.newEntryPassToVerify) != 0) {
                         fprintf(stderr, "\nPasswords do not match.  Nothing done.\n\n");
                         return 1;
@@ -316,21 +317,33 @@ int main(int argc, char *argv[])
             }
         }
 
-        configEvp(&cryptoStruct, &conditionsStruct);
+        if (configEvp(&cryptoStruct, &conditionsStruct) != 0) {
+            goto error;
+        }
 
-        openDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct);
+        if (openDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct) != 0) {
+            goto error;
+        }
 
         /*Works like deleteEntry() but instead of excluding matched entry, modfies its buffer values and then writes it to encryptedBuffer*/
         if (updateEntry(textBuffersStruct.entryNameToFind, &cryptoStruct, &authStruct, &textBuffersStruct, &dbStruct, &miscStruct, &conditionsStruct) == 0) {
-            writeDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct);
+            if (writeDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct) != 0) {
+                goto error;
+            }
+        } else {
+            goto error;
         }
     } else if (conditionsStruct.updatingDbEnc == true) { /*Updates the database password, cipher algorithm, or scrypt configuration of the database*/
 
         if (conditionsStruct.dbPassGivenasArg == false) {
-            getPass("Enter current database password: ", cryptoStruct.dbPass);
+            if (getPass("Enter current database password: ", cryptoStruct.dbPass) != 0) {
+                goto error;
+            }
         }
 
-        openDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct);
+        if (openDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct) != 0) {
+            goto error;
+        }
 
         /*Must store old key data before new key material is generated*/
         snprintf(cryptoStruct.dbPassOld, UI_BUFFERS_SIZE, "%s", cryptoStruct.dbPass);
@@ -352,17 +365,21 @@ int main(int argc, char *argv[])
         /*If -U was given but not -c*/
         else if (conditionsStruct.updatingDbEnc == true && (conditionsStruct.userChoseCipher == false)) {
             /*Get new encryption password from user*/
-            getPass("Enter new database password: ", cryptoStruct.dbPass);
+            if (getPass("Enter new database password: ", cryptoStruct.dbPass) != 0) {
+                goto error;
+            }
 
-            getPass("Verify password:", cryptoStruct.dbPassToVerify);
+            if (getPass("Verify password:", cryptoStruct.dbPassToVerify) != 0) {
+                goto error;
+            }
             if (strcmp(cryptoStruct.dbPass, cryptoStruct.dbPassToVerify) != 0) {
                 fprintf(stderr, "Passwords don't match, not changing.\n");
-                exit(EXIT_FAILURE);
+                goto error;
             } else {
                 fprintf(stderr, "Changed password.\n");
                 if (deriveKeys(&cryptoStruct, &authStruct) != 0) {
                     PRINT_ERROR("Could not derive HMAC key");
-                    exit(EXIT_FAILURE);
+                    goto error;
                 }
             }
 
@@ -382,17 +399,21 @@ int main(int argc, char *argv[])
         /*If -P is given along with -c*/
         else {
             /*Get new encryption password from user*/
-            getPass("Enter new database password: ", cryptoStruct.dbPass);
+            if (getPass("Enter new database password: ", cryptoStruct.dbPass) != 0 ) {
+                goto error;
+            }
 
-            getPass("Verify password:", cryptoStruct.dbPassToVerify);
+            if (getPass("Verify password:", cryptoStruct.dbPassToVerify) != 0) {
+                goto error;
+            }
             if (strcmp(cryptoStruct.dbPass, cryptoStruct.dbPassToVerify) != 0) {
                 fprintf(stderr, "Passwords don't match, not changing.\n");
-                exit(EXIT_FAILURE);
+                goto error;
             } else {
                 fprintf(stderr, "Changed password.\n");
                 if (deriveKeys(&cryptoStruct, &authStruct) != 0) {
                     PRINT_ERROR("Could not derive HMAC key");
-                    exit(EXIT_FAILURE);
+                    goto error;
                 }
             }
 
@@ -412,17 +433,31 @@ int main(int argc, char *argv[])
         }
 
         /*This will change to the cipher just specified*/
-        configEvp(&cryptoStruct, &conditionsStruct);
+        if (configEvp(&cryptoStruct, &conditionsStruct) != 0) { 
+            goto error;
+        }
 
         /*The updatingDbEnc function decrypts with the old key and cipher settings, re-encrypts with new key and/or cipher settings then writes to encryptedBuffer*/
         if (updateDbEnc(&cryptoStruct, &authStruct) == 0) {
-            writeDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct);
+            if (writeDatabase(&cryptoStruct, &authStruct, &dbStruct, &miscStruct, &conditionsStruct) != 0) {
+                goto error;
+            }
+        } else {
+            goto error;
         }
 
     } else { /*If the user didn't specify an operation mode, and didn't use '-c list'*/
         fprintf(stderr, "Must use -a,-r,-d,-u or -U\nUse -h t print help\n");
-        return EXIT_FAILURE;
+        goto error;
     }
-
+    
+    cleanUpBuffers(&cryptoStruct, &authStruct, &textBuffersStruct);
     return EXIT_SUCCESS;
+    
+    error:
+    
+    cleanUpBuffers(&cryptoStruct, &authStruct, &textBuffersStruct);
+    return EXIT_FAILURE;
+    
+    
 }

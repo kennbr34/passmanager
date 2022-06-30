@@ -2,6 +2,12 @@
 2nd digit = change that renders older version's password files incompatible
 3rd digit = functional change which does not render program incompatible with previous version's password files
 
+2022-05-24
+(+ver 4.0.5)
+        Removed atexit cleanup because it wasn't going to work without globals
+        Removed global buffers that were ausing dangling pointers
+        Fixed memory leaks while opening database if the file doesn't exist
+
 2022-03-10
 (+ver 4.0.4)
         Fixed multiple defititions issue with globals.h after gcc >=10 switched to -fno-common by default

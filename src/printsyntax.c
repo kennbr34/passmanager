@@ -1,6 +1,6 @@
 /* printsyntax.c - prints progra command syntax */
 
-/* Copyright 2020 Kenneth Brown */
+/* Copyright 2022 Kenneth Brown */
 
 /* Licensed under the Apache License, Version 2.0 (the "License"); */
 /* you may not use this file except in compliance with the License. */
@@ -26,7 +26,7 @@ int printSyntax(char *arg)
 {
     fprintf(stderr, "\
 \nReccomend Syntax: \
-\n\n%s passmanager  [-E] -a entry name | -r entry name | -d entry name | -u entry name | -U  [-n new name ] [-p new entry password] [-l random password length] [-c cipher] [-w N,r,p ] [ -P ] [-x database password] [ -o | -C ] [ -O ] [ -s selection ] [ -t seconds or miliseconds ] -f database file\
+\n\n%s [-E] -a entry name | -r entry name | -d entry name | -u entry name | -U  [-n new name ] [-p new entry password] [-l random password length] [-c cipher] [-w N,r,p ] [ -P ] [-x database password] [ -o | -C ] [ -O ] [ -s selection ] [ -t seconds or miliseconds ] -f database file\
 \nOptions: \
 \n-n new name - entry name up to 511 characters (can contain white space or special characters) \
 \n-p new entry password - entry password up to 511 characters (don't call to be prompted instead) ('gen' will generate a random password, 'genalpha' will generate a random password with no symbols)\
@@ -84,7 +84,7 @@ int printSyntax(char *arg)
 \n     \t-c 'cipher' - Update encryption algorithm  \
 \n     \t-H 'digest' - Update digest used for algorithms' KDFs \
 \n     \t-w 'N,r,p' - Specify scrypt work factors. \
-\nVersion 4.0.4\
+\nVersion 4.0.5\
 \n\
 ",
             arg);

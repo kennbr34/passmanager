@@ -1,6 +1,6 @@
 /* printentry.c - print password entries */
 
-/* Copyright 2020 Kenneth Brown */
+/* Copyright 2022 Kenneth Brown */
 
 /* Licensed under the Apache License, Version 2.0 (the "License"); */
 /* you may not use this file except in compliance with the License. */
@@ -130,16 +130,22 @@ int printEntry(char *searchString, struct cryptoVar *cryptoStructPtr, struct aut
                         decryptedBuffer = NULL;
                         free(ctx);
                         ctx = NULL;
-                        if (sendToClipboard((char *)passWordBuffer, miscStructPtr, conditionsStruct) == 0) {
-                            if (strcmp(searchString, textBuffersStructPtr->entryName) == 0) {
-                                printClipboardMessage(1, miscStructPtr, conditionsStruct);
-                            } else {
-                                printClipboardMessage(0, miscStructPtr, conditionsStruct);
+                        int ret = sendToClipboard((char *)passWordBuffer, miscStructPtr, conditionsStruct);
+                        if ( ret != -1) {
+                            if ( ret == 0 ) {
+                                if (strcmp(searchString, textBuffersStructPtr->entryName) == 0) {
+                                    printClipboardMessage(1, miscStructPtr, conditionsStruct);
+                                } else {
+                                    printClipboardMessage(0, miscStructPtr, conditionsStruct);
+                                }
                             }
+                            OPENSSL_cleanse(passWordBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
+                            free(passWordBuffer);
+                            passWordBuffer = NULL;
+                            
+                        } else {
+                            goto sendWithXlibChild;
                         }
-                        OPENSSL_cleanse(passWordBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
-                        free(passWordBuffer);
-                        passWordBuffer = NULL;
                         break;
                     }
                 }
@@ -157,6 +163,7 @@ int printEntry(char *searchString, struct cryptoVar *cryptoStructPtr, struct aut
     }
 
     /*If sending password to clipboard was not specified cleanup and free buffers here instead of above*/
+sendWithXlibChild:
     if (conditionsStruct->sendToClipboard == false && conditionsStruct->pipePasswordToStdout == false) {
         OPENSSL_cleanse(entryNameBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);
         OPENSSL_cleanse(passWordBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE);

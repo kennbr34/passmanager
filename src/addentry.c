@@ -1,6 +1,6 @@
 /* addentry.c - add password entry */
 
-/* Copyright 2020 Kenneth Brown */
+/* Copyright 2022 Kenneth Brown */
 
 /* Licensed under the Apache License, Version 2.0 (the "License"); */
 /* you may not use this file except in compliance with the License. */
@@ -125,9 +125,6 @@ int addEntry(struct cryptoVar *cryptoStructPtr, struct authVar *authStructPtr, s
             goto cleanup;
         }
 
-        /*Make sure to point globalBufferPtr.encryptedBuffer to new location so it can be freed on program exit*/
-        globalBufferPtr.encryptedBuffer = cryptoStructPtr->encryptedBuffer;
-
         memcpy(decryptedBuffer + evpOutputLength, newEntryBuffer, UI_BUFFERS_SIZE * 2);
 
         OPENSSL_cleanse(newEntryBuffer, sizeof(unsigned char) * UI_BUFFERS_SIZE * 2);
@@ -175,8 +172,10 @@ int addEntry(struct cryptoVar *cryptoStructPtr, struct authVar *authStructPtr, s
         decryptedBuffer = NULL;
         free(ctx);
         ctx = NULL;
-        if (sendToClipboard(textBuffersStructPtr->entryPass, miscStructPtr, conditionsStruct) == 0) {
+        if (sendToClipboard(textBuffersStructPtr->entryPass, miscStructPtr, conditionsStruct) != -1) {
             printClipboardMessage(0, miscStructPtr, conditionsStruct);
+        } else {
+            goto cleanup;
         }
     } else {
 

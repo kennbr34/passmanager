@@ -1,6 +1,6 @@
 /* parseoptions.c - parse command line options */
 
-/* Copyright 2020 Kenneth Brown */
+/* Copyright 2022 Kenneth Brown */
 
 /* Licensed under the Apache License, Version 2.0 (the "License"); */
 /* you may not use this file except in compliance with the License. */
@@ -22,7 +22,7 @@
 
 #include "headers.h"
 
-void parseOptions(int argc, char *argv[], struct cryptoVar *cryptoStructPtr, struct dbVar *dbStructPtr, struct textBuf *textBuffersStructPtr, struct miscVar *miscStructPtr, struct conditionBoolsStruct *conditionsStruct)
+int parseOptions(int argc, char *argv[], struct cryptoVar *cryptoStructPtr, struct dbVar *dbStructPtr, struct textBuf *textBuffersStructPtr, struct miscVar *miscStructPtr, struct conditionBoolsStruct *conditionsStruct)
 {
     int opt = 0;
     int errflg = 0;
@@ -38,7 +38,7 @@ void parseOptions(int argc, char *argv[], struct cryptoVar *cryptoStructPtr, str
             printSyntax("passmanager");
             for (i = 1; i < argc; i++)
                 OPENSSL_cleanse(argv[i], strlen(argv[i]));
-            exit(EXIT_SUCCESS);
+            return 1;
             break;
         case 'o':
             conditionsStruct->pipePasswordToStdout = true;
@@ -354,6 +354,8 @@ void parseOptions(int argc, char *argv[], struct cryptoVar *cryptoStructPtr, str
     /*Finally test for errflag and halt program if on*/
     if (errflg) {
         fprintf(stderr, "Use -h to print help\n");
-        exit(EXIT_FAILURE);
+        return 1;
     }
+    
+    return 0;
 }

@@ -1,6 +1,6 @@
 /* configevp.c - configures EVP cipher algorithm to use */
 
-/* Copyright 2020 Kenneth Brown */
+/* Copyright 2022 Kenneth Brown */
 
 /* Licensed under the Apache License, Version 2.0 (the "License"); */
 /* you may not use this file except in compliance with the License. */
@@ -30,19 +30,19 @@ int configEvp(struct cryptoVar *cryptoStructPtr, struct conditionBoolsStruct *co
 
         if (!EVP_get_cipherbyname(cryptoStructPtr->encCipherName)) {
             fprintf(stderr, "Could not load cipher %s. Check that it is available with -c list\n", cryptoStructPtr->encCipherName);
-            exit(EXIT_FAILURE);
+            return 1;
         } else if (EVP_CIPHER_mode(EVP_get_cipherbyname(cryptoStructPtr->encCipherName)) == EVP_CIPH_GCM_MODE || EVP_CIPHER_mode(EVP_get_cipherbyname(cryptoStructPtr->encCipherName)) == EVP_CIPH_CCM_MODE) {
             fprintf(stderr, "Program does not support GCM or CCM modes.\nAlready authenticates with HMAC-SHA512\n");
-            exit(EXIT_FAILURE);
+            return 1;
         } else if (EVP_CIPHER_mode(EVP_get_cipherbyname(cryptoStructPtr->encCipherName)) == EVP_CIPH_WRAP_MODE) {
             fprintf(stderr, "Program does not support ciphers in wrap mode\n");
-            exit(EXIT_FAILURE);
+            return 1;
         }
 /*Added for backward compatibility between OpenSSL 1.0 and 1.1*/
 #ifdef EVP_CIPH_OCB_MODE
         else if (EVP_CIPHER_mode(EVP_get_cipherbyname(cryptoStructPtr->encCipherName)) == EVP_CIPH_OCB_MODE) {
             fprintf(stderr, "Program does not support ciphers in OCB mode\n");
-            exit(EXIT_FAILURE);
+            return 1;
         }
 #endif
         else
@@ -51,7 +51,7 @@ int configEvp(struct cryptoVar *cryptoStructPtr, struct conditionBoolsStruct *co
         /*If the cipher doesn't exists or there was a problem loading it return with error status*/
         if (!cryptoStructPtr->evpCipher) {
             fprintf(stderr, "Could not load cipher: %s\n", cryptoStructPtr->encCipherName);
-            exit(EXIT_FAILURE);
+            return 1;
         }
 
     } else { /*If not default to aes-256-ctr*/
@@ -59,7 +59,7 @@ int configEvp(struct cryptoVar *cryptoStructPtr, struct conditionBoolsStruct *co
         cryptoStructPtr->evpCipher = EVP_get_cipherbyname(cryptoStructPtr->encCipherName);
         if (!cryptoStructPtr->evpCipher) {
             fprintf(stderr, "Could not load cipher: %s\n", cryptoStructPtr->encCipherName);
-            exit(EXIT_FAILURE);
+            return 1;
         }
     }
 

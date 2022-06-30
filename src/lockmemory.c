@@ -1,6 +1,6 @@
 /* lockmemory.c - locks program memory to prevent sensitive data being sent to swap */
 
-/* Copyright 2020 Kenneth Brown */
+/* Copyright 2022 Kenneth Brown */
 
 /* Licensed under the Apache License, Version 2.0 (the "License"); */
 /* you may not use this file except in compliance with the License. */

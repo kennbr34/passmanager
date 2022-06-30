@@ -1,6 +1,6 @@
 /* updateentry.c - update password entries */
 
-/* Copyright 2020 Kenneth Brown */
+/* Copyright 2022 Kenneth Brown */
 
 /* Licensed under the Apache License, Version 2.0 (the "License"); */
 /* you may not use this file except in compliance with the License. */
@@ -143,14 +143,18 @@ int updateEntry(char *searchString, struct cryptoVar *cryptoStructPtr, struct au
                 if (conditionsStruct->updatingEntryPass == true && (conditionsStruct->generateEntryPass == true || conditionsStruct->updateAllPasses == true)) {
 
                     /*This will generate a new pass for each entry during a bulk update*/
-                    genPassWord(miscStructPtr, textBuffersStructPtr, conditionsStruct);
+                    if (genPassWord(miscStructPtr, textBuffersStructPtr, conditionsStruct) != 0) {
+                        goto cleanup;
+                    }
                     /*Have to copy over entryPass to textBuffersStructPtr->newEntryPass since genPassWord() operates on entryPass buffer*/
                     snprintf(textBuffersStructPtr->newEntryPass, UI_BUFFERS_SIZE, "%s", textBuffersStructPtr->entryPass);
                     memcpy(passWordBuffer, textBuffersStructPtr->newEntryPass, UI_BUFFERS_SIZE);
 
                     /*Do the same as above but if an alphanumeric pass was specified*/
                 } else if (conditionsStruct->updatingEntryPass == true && (conditionsStruct->generateEntryPassAlpha == true || conditionsStruct->updateAllPasses == true)) {
-                    genPassWord(miscStructPtr, textBuffersStructPtr, conditionsStruct);
+                    if (genPassWord(miscStructPtr, textBuffersStructPtr, conditionsStruct) != 0) {
+                        goto cleanup;
+                    }
                     snprintf(textBuffersStructPtr->newEntryPass, UI_BUFFERS_SIZE, "%s", textBuffersStructPtr->entryPass);
                     memcpy(passWordBuffer, textBuffersStructPtr->newEntryPass, UI_BUFFERS_SIZE);
                 }
@@ -195,9 +199,6 @@ int updateEntry(char *searchString, struct cryptoVar *cryptoStructPtr, struct au
         OPENSSL_cleanse(fileBuffer, sizeof(unsigned char) * oldFileSize);
         goto cleanup;
     }
-
-    /*Make sure to point globalBufferPtr.encryptedBuffer to new location so it can be freed on program exit*/
-    globalBufferPtr.encryptedBuffer = cryptoStructPtr->encryptedBuffer;
 
     /*Creating a new databse with new salt, so also need new HMAC and EVP key derived from that salt*/
     if (genEvpSalt(cryptoStructPtr) != 0) {
@@ -262,11 +263,13 @@ int updateEntry(char *searchString, struct cryptoVar *cryptoStructPtr, struct au
         fileBuffer = NULL;
         free(ctx);
         ctx = NULL;
-        if (sendToClipboard(textBuffersStructPtr->newEntryPass, miscStructPtr, conditionsStruct) == 0) {
+        if (sendToClipboard(textBuffersStructPtr->newEntryPass, miscStructPtr, conditionsStruct) != -1) {
             if (entriesMatched > 1)
                 printClipboardMessage(entriesMatched, miscStructPtr, conditionsStruct);
             else
                 printClipboardMessage(1, miscStructPtr, conditionsStruct);
+        } else {
+            goto cleanup;
         }
     } else {
 

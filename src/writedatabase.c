@@ -1,6 +1,6 @@
 /* writedatabase.c - write a password database */
 
-/* Copyright 2020 Kenneth Brown */
+/* Copyright 2022 Kenneth Brown */
 
 /* Licensed under the Apache License, Version 2.0 (the "License"); */
 /* you may not use this file except in compliance with the License. */
@@ -42,7 +42,7 @@ int writeDatabase(struct cryptoVar *cryptoStructPtr, struct authVar *authStructP
     unsigned char *cryptoHeaderPadding = calloc(sizeof(unsigned char), CRYPTO_HEADER_SIZE);
     if (cryptoHeaderPadding == NULL) {
         PRINT_SYS_ERROR(errno);
-        return errno;
+        return 1;
     }
     unsigned char *fileBuffer = NULL;
     int MACSize = SHA512_DIGEST_LENGTH;
@@ -51,7 +51,7 @@ int writeDatabase(struct cryptoVar *cryptoStructPtr, struct authVar *authStructP
     /*Fills cryptoHeaderPadding with CRSPNG data*/
     if (!RAND_bytes(cryptoHeaderPadding, CRYPTO_HEADER_SIZE)) {
         fprintf(stderr, "Failure: CSPRNG bytes could not be made unpredictable\n");
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     /*Copies that CRSPNG padding to cryptoStructPtr->cryptoHeader*/
@@ -64,13 +64,13 @@ int writeDatabase(struct cryptoVar *cryptoStructPtr, struct authVar *authStructP
     dbFile = fopen(dbStructPtr->dbFileName, "wb");
     if (dbFile == NULL) {
         PRINT_FILE_ERROR(dbStructPtr->dbFileName, errno);
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     /*Write encCipherName to the CSPRNG padded buffer*/
     if (snprintf(cryptoStructPtr->cryptoHeader, CRYPTO_HEADER_SIZE, "%s", cryptoStructPtr->encCipherName) < 0) {
         PRINT_ERROR("snprintf failed");
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     /*Append scrypt work factors to the CSPRNG padded buffer*/
@@ -83,25 +83,25 @@ int writeDatabase(struct cryptoVar *cryptoStructPtr, struct authVar *authStructP
     /*Write evpSalt*/
     if (fwriteWErrCheck(cryptoStructPtr->evpSalt, sizeof(unsigned char), EVP_SALT_SIZE, dbFile, miscStructPtr) != 0) {
         PRINT_SYS_ERROR(miscStructPtr->returnVal);
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     /*Write the cryptoHeader*/
     if (fwriteWErrCheck(cryptoStructPtr->cryptoHeader, sizeof(unsigned char), CRYPTO_HEADER_SIZE, dbFile, miscStructPtr) != 0) {
         PRINT_SYS_ERROR(miscStructPtr->returnVal);
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     /*If this is the first entry to the database it will be contained in dbInitBuffer instead*/
     if (conditionsStruct->databaseBeingInitalized == true) {
         if (fwriteWErrCheck(cryptoStructPtr->dbInitBuffer, sizeof(char), fileSize, dbFile, miscStructPtr) != 0) {
             PRINT_SYS_ERROR(miscStructPtr->returnVal);
-            exit(EXIT_FAILURE);
+            return 1;
         }
     } else {
         if (fwriteWErrCheck(cryptoStructPtr->encryptedBuffer, sizeof(char), fileSize, dbFile, miscStructPtr) != 0) {
             PRINT_SYS_ERROR(miscStructPtr->returnVal);
-            exit(EXIT_FAILURE);
+            return 1;
         }
     }
 
@@ -109,48 +109,48 @@ int writeDatabase(struct cryptoVar *cryptoStructPtr, struct authVar *authStructP
     if (HMAC(EVP_sha512(), authStructPtr->HMACKey, EVP_MAX_KEY_LENGTH, (const unsigned char *)cryptoStructPtr->dbPass, strlen(cryptoStructPtr->dbPass), authStructPtr->KeyedHashdBPassGenerates, HMACLengthPtr) == NULL) {
         PRINT_ERROR("HMAC falied");
         ERR_print_errors_fp(stderr);
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     /*Write keyed hash of database password and MAC of cipher-text/associated data then close file*/
     if (fwriteWErrCheck(authStructPtr->KeyedHashdBPassGenerates, sizeof(unsigned char), MACSize, dbFile, miscStructPtr) != 0) {
         PRINT_SYS_ERROR(miscStructPtr->returnVal);
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     if (fwriteWErrCheck(authStructPtr->MACcipherTextGenerates, sizeof(unsigned char), MACSize, dbFile, miscStructPtr) != 0) {
         PRINT_SYS_ERROR(miscStructPtr->returnVal);
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     if (fclose(dbFile) == EOF) {
         PRINT_FILE_ERROR(dbStructPtr->dbFileName, errno);
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     /*Load the database as written so far into a buffer to generate a checksum*/
     dbFile = fopen(dbStructPtr->dbFileName, "rb");
     if (dbFile == NULL) {
         PRINT_FILE_ERROR(dbStructPtr->dbFileName, errno);
-        exit(EXIT_FAILURE);
+        return 1;
     }
     chmod(dbStructPtr->dbFileName, S_IRUSR | S_IWUSR);
 
     fileBuffer = calloc(returnFileSize(dbStructPtr->dbFileName), sizeof(unsigned char));
     if (fileBuffer == NULL) {
         PRINT_SYS_ERROR(errno);
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     if (freadWErrCheck(fileBuffer, sizeof(unsigned char), returnFileSize(dbStructPtr->dbFileName), dbFile, miscStructPtr) != 0) {
         PRINT_SYS_ERROR(miscStructPtr->returnVal);
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     if (SHA512(fileBuffer, returnFileSize(dbStructPtr->dbFileName), authStructPtr->CheckSumDbFileGenerates) == NULL) {
         PRINT_ERROR("HMAC falied");
         ERR_print_errors_fp(stderr);
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     free(fileBuffer);
@@ -158,25 +158,25 @@ int writeDatabase(struct cryptoVar *cryptoStructPtr, struct authVar *authStructP
 
     if (fclose(dbFile) == EOF) {
         PRINT_FILE_ERROR(dbStructPtr->dbFileName, errno);
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     /*Append the database checksum*/
     dbFile = fopen(dbStructPtr->dbFileName, "ab");
     if (dbFile == NULL) {
         PRINT_FILE_ERROR(dbStructPtr->dbFileName, errno);
-        exit(EXIT_FAILURE);
+        return 1;
     }
     chmod(dbStructPtr->dbFileName, S_IRUSR | S_IWUSR);
 
     if (fwriteWErrCheck(authStructPtr->CheckSumDbFileGenerates, sizeof(unsigned char), MACSize, dbFile, miscStructPtr) != 0) {
         PRINT_SYS_ERROR(miscStructPtr->returnVal);
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     if (fclose(dbFile) == EOF) {
         PRINT_FILE_ERROR(dbStructPtr->dbFileName, errno);
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     return 0;

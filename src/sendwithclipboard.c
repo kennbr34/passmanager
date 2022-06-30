@@ -1,6 +1,6 @@
 /* sendwithclipboard.c - to send password to clipboard */
 
-/* Copyright 2020 Kenneth Brown */
+/* Copyright 2022 Kenneth Brown */
 
 /* Licensed under the Apache License, Version 2.0 (the "License"); */
 /* you may not use this file except in compliance with the License. */
@@ -52,7 +52,7 @@ int sendToClipboard(char *textToSend, struct miscVar *miscStructPtr, struct cond
             free(textToSend);
             textToSend = NULL;
         }
-        exit(EXIT_SUCCESS);
+        return -1;
     }
 
     return 0;
@@ -163,7 +163,7 @@ int sendWithXlib(char *passToSend, int passLength, int clearTime, struct conditi
 
 /*If compilation was configured without X11 libraries*/
 #ifndef HAVE_LIBX11
-int sendToClipboard(char *textToSend, struct miscVar *miscStructPtr, struct conditionBoolsStruct condition)
+int sendToClipboard(char *textToSend, struct miscVar *miscStructPtr, struct conditionBoolsStruct *conditionsStruct)
 {
     int passLength = strlen(textToSend);
     char xselCommand[27] = {0};
@@ -186,12 +186,12 @@ int sendToClipboard(char *textToSend, struct miscVar *miscStructPtr, struct cond
 
     if (xselFile == NULL) {
         PRINT_SYS_ERROR(errno);
-        return 1;
+        return -1;
     }
 
     if (fwriteWErrCheck(passBuffer, sizeof(char), passLength, xselFile, miscStructPtr) != 0) {
         PRINT_SYS_ERROR(miscStructPtr->returnVal);
-        return 1;
+        return -1;
     }
 
     if (pclose(xselFile) == -1) {
@@ -207,13 +207,13 @@ int sendToClipboard(char *textToSend, struct miscVar *miscStructPtr, struct cond
     /*Stops the child process from exiting when the parent does*/
     if (signal(SIGHUP, SIG_IGN) == SIG_ERR) {
         PRINT_SYS_ERROR(errno);
-        return 1;
+        return -1;
     }
 
     /*Fork off the parent process and check for error*/
     pid = fork();
     if (pid < 0) {
-        return 1;
+        return -1;
     }
     /*If we got a good PID, then we can return the parent process to the calling function.*/
     else if (pid > 0) {

@@ -1,6 +1,6 @@
 /* opendatabase.c - open a password database */
 
-/* Copyright 2020 Kenneth Brown */
+/* Copyright 2022 Kenneth Brown */
 
 /* Licensed under the Apache License, Version 2.0 (the "License"); */
 /* you may not use this file except in compliance with the License. */
@@ -41,7 +41,6 @@ int openDatabase(struct cryptoVar *cryptoStructPtr, struct authVar *authStructPt
     unsigned char *verificationBuffer = NULL;
     int MACSize = SHA512_DIGEST_LENGTH;
     int fileSize = returnFileSize(dbStructPtr->dbFileName);
-    cryptoStructPtr->evpDataSize = fileSize - (EVP_SALT_SIZE + CRYPTO_HEADER_SIZE + (MACSize * 3));
     unsigned int *HMACLengthPtr = NULL;
 
     FILE *dbFile = NULL;
@@ -51,6 +50,8 @@ int openDatabase(struct cryptoVar *cryptoStructPtr, struct authVar *authStructPt
         PRINT_FILE_ERROR(dbStructPtr->dbFileName, errno);
         goto cleanup;
     }
+    
+    cryptoStructPtr->evpDataSize = fileSize - (EVP_SALT_SIZE + CRYPTO_HEADER_SIZE + (MACSize * 3));
 
     /*fread overwrites any randomly generated salt with the one read from file*/
     if (freadWErrCheck(cryptoStructPtr->evpSalt, sizeof(char), EVP_SALT_SIZE, dbFile, miscStructPtr) != 0) {
@@ -157,10 +158,6 @@ int openDatabase(struct cryptoVar *cryptoStructPtr, struct authVar *authStructPt
         goto cleanup;
     }
 
-    /*Must point globalBufferPtr.encryptedBuffer to the new location allocated by calloc*/
-    /*Otherwise cleanUpBuffers will not be able to free it at exit*/
-    globalBufferPtr.encryptedBuffer = cryptoStructPtr->encryptedBuffer;
-
     memcpy(cryptoStructPtr->encryptedBuffer, verificationBuffer + EVP_SALT_SIZE + CRYPTO_HEADER_SIZE, cryptoStructPtr->evpDataSize);
 
     if (fclose(dbFile) == EOF) {
@@ -190,5 +187,5 @@ cleanup:
     verificationBuffer = NULL;
     free(cryptoStructPtr->encryptedBuffer);
     cryptoStructPtr->encryptedBuffer = NULL;
-    exit(EXIT_FAILURE);
+    return 1;
 }

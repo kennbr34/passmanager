@@ -116,9 +116,4 @@ echo -e "\nNow try to read the database... (Press enter)"
 read
 echo passmanager -r allpasses -f ./examplepasswords1.dat.forged -x password
 passmanager -r allpasses -f ./examplepasswords1.dat.forged -x password
-echo -e "\nNow imagine you started to update the database encryption, but didn't like the options you entered press Ctrl-C when prompted for the password... (Press enter)"
-read
-echo passmanager -U -c foocipher-f ./examplepasswords1.dat
-passmanager -U -c foocipher -f ./examplepasswords1.dat
-echo -e "\nProgram catches interrupt signal and makes sure to clean up sensitive buffers before exiting."
 echo -e "\nThese are all the program's basic functions and operations.\n"

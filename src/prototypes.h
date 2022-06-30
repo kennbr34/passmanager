@@ -1,6 +1,6 @@
 /* prototypes.c - function prototypes */
 
-/* Copyright 2020 Kenneth Brown */
+/* Copyright 2022 Kenneth Brown */
 
 /* Licensed under the Apache License, Version 2.0 (the "License"); */
 /* you may not use this file except in compliance with the License. */
@@ -22,7 +22,7 @@
 
 void disablePtrace();
 void lockMemory();
-void parseOptions(int argc, char *argv[], struct cryptoVar *cryptoStructPtr, struct dbVar *dbStructPtr, struct textBuf *textBuffersStruct, struct miscVar *miscStruct, struct conditionBoolsStruct *conditionsStruct);
+int parseOptions(int argc, char *argv[], struct cryptoVar *cryptoStructPtr, struct dbVar *dbStructPtr, struct textBuf *textBuffersStruct, struct miscVar *miscStruct, struct conditionBoolsStruct *conditionsStruct);
 int openDatabase(struct cryptoVar *cryptoStructPtr, struct authVar *authStructPtr, struct dbVar *dbStructPtr, struct miscVar *miscStruct, struct conditionBoolsStruct *conditionsStruct);
 int writeDatabase(struct cryptoVar *cryptoStructPtr, struct authVar *authStructPtr, struct dbVar *dbStructPtr, struct miscVar *miscStruct, struct conditionBoolsStruct *conditionsStruct);
 int backupDatabase(struct dbVar *dbStructPtr, struct miscVar *miscStruct, struct conditionBoolsStruct *conditionsStruct);
@@ -35,13 +35,12 @@ int printEntry(char *searchString, struct cryptoVar *cryptoStructPtr, struct aut
 int deleteEntry(char *searchString, struct cryptoVar *cryptoStructPtr, struct authVar *authStructPtr, struct dbVar *dbStructPtr, struct conditionBoolsStruct *conditionsStruct);
 int updateEntry(char *searchString, struct cryptoVar *cryptoStructPtr, struct authVar *authStructPtr, struct textBuf *textBuffersStruct, struct dbVar *dbStructPtr, struct miscVar *miscStruct, struct conditionBoolsStruct *conditionsStruct);
 int updateDbEnc(struct cryptoVar *cryptoStructPtr, struct authVar *authStructPtr);
-void genPassWord(struct miscVar *miscStruct, struct textBuf *buffer, struct conditionBoolsStruct *conditionsStruct);
-char *getPass(const char *prompt, char *paddedPass);
+int genPassWord(struct miscVar *miscStruct, struct textBuf *buffer, struct conditionBoolsStruct *conditionsStruct);
+int getPass(const char *prompt, char *paddedPass);
 void allocateBuffers(struct cryptoVar *cryptoStructPtr, struct authVar *authStructPtr, struct textBuf *buffer);
 bool fileNonExistant(const char *filename);
 int returnFileSize(const char *filename);
-void cleanUpBuffers();
-void signalHandler(int signum);
+void cleanUpBuffers(struct cryptoVar *cryptoStructPtr, struct authVar *authStructPtr, struct textBuf *buffer);
 int sendToClipboard(char *textToSend, struct miscVar *miscStruct, struct conditionBoolsStruct *conditionsStruct);
 int printSyntax(char *arg);
 int printMACErrMessage(int errMessage);

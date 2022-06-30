@@ -1,6 +1,6 @@
 /* genpassword.c - generates a random password */
 
-/* Copyright 2020 Kenneth Brown */
+/* Copyright 2022 Kenneth Brown */
 
 /* Licensed under the Apache License, Version 2.0 (the "License"); */
 /* you may not use this file except in compliance with the License. */
@@ -23,7 +23,7 @@
 #include "headers.h"
 
 /*Uses OpenSSL to generate a password with either all printable characters or only alphanumeric*/
-void genPassWord(struct miscVar *miscStructPtr, struct textBuf *buffer, struct conditionBoolsStruct *conditionsStruct)
+int genPassWord(struct miscVar *miscStructPtr, struct textBuf *buffer, struct conditionBoolsStruct *conditionsStruct)
 {
     if (conditionsStruct->genPassLengthGiven == false)
         miscStructPtr->genPassLength = DEFAULT_GENPASS_LENGTH;
@@ -36,7 +36,7 @@ void genPassWord(struct miscVar *miscStructPtr, struct textBuf *buffer, struct c
         /*Gets a random byte from OpenSSL CSPRNG*/
         if (!RAND_bytes(&randomByte, 1)) {
             fprintf(stderr, "Failure: CSPRNG bytes could not be made unpredictable\n");
-            exit(EXIT_FAILURE);
+            return 1;
         }
 
         if (conditionsStruct->generateEntryPass == true) {
@@ -60,4 +60,6 @@ void genPassWord(struct miscVar *miscStructPtr, struct textBuf *buffer, struct c
     OPENSSL_cleanse(tempPassString, sizeof(char) * (miscStructPtr->genPassLength + 1));
     free(tempPassString);
     tempPassString = NULL;
+    
+    return 0;
 }

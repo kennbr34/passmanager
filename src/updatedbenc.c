@@ -1,6 +1,6 @@
 /* updatedbenc.c - updates cryptographic or master password for password database */
 
-/* Copyright 2020 Kenneth Brown */
+/* Copyright 2022 Kenneth Brown */
 
 /* Licensed under the Apache License, Version 2.0 (the "License"); */
 /* you may not use this file except in compliance with the License. */
@@ -71,9 +71,6 @@ int updateDbEnc(struct cryptoVar *cryptoStructPtr, struct authVar *authStructPtr
         OPENSSL_cleanse(decryptedBuffer, sizeof(unsigned char) * fileSize + EVP_MAX_BLOCK_LENGTH);
         goto cleanup;
     }
-
-    /*Make sure to point globalBufferPtr.encryptedBuffer to new location so it can be freed on program exit*/
-    globalBufferPtr.encryptedBuffer = cryptoStructPtr->encryptedBuffer;
 
     /*Creating a new databse with new salt, so also need new HMAC and EVP key derived from that salt*/
     if (genEvpSalt(cryptoStructPtr) != 0) {
